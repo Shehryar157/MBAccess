@@ -1,4 +1,8 @@
-# WFS Access: groundwork research
+# MB Access: groundwork research
+
+One mod for both Mount & Blade: Warband and With Fire & Sword: shared code in
+`mbaccess/`, per-game differences in `mbaccess/profiles.py` and `profiles/<game>.json`.
+Warband first, because the reference structs and the Module System are both Warband's.
 
 Goal: screen reader accessibility for Mount & Blade: With Fire & Sword (Steam app 48720),
 starting with menus, then dialogue, screens, the campaign map, auto-resolved battles and,
@@ -55,3 +59,35 @@ last, real battles.
    `module_name` or `savegame_name`, then comparing the layout with game.h).
 5. First milestone: speak the current game menu (text plus the highlighted option), then
    conversations.
+
+## Built before owning the games (2026-10-03)
+
+- `mbaccess/mem.py`: reads 32-bit pointers, rgl::string and stl::vector from any object with
+  read(address, length); `FakeMemory` lets the tests run without the game.
+- `mbaccess/modfiles.py`: parses menus.txt (217 Native menus, 554 options) plus
+  languages/<lang>/game_menus.csv translations.
+- `mbaccess/finder.py`: finds wb::game by searching for the module name ("Native") stored
+  in its module_name rgl::string (offset 160 in the 1.153 headers), so no hard-coded
+  addresses are needed.
+- `tools/discover.py`: passive recorder. The player clicks through a few menus; it finds
+  cur_menu_text and cur_menu_no inside wb::game by matching menu texts and intersecting
+  the slots that hold the menu number, then saves profiles/<game>.json.
+- `mbaccess/menu_watch.py` + `run.py`: speak the menu text whenever it changes.
+
+### Native test data
+
+`reference/ms3` (gitignored) is a copy of Module System 1.171 converted to Python 3 with
+lib2to3, plus fixes (`type(x) == bytes` back to `str`, a tab/space fix, and old `string`
+module functions monkey-patched in `run_all.py`). `python run_all.py` writes Native's
+.txt files to `reference/ms3/out`. Scripts and mission templates still fail; menus,
+dialogs, strings and troops build.
+
+## Open questions for when the games are installed
+
+- Exe names (guessed: mb_warband.exe, mb_wfas.exe) and the 160 offset of module_name.
+- Which options are actually visible in a menu (conditions hide some): read the menu's
+  on-screen buttons, not menus.txt. Until then the mod lists every possible option.
+- Warband's game menus are, as far as I know, mouse-driven. We'll likely need our own
+  keyboard cursor over the visible options and a click on the chosen one.
+- Where the window manager lives: its `message_log` vector holds every on-screen message,
+  and game_screen.open_windows tells which screen (map, inventory, party...) is open.
