@@ -59,3 +59,11 @@ Nothing verified in memory yet. Try the same techniques: search for menu 0's tex
 - The module combo box has no window text; read it with CB_GETCURSEL + CB_GETLBTEXT. WFS's combo showed 'Native' although the only module folder is 'Ogniem i Mieczem' (check this).
 - GetGUIThreadInfo(launcher thread).hwndFocus gives the focused control without needing foreground; WM_NEXTDLGCTL (0x28) moves focus like Tab.
 - mbaccess/launcher.py speaks the labels (run.py polls it). The user wants the launcher kept, just made accessible: no auto-skip.
+
+## Menu widgets (Warband 1.174, partly verified 2026-10-05)
+
+- Each on-screen menu option is an rgl::widget whose text rgl::string (T) holds the option text. Fields relative to T, matching reference/wse/WarbandLib/rgl_widget.h: size T-100 (vec2), absolute_position T-92 (vec2: x, y), relative_position T-84, flags T-60 (0x1 hidden, 0x2 disabled), highlighted byte T-6, dynamic byte T-5. VERIFIED: options stack downward as y falls by 0.04 (welcome menu: Continue y=0.22, Go back y=0.18).
+- NOT verified: container_widget/parent_widget at T+0xb4/T+0xb8 read 0, so that guess is wrong for 1.174.
+- Stale widgets keep their text after a menu closes (an old 'Male' and a 3rd 'Go back' at y=0.14 lingered), and widgets move to new addresses when a menu rebuilds. So text alone can't tell which buttons are live. Next idea (interrupted): search memory for pointers into [T-0x300, T) to find each widget's start and the container's child_widgets vector (stl::vector of widget*; container_widget = widget + container_name string + child vector). Pointer scan over 700 MB takes minutes in pure Python, so use bytes.find on packed values or numpy.
+- Screen mapping (rough): on a 1280x720 capture, Continue was at (426, 482) and Go back at (426, 518). x is centred; absolute x 0.015 is relative to a scroll container.
+- Plan for keyboard menus: list the live option widgets (y order), our own cursor on the arrow keys (read with GetAsyncKeyState while the game window is in front), speak the option, and on Enter click its screen position (SetCursorPos + mouse_event after focus).
