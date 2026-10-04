@@ -1,4 +1,4 @@
-"""Per-game settings: what's different between Warband and With Fire & Sword.
+﻿"""Per-game settings: what's different between Warband and With Fire & Sword.
 
 Both games share all the code; a Profile only holds the differences, such
 as the exe name and where fields sit inside the engine's objects. Offsets
@@ -28,6 +28,9 @@ class Profile:
     title: str
     exe_names: tuple
     game_offsets: dict = field(default_factory=lambda: dict(DEFAULT_GAME_OFFSETS))
+    # Fixed addresses and widget offsets for reading what's on screen
+    # (menu buttons and so on). Empty = not found yet for this version.
+    screen: dict = field(default_factory=dict)
 
     @property
     def path(self):
@@ -37,13 +40,22 @@ class Profile:
         """Merge in offsets saved by the discovery tool, if any."""
         if os.path.exists(self.path):
             with open(self.path, encoding="utf-8") as f:
-                self.game_offsets.update(json.load(f).get("game_offsets", {}))
+                data = json.load(f)
+            self.game_offsets.update(data.get("game_offsets", {}))
+            self.screen.update(data.get("screen", {}))
         return self
 
     def save(self):
         os.makedirs(PROFILE_DIR, exist_ok=True)
+        data = {}
+        if os.path.exists(self.path):  # keep anything else in the file
+            with open(self.path, encoding="utf-8") as f:
+                data = json.load(f)
+        data["game_offsets"] = self.game_offsets
+        if self.screen:
+            data["screen"] = self.screen
         with open(self.path, "w", encoding="utf-8") as f:
-            json.dump({"game_offsets": self.game_offsets}, f, indent=2)
+            json.dump(data, f, indent=2)
 
 
 # Exe names to be confirmed once the games are installed.

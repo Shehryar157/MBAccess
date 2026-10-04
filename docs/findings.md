@@ -67,3 +67,14 @@ Nothing verified in memory yet. Try the same techniques: search for menu 0's tex
 - Stale widgets keep their text after a menu closes (an old 'Male' and a 3rd 'Go back' at y=0.14 lingered), and widgets move to new addresses when a menu rebuilds. So text alone can't tell which buttons are live. Next idea (interrupted): search memory for pointers into [T-0x300, T) to find each widget's start and the container's child_widgets vector (stl::vector of widget*; container_widget = widget + container_name string + child vector). Pointer scan over 700 MB takes minutes in pure Python, so use bytes.find on packed values or numpy.
 - Screen mapping (rough): on a 1280x720 capture, Continue was at (426, 482) and Go back at (426, 518). x is centred; absolute x 0.015 is relative to a scroll container.
 - Plan for keyboard menus: list the live option widgets (y order), our own cursor on the arrow keys (read with GetAsyncKeyState while the game window is in front), speak the option, and on Enter click its screen position (SetCursorPos + mouse_event after focus).
+
+## Menu window and live buttons (Warband 1.174, VERIFIED 2026-10-05)
+
+- Found by shape, not by the headers: a run of 32 pointers in .data, each to an object of a different class (vtables in .rdata 0x7be000-0x85e000) = game_screen.game_windows[32] at **0xdd9af0**. The exe's .data section is huge (0x85e000-0x2db4000) and some windows live inside it, so scans must cover all of it. The 1.153 'type at +4' guess did NOT hold.
+- game_windows[18] = the menu window (gwt_menu). Its button table: **16 widget pointers at window+0x178**. Live buttons have text and flags bit 0x1 clear; the spares are blank and hidden. This solves the stale-widget problem.
+- Widget fields used (relative to the widget start; text rgl::string at +0x1f8): absolute position +0x19c (vec2, engine coordinates: x from the left, y UP from the bottom, screen 1.0 x 0.75), flags +0x1bc, parent pointer +0x2a8. Chain: button -> 'menu_buttons' -> 'menu_buttons_s' -> 'menu'. The 'absolute position' is truly absolute (the containers sit at about 0.01, 0.02 and the button already includes that).
+- Menu window +0x200 -> 'menu_text' container, +0x204 -> 'menu_buttons_s', +0x13c -> 'menu' root.
+- Open windows: std::deque<int> right after the array; its map pointer, map size, first index and count are at **0xdd9b80**, with 4 ints per block. Top of the stack = the last element. On the welcome menu: count 1, value 18.
+- Clicking: engine (x, y) -> client pixels (x*W, H - y/0.75*H). We click at (x+0.1, y+0.02): Continue y=0.22 and Go back y=0.18 match earlier clicks that worked. Dry run in the live game read 'Continue..., 1 of 2' correctly. The Enter click is NOT yet tested by the user.
+- Code: mbaccess/menu_watch.py (read_options, top_window, cursor), keys.py, click.py; addresses in profiles/warband.json 'screen'.
+- Both exes import DINPUT8.dll, so the CFC proxy loader idea applies (built 32-bit).

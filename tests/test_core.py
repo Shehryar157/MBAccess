@@ -1,4 +1,4 @@
-"""Tests against a fake game in memory, so they run without the real game."""
+﻿"""Tests against a fake game in memory, so they run without the real game."""
 import os
 import struct
 
@@ -90,3 +90,72 @@ def test_watcher_off_until_discovered():
     watcher = MenuWatcher(Reader(make_game(1, "x")), GAME, {"cur_menu_no": None}, [], spoken.append)
     watcher.poll()
     assert spoken == []
+
+
+# --- menu buttons and keyboard cursor ------------------------------------
+
+from mbaccess import click, keys
+
+WINDOWS = 0x40000000   # pretend game_windows[32] array
+OPEN = 0x40001000      # pretend open-window deque header
+SCREEN = {"game_windows": WINDOWS, "open_windows": OPEN, "menu_buttons": 0x10,
+          "menu_button_slots": 4, "widget_text": 0x100, "widget_position": 0x40,
+          "widget_flags": 0x50}
+
+
+def add_menu_window(mem, buttons, top=18):
+    """buttons: list of (text, y, hidden). Slots after them are blank and hidden."""
+    window = 0x41000000
+    slots = [0x42000000 + i * 0x1000 for i in range(4)]
+    mem.write(WINDOWS, struct.pack("<32I", *([0] * 18 + [window] + [0] * 13)))
+    mem.write(window, b"\0" * 0x10 + struct.pack("<4I", *slots))
+    for i, address in enumerate(slots):
+        label, y, hidden = buttons[i] if i < len(buttons) else ("", 0.02, True)
+        obj = bytearray(0x200)
+        obj[0x40:0x48] = struct.pack("<ff", 0.015, y)
+        obj[0x50:0x54] = struct.pack("<I", 1 if hidden else 0)
+        obj[0x100:0x100 + 144] = pack_rgl_string(address + 0x100, label)
+        mem.write(address, obj)
+    # deque<int>: map, map size, first index, count; one block holding `top`
+    mem.write(OPEN, struct.pack("<IIII", 0x43000000, 8, 0, 1))
+    mem.write(0x43000000, struct.pack("<8I", 0x43001000, *[0] * 7))
+    mem.write(0x43001000, struct.pack("<4i", top, 0, 0, 0))
+
+
+def make_menu_watcher(top=18):
+    mem = make_game(0, "Welcome")
+    add_menu_window(mem, [("Go back", 0.18, False), ("Continue...", 0.22, False),
+                          ("Secret", 0.14, True)], top)
+    said, clicks = [], []
+    w = MenuWatcher(Reader(mem), GAME, {"cur_menu_no": MENU_NO_OFFSET,
+                                        "cur_menu_text": MENU_TEXT_OFFSET},
+                    [], said.append, screen=SCREEN, clicker=lambda x, y: clicks.append((x, y)))
+    return w, said, clicks
+
+
+def test_menu_reads_visible_buttons_top_first():
+    w, said, _ = make_menu_watcher()
+    w.poll()
+    assert said == ["Welcome\nContinue..., 1 of 2"]
+
+
+def test_menu_cursor_and_enter_click():
+    w, said, clicks = make_menu_watcher()
+    w.poll()
+    w.poll([keys.DOWN])
+    assert said[-1] == "Go back, 2 of 2"
+    w.poll([keys.DOWN])
+    assert said[-1] == "Continue..., 1 of 2"   # wraps around
+    w.poll([keys.END, keys.RETURN])
+    assert clicks == [pytest.approx((0.015 + 0.1, 0.18 + 0.02))]
+
+
+def test_menu_silent_when_another_window_is_on_top():
+    w, said, _ = make_menu_watcher(top=6)   # 6 = the campaign map
+    w.poll()
+    assert said == []
+
+
+def test_engine_coordinates_to_pixels():
+    assert click.to_pixels(1280, 720, 0.5, 0.75) == (640, 0)
+    assert click.to_pixels(1280, 720, 0.0, 0.0) == (0, 720)

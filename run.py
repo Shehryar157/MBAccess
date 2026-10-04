@@ -1,10 +1,10 @@
-"""MB Access: screen reader support for Mount & Blade games.
+﻿"""MB Access: screen reader support for Mount & Blade games.
 
     python run.py    wait for Warband or With Fire & Sword, then speak menus
 """
 import time
 
-from mbaccess import launcher, process, session, speech
+from mbaccess import click, keys, launcher, process, session, speech
 from mbaccess.mem import Reader
 from mbaccess.menu_watch import MenuWatcher
 
@@ -15,6 +15,20 @@ def play_session(game):
     speech.say(f"Connected to {game.profile.title}.")
     launch = launcher.LauncherWatcher(speech.say)
     address, watcher, menus, next_locate = None, None, {}, 0
+    window = {"hwnd": None, "checked": 0}
+
+    def game_window():
+        # Looking the window up costs a little, so do it once a second.
+        if time.time() - window["checked"] > 1:
+            window["hwnd"], window["checked"] = process.find_window(game.pid), time.time()
+        return window["hwnd"]
+
+    key_watch = keys.KeyWatcher(game_window)
+
+    def clicker(x, y):
+        if game_window():
+            click.click(game_window(), x, y)
+
     while game.is_running():
         launch.poll()
         # The game object exists only once a campaign starts, and loading a
@@ -30,12 +44,14 @@ def play_session(game):
                 if module not in menus:
                     menus[module] = session.load_menus(game, module)
                 watcher = MenuWatcher(Reader(game), address, game.profile.game_offsets,
-                                      menus[module], speech.say)
+                                      menus[module], speech.say,
+                                      screen=game.profile.screen, clicker=clicker)
                 if not watcher.enabled:
                     speech.say("Menu reading isn't set up for this game version yet. "
                                "Run the discovery tool once.")
+        pressed = key_watch.pressed()
         if watcher:
-            watcher.poll()
+            watcher.poll(pressed)
         time.sleep(POLL_SECONDS)
 
 
