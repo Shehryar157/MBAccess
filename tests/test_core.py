@@ -96,6 +96,17 @@ def test_watcher_off_until_discovered():
 
 from mbaccess import click, keys
 
+
+class FakeMouse:
+    def __init__(self, clicks):
+        self.clicks = clicks
+
+    def hover(self, x, y):
+        pass
+
+    def click(self, x, y):
+        self.clicks.append((x, y))
+
 WINDOWS = 0x40000000   # pretend game_windows[32] array
 OPEN = 0x40001000      # pretend open-window deque header
 SCREEN = {"game_windows": WINDOWS, "open_windows": OPEN, "widget_text": 0x100,
@@ -130,7 +141,7 @@ def make_menu_watcher(top=18):
     said, clicks = [], []
     w = MenuWatcher(Reader(mem), GAME, {"cur_menu_no": MENU_NO_OFFSET,
                                         "cur_menu_text": MENU_TEXT_OFFSET},
-                    [], said.append, screen=SCREEN, clicker=lambda x, y: clicks.append((x, y)))
+                    [], said.append, screen=SCREEN, mouse=FakeMouse(clicks))
     return w, said, clicks
 
 
@@ -169,7 +180,7 @@ def test_main_menu_without_a_campaign():
     said, clicks = [], []
     w = MenuWatcher(Reader(mem), None, {"cur_menu_no": MENU_NO_OFFSET,
                                         "cur_menu_text": MENU_TEXT_OFFSET},
-                    [], said.append, screen=SCREEN, clicker=lambda x, y: clicks.append((x, y)))
+                    [], said.append, screen=SCREEN, mouse=FakeMouse(clicks))
     w.poll()
     assert said == ["Main menu: Play Tutorial, 1 of 2."]
     w.poll([keys.DOWN, keys.RETURN])
@@ -190,3 +201,16 @@ def test_spoken_adds_pauses():
     assert text.spoken("Main menu", "Play Tutorial, 1 of 8") == "Main menu: Play Tutorial, 1 of 8."
     assert text.spoken("", "You are in Praven\nThe lord is away.", "Go back") == \
         "You are in Praven. The lord is away. Go back."
+
+def test_form_rows_pair_labels_and_read_columns_in_order():
+    from mbaccess.form import Item, rows
+    T = lambda words, x, y: Item("text", words, x, y)
+    found = [T("Combat AI:", 0.05, 0.25), Item("spinner", "", 0.38, 0.244, value="Poor"),
+             T("Character Detail:", 0.05, 0.2), T("Low", 0.378, 0.2),
+             Item("slider", "", 0.433, 0.198, value="50%"), T("High", 0.663, 0.2),
+             T("Jump", 0.05, 0.1), Item("button", "", 0.23, 0.1, value="Space"),
+             T("Group 1!", 0.4, 0.1), Item("button", "", 0.58, 0.1, value="1"),
+             T("Kick", 0.05, 0.06), Item("button", "", 0.23, 0.06, value="E")]
+    assert [i.spoken() for i in rows(found)] == [
+        "Combat AI: Poor, spinner", "Character Detail: 50%, slider",
+        "Jump, Space, button", "Kick, E, button", "Group 1!, 1, button"]

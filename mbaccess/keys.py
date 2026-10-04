@@ -11,10 +11,12 @@ import ctypes
 _user32 = ctypes.WinDLL("user32")
 
 UP, DOWN, RETURN, HOME, END = 0x26, 0x28, 0x0D, 0x24, 0x23
+LEFT, RIGHT, SPACE = 0x25, 0x27, 0x20
+ALL = (UP, DOWN, RETURN, HOME, END, LEFT, RIGHT, SPACE)
 
 
 class KeyWatcher:
-    def __init__(self, hwnd_getter, keys=(UP, DOWN, RETURN, HOME, END)):
+    def __init__(self, hwnd_getter, keys=ALL):
         self.hwnd_getter = hwnd_getter  # function returning the game window
         self.keys = keys
         self.down = set()

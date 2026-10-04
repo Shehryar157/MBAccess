@@ -50,14 +50,10 @@ def play_session(game):
 
     key_watch = keys.KeyWatcher(game_window)
 
-    def clicker(x, y):
-        if game_window():
-            click.click(game_window(), x, y)
-
     # The main menu needs no campaign, so the watcher starts without one;
     # set_game hands it the campaign object once there is one.
     watcher = MenuWatcher(Reader(game), None, game.profile.game_offsets, [], speech.say,
-                          screen=game.profile.screen, clicker=clicker)
+                          screen=game.profile.screen, mouse=click.Mouse(game_window))
     while game.is_running():
         launch.poll()
         # The game object exists only once a campaign starts, and loading a

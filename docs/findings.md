@@ -94,3 +94,13 @@ Nothing verified in memory yet. Try the same techniques: search for menu 0's tex
 - Window 6 holds pointers to the main menu buttons at +0x5a8 and window 17 at +0x4d8: probably stale or shared containers, not checked.
 - click.click doesn't bring the game to the front. Fine when the user presses Enter in the game; for tests from outside, call CFCAccess tools/win.py focus() first.
 - Code: profile screen["windows"] maps window number -> {name, buttons, slots, click, menu_text}. Adding a screen with the same button-table shape is one JSON entry.
+
+## Widget tree and form screens (Warband 1.174, VERIFIED 2026-10-05)
+
+- Every window's root widget is at **window+0x13c**. A container widget has its name (rgl::string) at **+0x2d0** and an stl::vector of child pointers (start, end, capacity) at **+0x364**. Treat an object as a container only when the name is non-empty: plain labels can have junk that looks like a vector there.
+- Widget class = the vtable (first dword). Classes: 0x7c4bac label; 0x812904 button; 0x81bac4 tab; 0x819b7c checkbox; 0x8144ec spinner (looks like a drop-down: left/right arrow images + a label child holding the value); 0x812ae4 slider; 0x7c4d04 image (with text = a key-binding button on Controls); 0x8134ac a real drop-down (e.g. "Use Desktop Resolution", "Melee only"; read as a label for now, opening it not tried); 0x81b9bc tab bar; 0x8135c4 screen root; 0x81cfcc scroll area ("..._vs"), 0x7c510c its scrolling content ("..._t_c").
+- Checkbox: **+0x2b0** = 1 when ticked; its label is a label child. Slider: **+0x2bc** float 0-1 (battle size 0.342 = 71 on 30-150). Hover highlight byte = widget+0x1f2.
+- Clicks (tested reversibly): checkbox click at (x+0.05, y+0.01) toggles; spinner arrows at (arrow_x+0.01, y+0.015) step the value; slider ignores clicks on its track: DRAG the handle from x+f*0.205 (track width about 0.205) while holding the button.
+- Scrolling: one wheel notch over the list moves it 0.062, and the positions in memory update (smooth animation: for a moment a label and its control can sit on different rows). Visible list area: from the "_vs" widget's y (0.05) to about 0.64.
+- Windows: 13 = Options (General), 14 = Video options, 15 = Controls. Each tab is its own window. Controls: two-column key list (x 0.23 and 0.58), keys are image widgets with text; Map Controls keys are plain text (not rebindable).
+- Code: mbaccess/form.py (TreeReader + rows pairing); a window with "tree": true in the profile uses it. Screen identity = sorted widget addresses (stable while a screen is open). Tools: tools/probe_tree.py <window>, tools/probe_widgets.py <window>.

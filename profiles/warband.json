@@ -15,7 +15,20 @@
     "widget_flags": 444,
     "windows": {
       "4": {"name": "Main menu", "buttons": 376, "slots": 8, "click": [0.15, 0.012]},
-      "18": {"buttons": 376, "slots": 16, "menu_text": true, "click": [0.1, 0.02]}
+      "18": {"buttons": 376, "slots": 16, "menu_text": true, "click": [0.1, 0.02]},
+      "13": {"name": "Options", "tree": true},
+      "14": {"name": "Video options", "tree": true},
+      "15": {"name": "Controls", "tree": true}
+    },
+    "classes": {
+      "0x7c4bac": "label",
+      "0x8134ac": "label",
+      "0x812904": "button",
+      "0x81bac4": "tab",
+      "0x819b7c": "checkbox",
+      "0x8144ec": "spinner",
+      "0x812ae4": "slider",
+      "0x7c4d04": "image"
     }
   }
 }
