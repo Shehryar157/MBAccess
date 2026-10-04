@@ -21,7 +21,8 @@ def locate(game):
             if name in game.module_names():
                 return address, name
         except ReadError:
-            pass  # no campaign yet; fall back to searching
+            pass
+        return None, None  # no campaign yet; searching wouldn't help
     for name in game.module_names():
         for address in finder.find_game(game, name, offsets["module_name"], offsets["savegame_name"]):
             return address, name
