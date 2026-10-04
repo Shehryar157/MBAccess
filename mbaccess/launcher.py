@@ -34,18 +34,23 @@ def find():
     return None
 
 
+CB_GETCOUNT = 0x0146
 CB_GETCURSEL = 0x0147
 CB_GETLBTEXT = 0x0148
 
 
 def selected_module(combo):
-    """The drop-down list's selected item (it keeps no plain window text)."""
+    """The drop-down list's selected item and position, e.g. "Native, 1 of 1".
+
+    The combo box keeps no plain window text, so we ask it with messages.
+    """
     index = _user32.SendMessageW(combo, CB_GETCURSEL, 0, 0)
     if index < 0:
         return ""
     buffer = ctypes.create_unicode_buffer(256)
     _user32.SendMessageW(combo, CB_GETLBTEXT, index, buffer)
-    return buffer.value
+    count = _user32.SendMessageW(combo, CB_GETCOUNT, 0, 0)
+    return f"{buffer.value}, {index + 1} of {count}"
 
 
 class LauncherWatcher:
