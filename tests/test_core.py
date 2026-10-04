@@ -98,16 +98,17 @@ from mbaccess import click, keys
 
 WINDOWS = 0x40000000   # pretend game_windows[32] array
 OPEN = 0x40001000      # pretend open-window deque header
-SCREEN = {"game_windows": WINDOWS, "open_windows": OPEN, "menu_buttons": 0x10,
-          "menu_button_slots": 4, "widget_text": 0x100, "widget_position": 0x40,
-          "widget_flags": 0x50}
+SCREEN = {"game_windows": WINDOWS, "open_windows": OPEN, "widget_text": 0x100,
+          "widget_position": 0x40, "widget_flags": 0x50,
+          "windows": {"4": {"name": "Main menu", "buttons": 0x10, "slots": 4, "click": [0.15, 0.012]},
+                      "18": {"buttons": 0x10, "slots": 4, "menu_text": True}}}
 
 
-def add_menu_window(mem, buttons, top=18):
+def add_menu_window(mem, buttons, top=18, number=18):
     """buttons: list of (text, y, hidden). Slots after them are blank and hidden."""
     window = 0x41000000
     slots = [0x42000000 + i * 0x1000 for i in range(4)]
-    mem.write(WINDOWS, struct.pack("<32I", *([0] * 18 + [window] + [0] * 13)))
+    mem.write(WINDOWS, struct.pack("<32I", *([0] * number + [window] + [0] * (31 - number))))
     mem.write(window, b"\0" * 0x10 + struct.pack("<4I", *slots))
     for i, address in enumerate(slots):
         label, y, hidden = buttons[i] if i < len(buttons) else ("", 0.02, True)
@@ -159,3 +160,28 @@ def test_menu_silent_when_another_window_is_on_top():
 def test_engine_coordinates_to_pixels():
     assert click.to_pixels(1280, 720, 0.5, 0.75) == (640, 0)
     assert click.to_pixels(1280, 720, 0.0, 0.0) == (0, 720)
+
+
+def test_main_menu_without_a_campaign():
+    mem = FakeMemory()
+    add_menu_window(mem, [("Start a New Game", 0.44, False), ("Play Tutorial", 0.48, False)],
+                    top=4, number=4)
+    said, clicks = [], []
+    w = MenuWatcher(Reader(mem), None, {"cur_menu_no": MENU_NO_OFFSET,
+                                        "cur_menu_text": MENU_TEXT_OFFSET},
+                    [], said.append, screen=SCREEN, clicker=lambda x, y: clicks.append((x, y)))
+    w.poll()
+    assert said == ["Main menu\nPlay Tutorial, 1 of 2"]
+    w.poll([keys.DOWN, keys.RETURN])
+    assert clicks == [pytest.approx((0.015 + 0.15, 0.44 + 0.012))]
+
+
+def test_game_menu_waits_for_the_campaign():
+    mem = FakeMemory()
+    add_menu_window(mem, [("Continue...", 0.22, False)])
+    said = []
+    w = MenuWatcher(Reader(mem), None, {"cur_menu_no": MENU_NO_OFFSET,
+                                        "cur_menu_text": MENU_TEXT_OFFSET},
+                    [], said.append, screen=SCREEN)
+    w.poll()
+    assert said == []

@@ -10,10 +10,12 @@
   "screen": {
     "game_windows": 14523120,
     "open_windows": 14523264,
-    "menu_buttons": 376,
-    "menu_button_slots": 16,
     "widget_text": 504,
     "widget_position": 412,
-    "widget_flags": 444
+    "widget_flags": 444,
+    "windows": {
+      "4": {"name": "Main menu", "buttons": 376, "slots": 8, "click": [0.15, 0.012]},
+      "18": {"buttons": 376, "slots": 16, "menu_text": true, "click": [0.1, 0.02]}
+    }
   }
 }

@@ -84,3 +84,13 @@ Nothing verified in memory yet. Try the same techniques: search for menu 0's tex
 - loader/dinput8.c (copied from CFCAccess, names changed) built 32-bit: zig cc -target x86-windows-gnu. In 32-bit the .def must name the stdcall-decorated functions (Proxy_DirectInput8Create@20, DllGetClassObject@12, the others @0). Verified with pefile: machine 0x14c, 6 plain export names.
 - python tools/build_loader.py install|uninstall finds both games through Steam's libraryfolders.vdf and writes <game>\MBAccess.txt (pythonw run.py --with-game). It writes <game>\MBAccess_loader.log; the mod logs to logs\mbaccess.log. Mutex: MBAccess.SingleInstance.
 - PowerShell 5 Set-Content -Encoding utf8 adds a BOM; strip it (Python copes, other tools may not).
+
+## Main menu and other windows (Warband 1.174, VERIFIED 2026-10-05)
+
+- Main menu = game_windows[**4**] (gwt_initial). Same layout as the menu window: button table at window+0x178. 8 buttons (Play Tutorial, Start a New Game, Load Game, Multiplayer, Custom Battle, Options, Credits, Exit; x 0.05, y 0.48 down to 0.20 in 0.04 steps, but the table order isn't screen order, so sort by y). Slot 9 (+0x198) is the "v1.174" label: excluded by slots = 8.
+- Hover test: the highlighted byte (text - 6, i.e. widget +0x1f2) turns 1 under the mouse. SetCursorPos alone (no click) is a safe way to test click spots. Main menu buttons react from x+0.08 to x+0.22 and y+0 to y+0.02; x+0.03 misses. We click at (x+0.15, y+0.012). Widget "size" (position - 8) reads (1, 1): a scale, not a size.
+- At the main menu the menu window's button table (window 18) points at freed widgets reused by the main menu: proof that only the top window may be trusted.
+- Window 2 (and 3) = loading screen: +0x140 -> "Finished." label, +0x50c -> the loading hint ("Hint #5: ..."). Not used yet; a cheap next win.
+- Window 6 holds pointers to the main menu buttons at +0x5a8 and window 17 at +0x4d8: probably stale or shared containers, not checked.
+- click.click doesn't bring the game to the front. Fine when the user presses Enter in the game; for tests from outside, call CFCAccess tools/win.py focus() first.
+- Code: profile screen["windows"] maps window number -> {name, buttons, slots, click, menu_text}. Adding a screen with the same button-table shape is one JSON entry.
