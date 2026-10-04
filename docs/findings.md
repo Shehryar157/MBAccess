@@ -78,3 +78,9 @@ Nothing verified in memory yet. Try the same techniques: search for menu 0's tex
 - Clicking: engine (x, y) -> client pixels (x*W, H - y/0.75*H). We click at (x+0.1, y+0.02): Continue y=0.22 and Go back y=0.18 match earlier clicks that worked. Dry run in the live game read 'Continue..., 1 of 2' correctly. The Enter click is NOT yet tested by the user.
 - Code: mbaccess/menu_watch.py (read_options, top_window, cursor), keys.py, click.py; addresses in profiles/warband.json 'screen'.
 - Both exes import DINPUT8.dll, so the CFC proxy loader idea applies (built 32-bit).
+
+## Auto-start loader (2026-10-05, installed; first real launch NOT yet tested)
+
+- loader/dinput8.c (copied from CFCAccess, names changed) built 32-bit: zig cc -target x86-windows-gnu. In 32-bit the .def must name the stdcall-decorated functions (Proxy_DirectInput8Create@20, DllGetClassObject@12, the others @0). Verified with pefile: machine 0x14c, 6 plain export names.
+- python tools/build_loader.py install|uninstall finds both games through Steam's libraryfolders.vdf and writes <game>\MBAccess.txt (pythonw run.py --with-game). It writes <game>\MBAccess_loader.log; the mod logs to logs\mbaccess.log. Mutex: MBAccess.SingleInstance.
+- PowerShell 5 Set-Content -Encoding utf8 adds a BOM; strip it (Python copes, other tools may not).

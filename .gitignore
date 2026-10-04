@@ -2,3 +2,6 @@ reference/
 __pycache__/
 *.pyc
 logs/
+loader/*.dll
+loader/*.lib
+loader/*.pdb

@@ -1,0 +1,10 @@
+; Exported names (what the game asks for) = our function names.
+; 32-bit stdcall functions carry "@<bytes of arguments>" in their real names.
+LIBRARY dinput8
+EXPORTS
+    DirectInput8Create=Proxy_DirectInput8Create@20
+    DllCanUnloadNow=Proxy_DllCanUnloadNow@0 PRIVATE
+    DllGetClassObject=Proxy_DllGetClassObject@12 PRIVATE
+    DllRegisterServer=Proxy_DllRegisterServer@0 PRIVATE
+    DllUnregisterServer=Proxy_DllUnregisterServer@0 PRIVATE
+    GetdfDIJoystick=Proxy_GetdfDIJoystick@0

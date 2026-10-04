@@ -1,4 +1,4 @@
-﻿"""Tests against a fake game in memory, so they run without the real game."""
+"""Tests against a fake game in memory, so they run without the real game."""
 import os
 import struct
 

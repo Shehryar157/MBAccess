@@ -1,4 +1,4 @@
-﻿"""Per-game settings: what's different between Warband and With Fire & Sword.
+"""Per-game settings: what's different between Warband and With Fire & Sword.
 
 Both games share all the code; a Profile only holds the differences, such
 as the exe name and where fields sit inside the engine's objects. Offsets

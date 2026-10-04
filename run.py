@@ -1,7 +1,12 @@
-﻿"""MB Access: screen reader support for Mount & Blade games.
+"""MB Access: screen reader support for Mount & Blade games.
 
-    python run.py    wait for Warband or With Fire & Sword, then speak menus
+    python run.py               wait for Warband or With Fire & Sword, then speak menus
+    pythonw run.py --with-game  started by the loader DLL: follow one game session,
+                                log to logs\mbaccess.log, and exit when the game closes
 """
+import ctypes
+import os
+import sys
 import time
 
 from mbaccess import click, keys, launcher, process, session, speech
@@ -9,6 +14,26 @@ from mbaccess.mem import Reader
 from mbaccess.menu_watch import MenuWatcher
 
 POLL_SECONDS = 0.05  # check the game 20 times a second
+STARTUP_WAIT = 120   # --with-game: give up if the game hasn't appeared by then
+HERE = os.path.dirname(os.path.abspath(__file__))
+
+
+def setup_log():
+    """pythonw has no console, so print() would go nowhere: use a log file."""
+    os.makedirs(os.path.join(HERE, "logs"), exist_ok=True)
+    log = open(os.path.join(HERE, "logs", "mbaccess.log"), "w", encoding="utf-8", buffering=1)
+    sys.stdout = sys.stderr = log
+
+
+def only_instance():
+    """A named mutex is a system-wide name only one process can own at a time.
+
+    If another MB Access already holds it, we're a second copy and should quit.
+    We keep the handle for as long as we run; Windows releases it when we exit.
+    """
+    global _mutex
+    _mutex = ctypes.windll.kernel32.CreateMutexW(None, False, "MBAccess.SingleInstance")
+    return ctypes.windll.kernel32.GetLastError() != 183  # ERROR_ALREADY_EXISTS
 
 
 def play_session(game):
@@ -56,13 +81,24 @@ def play_session(game):
 
 
 def main():
-    speech.say("MB Access started. Waiting for the game.")
+    if not only_instance():
+        return  # quietly: the running copy owns the speech
+    with_game = "--with-game" in sys.argv
+    if with_game:
+        setup_log()
+    else:
+        speech.say("MB Access started. Waiting for the game.")
+    started = time.time()
     while True:
         game = process.try_attach()
         if game is None:
+            if with_game and time.time() - started > STARTUP_WAIT:
+                return
             time.sleep(1)
             continue
         play_session(game)
+        if with_game:
+            return  # the loader starts us again with the next game launch
         speech.say("Game closed.")
 
 
