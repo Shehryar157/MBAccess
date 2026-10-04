@@ -2,6 +2,7 @@
 import os
 
 from . import finder, modfiles
+from .mem import Reader, ReadError
 
 
 def locate(game):
@@ -11,6 +12,16 @@ def locate(game):
     <game>\Modules and keep the first that matches a wb::game object.
     """
     offsets = game.profile.game_offsets
+    # Fast path: the exe's global cur_game pointer, if this version's is known.
+    if offsets.get("cur_game_ptr"):
+        reader = Reader(game)
+        try:
+            address = reader.ptr(offsets["cur_game_ptr"])
+            name = reader.rgl_string(address + offsets["module_name"])
+            if name in game.module_names():
+                return address, name
+        except ReadError:
+            pass  # no campaign yet; fall back to searching
     for name in game.module_names():
         for address in finder.find_game(game, name, offsets["module_name"], offsets["savegame_name"]):
             return address, name
