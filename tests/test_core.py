@@ -79,7 +79,7 @@ def test_watcher_speaks_once_per_change():
     watcher = MenuWatcher(Reader(mem), GAME, offsets, modfiles.parse_menus(SAMPLE_MENUS), spoken.append)
     watcher.poll()
     watcher.poll()
-    assert spoken == ["You are in Praven.\nOptions: Visit the tavern."]
+    assert spoken == ["You are in Praven. Options: Visit the tavern."]
     mem.blocks[GAME][MENU_NO_OFFSET:MENU_NO_OFFSET + 4] = struct.pack("<i", 0)
     watcher.poll()
     assert len(spoken) == 2
@@ -137,7 +137,7 @@ def make_menu_watcher(top=18):
 def test_menu_reads_visible_buttons_top_first():
     w, said, _ = make_menu_watcher()
     w.poll()
-    assert said == ["Welcome\nContinue..., 1 of 2"]
+    assert said == ["Welcome. Continue..., 1 of 2."]
 
 
 def test_menu_cursor_and_enter_click():
@@ -171,7 +171,7 @@ def test_main_menu_without_a_campaign():
                                         "cur_menu_text": MENU_TEXT_OFFSET},
                     [], said.append, screen=SCREEN, clicker=lambda x, y: clicks.append((x, y)))
     w.poll()
-    assert said == ["Main menu\nPlay Tutorial, 1 of 2"]
+    assert said == ["Main menu: Play Tutorial, 1 of 2."]
     w.poll([keys.DOWN, keys.RETURN])
     assert clicks == [pytest.approx((0.015 + 0.15, 0.44 + 0.012))]
 
@@ -185,3 +185,8 @@ def test_game_menu_waits_for_the_campaign():
                     [], said.append, screen=SCREEN)
     w.poll()
     assert said == []
+
+def test_spoken_adds_pauses():
+    assert text.spoken("Main menu", "Play Tutorial, 1 of 8") == "Main menu: Play Tutorial, 1 of 8."
+    assert text.spoken("", "You are in Praven\nThe lord is away.", "Go back") == \
+        "You are in Praven. The lord is away. Go back."

@@ -14,7 +14,6 @@ _user32 = ctypes.WinDLL("user32")
 
 TITLES = ("Mount&Blade Warband", "Mount&Blade With Fire and Sword")
 LABELS = {1029: "Play", 1055: "Configure", 1131: "Cancel", 1056: "Module", 1202: "Delete module"}
-MODULE = 1056
 
 
 class GUITHREADINFO(ctypes.Structure):
@@ -32,25 +31,6 @@ def find():
         if hwnd:
             return hwnd
     return None
-
-
-CB_GETCOUNT = 0x0146
-CB_GETCURSEL = 0x0147
-CB_GETLBTEXT = 0x0148
-
-
-def selected_module(combo):
-    """The drop-down list's selected item and position, e.g. "Native, 1 of 1".
-
-    The combo box keeps no plain window text, so we ask it with messages.
-    """
-    index = _user32.SendMessageW(combo, CB_GETCURSEL, 0, 0)
-    if index < 0:
-        return ""
-    buffer = ctypes.create_unicode_buffer(256)
-    _user32.SendMessageW(combo, CB_GETLBTEXT, index, buffer)
-    count = _user32.SendMessageW(combo, CB_GETCOUNT, 0, 0)
-    return f"{buffer.value}, {index + 1} of {count}"
 
 
 class LauncherWatcher:
@@ -77,11 +57,10 @@ class LauncherWatcher:
         label = LABELS.get(_user32.GetDlgCtrlID(control))
         if label is None:  # the combo box's inner edit field
             label = LABELS.get(_user32.GetDlgCtrlID(_user32.GetParent(control)))
-        if label == "Module":
-            # Also speak when the arrow keys change the selected module.
-            label = "Module: " + selected_module(_user32.GetDlgItem(self.hwnd, MODULE))
         if (control, label) == self.last_focus:
             return
         self.last_focus = (control, label)
-        if label:
+        # The module box is a real combo box that NVDA reads by itself; speaking
+        # over it (we interrupt) would cut NVDA's "combo box" announcement off.
+        if label and label != "Module":
             self.say(label)

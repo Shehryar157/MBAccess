@@ -125,7 +125,7 @@ class MenuWatcher:
     # --- speaking --------------------------------------------------------
 
     def describe(self, number, body, config):
-        parts = [config.get("name", ""), text_mod.clean(body)]
+        parts = [text_mod.clean(body)]
         if self.reads_buttons:
             if self.options:
                 parts.append(self.option_text())
@@ -135,7 +135,7 @@ class MenuWatcher:
             options = [text_mod.clean(i.text) for i in self.menus[number].items]
             if options:
                 parts.append("Options: " + "; ".join(o for o in options if o))
-        return "\n".join(p for p in parts if p)
+        return text_mod.spoken(config.get("name", ""), *parts)
 
     def option_text(self):
         return f"{self.options[self.cursor].text}, {self.cursor + 1} of {len(self.options)}"
