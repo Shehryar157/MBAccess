@@ -14,7 +14,11 @@ UP, DOWN, RETURN, HOME, END = 0x26, 0x28, 0x0D, 0x24, 0x23
 LEFT, RIGHT, SPACE = 0x25, 0x27, 0x20
 F9, ESCAPE = 0x78, 0x1B   # F9: our help (F1-F4 are the game's battle orders)
 SHIFT, CONTROL = 0x10, 0x11   # either side's key
-ALL = (UP, DOWN, RETURN, HOME, END, LEFT, RIGHT, SPACE, F9, ESCAPE)
+# The message keys, by where they are on a US keyboard ("OEM" keys move
+# about on other layouts).
+LEFT_BRACKET, RIGHT_BRACKET, SEMICOLON, QUOTE = 0xDB, 0xDD, 0xBA, 0xDE
+ALL = (UP, DOWN, RETURN, HOME, END, LEFT, RIGHT, SPACE, F9, ESCAPE,
+       LEFT_BRACKET, RIGHT_BRACKET, SEMICOLON, QUOTE)
 
 
 def is_down(vk):

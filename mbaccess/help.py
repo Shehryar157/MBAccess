@@ -17,6 +17,13 @@ GROUPS = [
     ("Anywhere", [
         ("F9: this help. F9 or Escape closes it.", None),
     ]),
+    ("Game messages", [
+        ("New messages are read as they appear.", None),
+        ("Left and right brackets: previous or next message buffer: All, "
+         "then one per category, such as Combat or Money and trade.", None),
+        ("Semicolon and apostrophe: previous or next message in the buffer.", None),
+        ("Shift with semicolon or apostrophe: oldest or newest message.", None),
+    ]),
     ("Menus and screens", [
         ("Up and Down arrows: previous or next item. Home and End: first or last.", None),
         ("Enter or Space: press the item.", None),

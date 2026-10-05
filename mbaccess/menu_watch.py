@@ -183,6 +183,10 @@ class MenuWatcher:
                 parts.append("Options: " + "; ".join(o for o in options if o))
         return text_mod.spoken(config.get("name", ""), *parts)
 
+    def typing(self):
+        """On an edit box: keys are letters for it, not our commands."""
+        return bool(self.options) and self.options[self.cursor].kind == "edit"
+
     def on_inventory(self):
         """Is the screen showing item cells? (Picks the help's starting group.)"""
         return any(i.kind == "slot" for i in self.options)

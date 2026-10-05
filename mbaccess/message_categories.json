@@ -1,0 +1,13 @@
+{
+  "Combat": ["damage", "knocked", "killed", "wounded", "unconscious", "routed", "fled",
+             "crippled", "fell dead", "headshot", "speed bonus", "shot", "hits", "battle"],
+  "Party": ["joined", "joins", "troops", "prisoner", "prisoners", "upgrade", "upgraded", "recruit",
+            "recruited", "companion", "morale", "deserted", "deserters", "food", "starving"],
+  "Money and trade": ["denar", "denars", "gold", "sold", "bought", "wage", "wages", "tax", "taxes",
+                      "rent", "price"],
+  "Relations": ["relation", "relations", "renown", "honor", "honour", "controversy", "war",
+                "peace", "faction", "lord", "lady", "fief", "king", "kingdom"],
+  "Character": ["experience", "level", "skill", "attribute", "proficiency", "reading", "book",
+                "health"],
+  "Quests": ["quest", "quests", "task", "mission"]
+}

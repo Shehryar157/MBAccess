@@ -214,3 +214,36 @@ def test_form_rows_pair_labels_and_read_columns_in_order():
     assert [i.spoken() for i in rows(found)] == [
         "Combat AI: Poor, spinner", "Character Detail: 50%, slider",
         "Jump, Space, button", "Kick, E, button", "Group 1!, 1, button"]
+
+
+def test_messages_spoken_sorted_and_reviewed(monkeypatch):
+    from mbaccess import keys, messages
+    log, heap = 0x5000, 0x9000
+    mem = FakeMemory()
+    texts = []
+
+    def set_log(*new):
+        texts.extend(new)
+        for i, t in enumerate(texts):
+            mem.write(heap + i * 0x90, pack_rgl_string(heap + i * 0x90, t))
+        end = heap + len(texts) * 0x90
+        mem.write(log, struct.pack("<III", heap, end, end))
+
+    said = []
+    set_log("Received 7 damage.")
+    watch = messages.MessageWatcher(Reader(mem), log, lambda t, interrupt=True: said.append(t))
+    watch.poll()
+    assert said == []                     # already there at start: kept, not spoken
+    set_log("You got 30 denars.", "Something odd.")
+    watch.poll()
+    assert said == ["You got 30 denars.", "Something odd."]
+    monkeypatch.setattr(keys, "is_down", lambda vk: False)
+    said.clear()
+    watch.handle_keys([keys.SEMICOLON, keys.SEMICOLON, keys.SEMICOLON, keys.RIGHT_BRACKET])
+    assert said == ["You got 30 denars.", "Received 7 damage.", "No older messages.",
+                    "Combat: Received 7 damage., 1 of 1"]
+    said.clear()
+    watch.handle_keys([keys.RIGHT_BRACKET, keys.RIGHT_BRACKET, keys.LEFT_BRACKET, keys.LEFT_BRACKET,
+                       keys.LEFT_BRACKET, keys.LEFT_BRACKET])
+    assert said[:2] == ["Party, empty", "Money and trade: You got 30 denars., 1 of 1"]
+    assert said[-1] == "Other: Something odd., 1 of 1"
