@@ -74,6 +74,39 @@ def read_translations(path):
     return result
 
 
+SF_EFFECTS_PARTY = 0x10   # header_skills.py: the party uses its best hero's level
+
+
+@dataclass
+class Skill:
+    id: str      # e.g. "skl_pathfinding"
+    name: str
+    flags: int
+    max_level: int
+
+
+def parse_skills(text):
+    """Parse skills.txt: a count, then "id name flags max_level description"
+    per skill. Index = skill number, as in a troop's packed skill levels."""
+    words = iter(text.split())
+    skills = []
+    for _ in range(int(next(words))):
+        skill_id, name, flags, max_level = (next(words) for _ in range(4))
+        next(words)  # description
+        skills.append(Skill(skill_id, file_text(name), int(flags), int(max_level)))
+    return skills
+
+
+def load_skills(module_dir, language="en"):
+    """Skills of a module folder, with translated names where available."""
+    with open(os.path.join(module_dir, "skills.txt"), encoding="utf-8", errors="replace") as f:
+        skills = parse_skills(f.read())
+    tr = read_translations(os.path.join(module_dir, "languages", language, "skills.csv"))
+    for skill in skills:
+        skill.name = tr.get(skill.id, skill.name)
+    return skills
+
+
 def load_menus(module_dir, language="en"):
     """Menus of a module folder, with translated texts where available."""
     with open(os.path.join(module_dir, "menus.txt"), encoding="utf-8", errors="replace") as f:

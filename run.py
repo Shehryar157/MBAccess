@@ -9,8 +9,8 @@ import os
 import sys
 import time
 
-from mbaccess import (access_page, click, help, keys, launcher, messages, process, session,
-                      settings, speech)
+from mbaccess import (access_page, click, help, keys, launcher, messages, party_skills,
+                      process, session, settings, speech)
 from mbaccess.mem import Reader
 from mbaccess.menu_watch import MenuWatcher
 
@@ -40,7 +40,7 @@ def only_instance():
 def play_session(game):
     speech.say(f"Connected to {game.profile.title}.")
     launch = launcher.LauncherWatcher(speech.say)
-    address, menus, next_locate = None, {}, 0
+    address, menus, skills, next_locate = None, {}, {}, 0
     window = {"hwnd": None, "checked": 0}
 
     def game_window():
@@ -59,11 +59,14 @@ def play_session(game):
     categories = [b.name for b in news.buffers[1:]] if news else []
     page = access_page.AccessPage(prefs, categories)
 
+    offsets = game.profile.screen.get("party_skills")
+    team = party_skills.PartySkills(Reader(game), offsets) if offsets else None
+
     # The main menu needs no campaign, so the watcher starts without one;
     # set_game hands it the campaign object once there is one.
     watcher = MenuWatcher(Reader(game), None, game.profile.game_offsets, [], speech.say,
                           screen=game.profile.screen, mouse=click.Mouse(game_window),
-                          page=page, settings=prefs)
+                          page=page, settings=prefs, party_skills=team)
     while game.is_running():
         launch.poll()
         # The game object exists only once a campaign starts, and loading a
@@ -78,7 +81,8 @@ def play_session(game):
                 print(f"game object {address:#x}, module {module!r}")
                 if module not in menus:
                     menus[module] = session.load_menus(game, module)
-                watcher.set_game(address, menus[module])
+                    skills[module] = session.load_skills(game, module)
+                watcher.set_game(address, menus[module], skills[module])
                 if not watcher.enabled:
                     speech.say("Menu reading isn't set up for this game version yet. "
                                "Run the discovery tool once.")

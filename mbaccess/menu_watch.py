@@ -47,8 +47,10 @@ ACTION_KEYS = {keys.RETURN: "activate", keys.SPACE: "activate",
 
 class MenuWatcher:
     def __init__(self, reader, game_address, offsets, menus, say, screen=None, mouse=None,
-                 page=None, settings=None):
+                 page=None, settings=None, party_skills=None):
         self.reader = reader
+        self.party_skills = party_skills   # party_skills.PartySkills, if the profile has it
+        self.skills = []                   # the module's skills (modfiles.Skill)
         self.page = page             # the Accessibility tab (access_page.AccessPage), if any
         self.settings = settings
         self.game = game_address     # the campaign object; None at the main menu
@@ -69,9 +71,9 @@ class MenuWatcher:
         self.config = {}
         self.hold_check = None       # (since, item held before): after clicking a cell
 
-    def set_game(self, address, menus):
+    def set_game(self, address, menus, skills=()):
         """A campaign started or a save was loaded: the game object moved."""
-        self.game, self.menus = address, menus
+        self.game, self.menus, self.skills = address, menus, list(skills)
 
     @property
     def enabled(self):
@@ -161,6 +163,8 @@ class MenuWatcher:
                     item.value = "selected"
             if not items:
                 return None     # nothing readable (e.g. the 3D scene)
+            if config.get("party_skills"):
+                items = self.with_party_skills(items)
             if self.page:
                 items, key, config = self.with_access_tab(items, key, config)
         else:
@@ -192,6 +196,20 @@ class MenuWatcher:
         items = tabs + [self.page.tab()] + self.page.items() + buttons
         # start: the cursor begins on the first setting, not on a tab.
         return items, ("accessibility",), dict(config, name="Accessibility", start=len(tabs) + 1)
+
+    def with_party_skills(self, items):
+        """The party screen draws its party skills without keeping the text,
+        so put our rebuilt lines right after its "Party Skills" heading."""
+        if not (self.party_skills and self.game and self.skills):
+            return items
+        heading = next((n for n, i in enumerate(items)
+                        if i.kind == "text" and i.label.lower() == "party skills"), None)
+        if heading is None:
+            return items
+        h = items[heading]
+        extra = [Item("text", line, h.x, h.y)
+                 for line in self.party_skills.lines(self.game, self.skills)]
+        return items[:heading + 1] + extra + items[heading + 1:]
 
     # --- speaking --------------------------------------------------------
 

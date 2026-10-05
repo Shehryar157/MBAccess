@@ -247,3 +247,13 @@ def test_messages_spoken_sorted_and_reviewed(monkeypatch):
                        keys.LEFT_BRACKET, keys.LEFT_BRACKET])
     assert said[:2] == ["Party, empty", "Money and trade: You got 30 denars., 1 of 1"]
     assert said[-1] == "Other: Something odd., 1 of 1"
+
+
+def test_party_skill_pieces():
+    from mbaccess import modfiles, party_skills
+    skills = modfiles.parse_skills("2\nskl_trade Trade 19 10 Desc_1\nskl_riding Riding 2 10 Desc_2\n")
+    assert [s.name for s in skills] == ["Trade", "Riding"]
+    assert skills[0].flags & modfiles.SF_EFFECTS_PARTY and not skills[1].flags & 0x10
+    # Skill 1 = 3, skill 9 = 2 (second int, lowest 4 bits).
+    assert party_skills.unpack_skills([0x30, 0x2, 0, 0, 0, 0], 10)[1::8] == [3, 2]
+    assert [party_skills.leader_bonus(n) for n in (1, 2, 5, 8, 10)] == [0, 1, 2, 3, 4]

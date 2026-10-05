@@ -36,3 +36,12 @@ def load_menus(game, module_name):
     except (OSError, ValueError) as e:
         print("could not read menus:", e)
         return []
+
+
+def load_skills(game, module_name):
+    folder = os.path.join(game.folder, "Modules", module_name)
+    try:
+        return modfiles.load_skills(folder)
+    except (OSError, ValueError, StopIteration) as e:
+        print("could not read skills:", e)
+        return []

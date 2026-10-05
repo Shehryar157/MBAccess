@@ -11,7 +11,7 @@ covers it, read menus.md and screens.md: most work builds on them. Don't read ev
 |---|---|---|
 | basics.md | cur_game, menu text and number, rgl::string, memory search techniques, windowed mode, screenshots, click coordinates | always |
 | menus.md | game_windows array, open-window deque (top window), menu and main menu button tables, clicking and hover, window numbers 2-6, 17, 18 | game menus, main menu, Enter/clicks, which screen is on top, a new window number |
-| screens.md | widget tree walker, widget classes (vtables), checkboxes, sliders, spinners, drop-downs, scrolling, Options/Video/Controls (13-15), Load game, Custom battle, Character, Esc menu, party screen, face editor | any form-like screen, Options, settings, character creation, party, a widget kind, scrolling |
+| screens.md | widget tree walker, widget classes (vtables), checkboxes, sliders, spinners, drop-downs, scrolling, Options/Video/Controls (13-15), Load game, Custom battle, Character, Esc menu, party screen, party skills (troops and parties arrays, troop skills), face editor | any form-like screen, Options, settings, character creation, party, troops, skills, a widget kind, scrolling |
 | inventory.md | inventory window, cells, tooltip global, picking up and putting down, item kinds table, right-click actions, F9 help | inventory, items, trading, looting, tooltips, help keys |
 | messages.md | message_log vector, message_queue, categories | game messages, message buffers, notifications |
 | launcher.md | launcher dialog control IDs, combo box | the launcher, Play/Configure |

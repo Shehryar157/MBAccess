@@ -14,6 +14,8 @@
     "message_log": 8895908,
     "item_kinds": 9143636,
     "item_kind_size": 3128,
+    "party_skills": {"troops": 82160, "parties": 82104, "troop_size": 4040, "troop_flags": 584,
+                     "troop_skills": 640, "party_id": 160, "stacks": 580, "num_stacks": 592},
     "widget_text": 504,
     "widget_position": 412,
     "widget_flags": 444,
@@ -25,7 +27,7 @@
       "15": {"name": "Controls", "tree": true, "selected_tab": "Controls"},
       "16": {"name": "Load game", "tree": true},
       "11": {"name": "Character", "tree": true, "layout": {"columns": [0.3, 0.69]}},
-      "8": {"name": "Party", "tree": true, "layout": {"columns": [0.34, 0.66]}},
+      "8": {"name": "Party", "tree": true, "party_skills": true, "layout": {"columns": [0.34, 0.66]}},
       "7": {"name": "Inventory", "tree": true, "tooltip": true, "held": 2992, "layout": {
         "columns": [0.34, 0.54, 0.66], "by_columns": false,
         "slot_names": [[0.451, 0.605, "Head"], [0.451, 0.517, "Body"], [0.451, 0.429, "Feet"],
