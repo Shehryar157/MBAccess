@@ -254,6 +254,6 @@ def test_party_skill_pieces():
     skills = modfiles.parse_skills("2\nskl_trade Trade 19 10 Desc_1\nskl_riding Riding 2 10 Desc_2\n")
     assert [s.name for s in skills] == ["Trade", "Riding"]
     assert skills[0].flags & modfiles.SF_EFFECTS_PARTY and not skills[1].flags & 0x10
-    # Skill 1 = 3, skill 9 = 2 (second int, lowest 4 bits).
-    assert party_skills.unpack_skills([0x30, 0x2, 0, 0, 0, 0], 10)[1::8] == [3, 2]
+    # Skill 1 = 3, skill 8 = 2 (second int, lowest 4 bits).
+    assert party_skills.unpack_skills([0x30, 0x2, 0, 0, 0, 0], 10)[1::7] == [3, 2]
     assert [party_skills.leader_bonus(n) for n in (1, 2, 5, 8, 10)] == [0, 1, 2, 3, 4]
