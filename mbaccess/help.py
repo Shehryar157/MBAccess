@@ -1,9 +1,9 @@
-"""F1: every key the mod adds, as a list read line by line, grouped by screen.
+"""F9: every key the mod adds, as a list read line by line, grouped by screen.
 
 Like FFC Access's help: the cursor starts on the group for the screen you're
 on, Up/Down read a line at a time, Control Up/Down jump between groups, and
 Enter on a command line (one with an action) closes the help and does it.
-F1 or Escape closes it.
+F9 or Escape closes it.
 
 We read the keyboard from outside the game, so we can't stop the game seeing
 the same keys. Arrows and Enter do nothing on most game screens, but Escape
@@ -15,7 +15,7 @@ from . import keys
 # run from Enter; none of our keys are commands yet, so they're all None.
 GROUPS = [
     ("Anywhere", [
-        ("F1: this help. F1 or Escape closes it.", None),
+        ("F9: this help. F9 or Escape closes it.", None),
     ]),
     ("Menus and screens", [
         ("Up and Down arrows: previous or next item. Home and End: first or last.", None),
@@ -61,7 +61,7 @@ class Help:
         if not self.open:
             return False
         for key in pressed:
-            if key in (keys.F1, keys.ESCAPE):
+            if key in (keys.F9, keys.ESCAPE):
                 self.close()
                 return True
             if key == keys.RETURN:

@@ -76,7 +76,7 @@ def play_session(game):
         pressed = key_watch.pressed()
         if helper.handle_keys(pressed):
             pressed = ()             # the help has the keys while it's open
-        elif keys.F1 in pressed:
+        elif keys.F9 in pressed:
             helper.show("Inventory" if watcher.on_inventory() else "Menus and screens")
             pressed = ()
         watcher.poll(pressed)

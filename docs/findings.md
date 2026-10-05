@@ -138,4 +138,4 @@ Nothing verified in memory yet. Try the same techniques: search for menu 0's tex
 ## Item actions and F1 help (session 5, 2026-10-05, untested in game)
 
 - Item actions, from ui.csv/hints.csv: left click picks up and puts down (equip, discard via the "Discard" 3x3 grid, loot, trade); Ctrl+click = quick buy/sell; right click = the item's ONE special action (books: read; livestock: "Slaughter this %s and eat it?"). Food and drink are never used by hand. Mod: Shift+Enter right-clicks a cell. Ctrl+click not mapped yet.
-- F1 help (mbaccess/help.py), like FFC's: groups by screen, starts on Inventory when the screen has slots. We can't hide keys from the game: Escape closes the help AND reaches the game. In battles F1 is the game's order key (conflict to solve later).
+- F9 help (moved from F1, which is the battle order key) (mbaccess/help.py), like FFC's: groups by screen, starts on Inventory when the screen has slots. We can't hide keys from the game: Escape closes the help AND reaches the game. In battles F1 is the game's order key (conflict to solve later).

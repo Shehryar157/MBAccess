@@ -12,9 +12,9 @@ _user32 = ctypes.WinDLL("user32")
 
 UP, DOWN, RETURN, HOME, END = 0x26, 0x28, 0x0D, 0x24, 0x23
 LEFT, RIGHT, SPACE = 0x25, 0x27, 0x20
-F1, ESCAPE = 0x70, 0x1B
+F9, ESCAPE = 0x78, 0x1B   # F9: our help (F1-F4 are the game's battle orders)
 SHIFT, CONTROL = 0x10, 0x11   # either side's key
-ALL = (UP, DOWN, RETURN, HOME, END, LEFT, RIGHT, SPACE, F1, ESCAPE)
+ALL = (UP, DOWN, RETURN, HOME, END, LEFT, RIGHT, SPACE, F9, ESCAPE)
 
 
 def is_down(vk):
