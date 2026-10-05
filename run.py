@@ -9,8 +9,8 @@ import os
 import sys
 import time
 
-from mbaccess import (access_page, click, help, keys, launcher, messages, party_skills,
-                      process, session, settings, speech)
+from mbaccess import (access_page, click, conversation, help, keys, launcher, messages,
+                      party_skills, process, session, settings, speech)
 from mbaccess.mem import Reader
 from mbaccess.menu_watch import MenuWatcher
 
@@ -62,11 +62,16 @@ def play_session(game):
     offsets = game.profile.screen.get("party_skills")
     team = party_skills.PartySkills(Reader(game), offsets) if offsets else None
 
+    # Conversations: the profile has the address once the probe tool has
+    # confirmed it; until then we search for it when a campaign starts.
+    talk = game.profile.screen.get("conversation")
+    talk = conversation.Conversation(Reader(game), talk) if talk else None
+
     # The main menu needs no campaign, so the watcher starts without one;
     # set_game hands it the campaign object once there is one.
     watcher = MenuWatcher(Reader(game), None, game.profile.game_offsets, [], speech.say,
                           screen=game.profile.screen, mouse=click.Mouse(game_window),
-                          page=page, settings=prefs, party_skills=team)
+                          page=page, settings=prefs, party_skills=team, conversation=talk)
     while game.is_running():
         launch.poll()
         # The game object exists only once a campaign starts, and loading a
@@ -83,6 +88,12 @@ def play_session(game):
                     menus[module] = session.load_menus(game, module)
                     skills[module] = session.load_skills(game, module)
                 watcher.set_game(address, menus[module], skills[module])
+                if watcher.conversation is None and skills[module]:
+                    found_text = conversation.find(game, skills[module][0].id)
+                    print("conversation speaker_text:", hex(found_text) if found_text else None)
+                    if found_text:
+                        watcher.conversation = conversation.Conversation(
+                            Reader(game), {"speaker_text": found_text})
                 if not watcher.enabled:
                     speech.say("Menu reading isn't set up for this game version yet. "
                                "Run the discovery tool once.")
@@ -94,7 +105,7 @@ def play_session(game):
         if helper.handle_keys(pressed):
             pressed = ()             # the help has the keys while it's open
         elif keys.F9 in pressed:
-            helper.show("Inventory" if watcher.on_inventory() else "Menus and screens")
+            helper.show(watcher.help_group())
             pressed = ()
         if news:
             news.poll()

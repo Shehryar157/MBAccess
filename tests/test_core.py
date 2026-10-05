@@ -257,3 +257,71 @@ def test_party_skill_pieces():
     # Skill 1 = 3, skill 8 = 2 (second int, lowest 4 bits).
     assert party_skills.unpack_skills([0x30, 0x2, 0, 0, 0, 0], 10)[1::7] == [3, 2]
     assert [party_skills.leader_bonus(n) for n in (1, 2, 5, 8, 10)] == [0, 1, 2, 3, 4]
+
+
+def make_conversation(line, replies, on_screen):
+    """A fake conversation manager (found from the skill table after it) and
+    conversation window 12 whose tree shows the replies in on_screen."""
+    from mbaccess import conversation as conv
+    mem = FakeMemory()
+    skill_id = 0x50000000                    # skills[0].id, "skl_trade"
+    text_at = conv.speaker_text_from_skill_id(skill_id)
+    start = text_at + conv.NUM_OPTIONS - 36  # the manager's first field
+    data = bytearray(skill_id + 0x90 - start)
+    put = lambda at, raw: data.__setitem__(slice(at - start, at - start + len(raw)), raw)
+    put(skill_id, pack_rgl_string(skill_id, "skl_trade"))
+    put(text_at, pack_rgl_string(text_at, line))
+    put(text_at + conv.NUM_OPTIONS, struct.pack("<i", len(replies)))
+    put(text_at + conv.PARTNER_TROOP, struct.pack("<i", 1))
+    for n, words in enumerate(replies):
+        at = text_at + conv.PARTNER_OPTIONS + n * conv.OPTION_SIZE + conv.OPTION_TEXT
+        put(at, pack_rgl_string(at, words))
+    mem.write(start, data)
+    # Troops for the partner's name: troop 1 is "Ramun".
+    troops = 0x51000000
+    mem.write(GAME, struct.pack("<II", troops, 2))
+    mem.write(troops, bytes(0x104) + pack_rgl_string(troops + 0x104, "Ramun"))
+    # Window 12: a root widget (class 0x777) with one text widget per reply.
+    window, root = 0x52000000, 0x53000000
+    kids = [0x54000000 + n * 0x1000 for n in range(len(on_screen))]
+    mem.write(WINDOWS, struct.pack("<32I", *([0] * 12 + [window] + [0] * 19)))
+    mem.write(window, bytes(0x13c) + struct.pack("<I", root))
+    obj = bytearray(0x400)
+    obj[0:4] = struct.pack("<I", 0x777)
+    obj[0x2d0:0x2d0 + 144] = pack_rgl_string(root + 0x2d0, "conversation")
+    obj[0x364:0x370] = struct.pack("<III", 0x55000000, 0x55000000 + 4 * len(kids), 0x55000000 + 64)
+    mem.write(root, obj)
+    mem.write(0x55000000, struct.pack(f"<{len(kids)}I", *kids) + bytes(64))
+    for n, (address, words) in enumerate(zip(kids, on_screen)):
+        obj = bytearray(0x400)
+        obj[0x40:0x48] = struct.pack("<ff", 0.3, 0.2 - 0.04 * n)
+        obj[0x100:0x100 + 144] = pack_rgl_string(address + 0x100, words)
+        obj[0x1ac:0x1b4] = struct.pack("<ff", 0.4, 0.03)
+        mem.write(address, obj)
+    mem.write(OPEN, struct.pack("<IIII", 0x43000000, 8, 0, 1))
+    mem.write(0x43000000, struct.pack("<8I", 0x43001000, *[0] * 7))
+    mem.write(0x43001000, struct.pack("<4i", 12, 0, 0, 0))
+    return mem
+
+
+def test_conversation_found_read_and_answered():
+    from mbaccess import conversation as conv
+    replies = ["I want to trade.", "Farewell."]
+    mem = make_conversation("Good day, {playername}. ^What brings you here?",
+                            replies, ["Good day.", "Farewell.", "I want to trade."])
+    text_at = conv.find(mem, "skl_trade", whole_memory=True)
+    assert text_at == conv.speaker_text_from_skill_id(0x50000000)
+    screen = dict(SCREEN, classes={"0x777": "root"},
+                  windows={"12": {"conversation": True}},
+                  party_skills={"troops": 0, "troop_size": 0x100})
+    said, clicks = [], []
+    talk = conv.Conversation(Reader(mem), {"speaker_text": text_at})
+    w = MenuWatcher(Reader(mem), GAME, {}, [], said.append, screen=screen,
+                    mouse=FakeMouse(clicks), conversation=talk)
+    w.poll()
+    assert said == ["Ramun: Good day, . What brings you here? I want to trade., 2 of 3."]
+    w.poll([keys.UP])
+    assert said[-1] == "Ramun: Good day, .\nWhat brings you here?, 1 of 3"
+    w.poll([keys.END, keys.RETURN])
+    assert clicks == [pytest.approx((0.3 + 0.2, 0.16 + 0.015))]
+    assert w.help_group() == "Conversations"

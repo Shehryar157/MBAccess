@@ -35,6 +35,11 @@ GROUPS = [
          "settings, then the screen's own buttons. Press a game tab to switch to it, "
          "as a sighted player clicks it. Escape closes Options as usual.", None),
     ]),
+    ("Conversations", [
+        ("What's said to you is read with the person's name, then your first reply.", None),
+        ("Up and Down arrows: your replies. Up from the first reply reads the line again.", None),
+        ("Enter: say the reply.", None),
+    ]),
     ("Inventory", [
         ("Up and Down arrows: move through the equipment slots, your bag "
          "and the other side's items. Each cell reads its item and price, or empty.", None),

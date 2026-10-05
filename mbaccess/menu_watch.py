@@ -12,6 +12,9 @@ says how to read each window number:
   18). Game menus also have "menu_text", read from the campaign object.
 - "tree": walk the window's whole widget tree (form.py), for screens with
   labels, checkboxes, spinners and sliders.
+- "conversation": the line said to you and your replies, read from the
+  engine's conversation manager (conversation.py); the replies' widgets
+  are found by their text, to click them.
 
 The game is mouse-only, so we keep our own cursor: Up/Down/Home/End move it,
 Enter or Space presses, Left/Right change spinners and sliders, Shift+Enter
@@ -47,8 +50,9 @@ ACTION_KEYS = {keys.RETURN: "activate", keys.SPACE: "activate",
 
 class MenuWatcher:
     def __init__(self, reader, game_address, offsets, menus, say, screen=None, mouse=None,
-                 page=None, settings=None, party_skills=None):
+                 page=None, settings=None, party_skills=None, conversation=None):
         self.reader = reader
+        self.conversation = conversation   # conversation.Conversation, once found
         self.party_skills = party_skills   # party_skills.PartySkills, if the profile has it
         self.skills = []                   # the module's skills (modfiles.Skill)
         self.page = page             # the Accessibility tab (access_page.AccessPage), if any
@@ -154,6 +158,8 @@ class MenuWatcher:
         # Windows we haven't described get the tree reader: any screen built
         # from known widget kinds then reads without extra work.
         config = self.windows.get(top, {"tree": True})
+        if config.get("conversation") and self.conversation:
+            return self.read_conversation(top, config)
         if config.get("tree"):
             items = self.tree.items(self.root(top), config.get("scroll_top", SCROLL_TOP),
                                     config.get("layout"))
@@ -176,6 +182,28 @@ class MenuWatcher:
                 return None
             number, body = self.read_state()
         return (top, number, body, key), items, config
+
+    def read_conversation(self, top, config):
+        """The line said to you first, then your replies; the cursor starts
+        on the first reply. A reply we can't find on screen is still read
+        out, but Enter can't press it."""
+        c = self.conversation
+        line, replies = c.line(), c.options()
+        if not (line or replies):
+            return None
+        who = c.partner_name(self.game, self.screen.get("party_skills"))
+        body = f"{who}: {line}" if who and line else line
+        places = self.tree.texts(self.root(top))
+        items = [Item("text", body, 0, 1)] if body else []
+        for words in replies:
+            p = places.get(words)
+            if p:
+                x, y = self.tree.position(p)
+                items.append(Item("option", words, x, y, click=self.tree.middle(p), widget=p))
+            else:
+                items.append(Item("text", words, 0, 0, group="reply"))
+        config = dict(config, start=1 if body and replies else 0)
+        return (top, None, body, tuple(replies)), items, config
 
     def with_access_tab(self, items, key, config):
         """On an Options screen, add our Accessibility tab after the game's
@@ -234,6 +262,12 @@ class MenuWatcher:
         """Is the screen showing item cells? (Picks the help's starting group.)"""
         return any(i.kind == "slot" for i in self.options)
 
+    def help_group(self):
+        """Which part of the F9 help fits the screen we're on."""
+        if self.on_inventory():
+            return "Inventory"
+        return "Conversations" if self.config.get("conversation") else "Menus and screens"
+
     def option_text(self):
         return f"{self.options[self.cursor].spoken()}, {self.cursor + 1} of {len(self.options)}"
 
@@ -286,6 +320,8 @@ class MenuWatcher:
         instead of starting over."""
         if not (self.last and self.options and state[0] == self.last[0]):
             return False
+        if state[2] != self.last[2]:
+            return False    # new text on the same window: a new menu or line said
         if ("accessibility",) in (state[3], self.last[3]):
             return False    # into or out of the Accessibility tab: read the page
 
@@ -442,6 +478,9 @@ class MenuWatcher:
         if item.kind == "tab" and self.page and self.page.open and key == "activate":
             self.page.open = False       # back to the game's own tab
         action = item.action(key)
+        if action is None and item.group == "reply" and key == "activate":
+            self.say("Can't find that reply on the screen.")
+            return
         if action is None or self.mouse is None:
             return
         if not item.visible():

@@ -163,6 +163,26 @@ class TreeReader:
             return None, []
         return name, list(struct.unpack(f"<{(end - start) // 4}I", self.r.read(start, end - start)))
 
+    def texts(self, root):
+        """{text: widget} for every visible widget with text, whatever its
+        class: for finding where a known text (a conversation reply) sits."""
+        found, stack, seen = {}, [root], set()
+        while stack:
+            p = stack.pop()
+            if p in seen or p < 0x10000 or len(seen) > 2000:
+                continue
+            seen.add(p)
+            try:
+                if self.hidden(p):
+                    continue
+                words = self.text(p)
+                if words and words not in found:
+                    found[words] = p
+            except ReadError:
+                pass                # no text there; its children may have some
+            stack.extend(reversed(self.children(p)[1]))
+        return found
+
     # --- the walk --------------------------------------------------------
 
     def items(self, root, scroll_top, layout=None):
