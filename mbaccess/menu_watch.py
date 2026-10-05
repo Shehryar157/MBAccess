@@ -184,11 +184,12 @@ class MenuWatcher:
             self.last, self.options, self.pending = None, [], None
             return
         state, items, config = found
-        if state != self.last:
+        if state != self.last and not self.same_screen(state, items):
             self.last, self.pending = state, None
             self.options, self.cursor = items, 0
             self.say(self.describe(state[1], state[2], config))
             return
+        self.last = state
         # Same screen: a value may have changed (we ticked a box, moved a slider).
         old = self.options[self.cursor] if self.options else None
         self.options = items
@@ -206,6 +207,15 @@ class MenuWatcher:
             self.pending = None
             self.act(key, tries)
         self.handle_keys(pressed)
+
+    def same_screen(self, state, items):
+        """The same window still showing the item we're on: the screen only
+        grew or shrank (spending a skill point adds a button). Keep our place
+        instead of starting over."""
+        if not (self.last and self.options and state[0] == self.last[0]):
+            return False
+        here = self.options[self.cursor].widget
+        return bool(here) and any(i.widget == here for i in items)
 
     def handle_keys(self, pressed):
         if not self.options:
@@ -243,6 +253,7 @@ class MenuWatcher:
                 self.pending = (key, tries + 1)
             return
         if action[0] == "click":
-            self.mouse.click(*action[1:])
+            # Menu options get a quick click (see click.click).
+            self.mouse.click(*action[1:], hold=0 if item.kind == "option" else 0.08)
         else:
             self.mouse.drag(*action[1:])

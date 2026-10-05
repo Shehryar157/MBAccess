@@ -104,7 +104,7 @@ class FakeMouse:
     def hover(self, x, y):
         pass
 
-    def click(self, x, y):
+    def click(self, x, y, hold=0.08):
         self.clicks.append((x, y))
 
 WINDOWS = 0x40000000   # pretend game_windows[32] array

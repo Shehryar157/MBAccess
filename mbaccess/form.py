@@ -44,6 +44,7 @@ class Item:
     scroll: tuple = None         # (bottom, top) of the scroll area it's in, if any
     widget: int = 0              # its address in the game's memory
     disabled: bool = False       # greyed out: shown but can't be used
+    raise_at: tuple = None       # (x, y) of its "+" button, if it has one
 
     def spoken(self):
         words = self.label
@@ -53,6 +54,8 @@ class Item:
             words = f"{words} {self.value}" if words.endswith(":") else f"{words}, {self.value}"
         role = ROLE.get(self.kind)   # menu "option"s and plain text have no role
         words = f"{words}, {role}" if role else words
+        if self.raise_at:
+            words += ", can raise"
         return f"{words}, unavailable" if self.disabled else words
 
     def visible(self):
@@ -65,6 +68,8 @@ class Item:
         """The mouse action for a key name, or None. Actions are tuples:
         ("click", x, y) or ("drag", from_x, to_x, y)."""
         y = self.y + self.click[1]
+        if key == "right" and self.raise_at:
+            return ("click",) + self.raise_at
         if key == "activate" and self.kind in ("option", "button", "tab", "checkbox"):
             return ("click", self.x + self.click[0], y)
         if key in ("left", "right") and self.kind == "spinner" and len(self.arrows) == 2:
@@ -159,6 +164,13 @@ class TreeReader:
         self.key = tuple(sorted(i.widget for i in found))
         if layout:
             found = arrange(found, layout)
+            if "columns" in layout:
+                # Read each column (split at these x limits) top to bottom.
+                limits = layout["columns"] + [99]
+                column = lambda i: next(n for n, x in enumerate(limits) if i.x < x)
+                return [item for n in range(len(limits))
+                        for item in rows([i for i in found if column(i) == n],
+                                         layout.get("by_columns", True))]
             return rows(found, layout.get("by_columns", True))
         return rows(found)
 
@@ -177,6 +189,8 @@ class TreeReader:
                     images.append(self.position(k)[0])
             except ReadError:
                 continue
+        if kind in ("button", "tab"):
+            item.click = (0.07, 0.02)   # buttons react from x+0 to +0.14, y+0.01 to +0.03
         if kind == "checkbox":
             item.label = item.label or " ".join(texts)
             item.value = "checked" if self.r.u32(p + CHECKED) else "not checked"
@@ -224,6 +238,7 @@ def rows(found, by_columns=True):
 
     for group in groups:
         group.sort(key=lambda i: i.x)
+        group = attach_plus(group)
         controls = [i for i in group if i.kind != "text"]
         # The half-full last row of a two-column list ("Select Order 2")
         # still belongs to the list if it lines up with one of its columns.
@@ -272,6 +287,7 @@ def single(group, control):
         # the range, so keep the percentage as the value.
         before = before[:1]
     elif after:   # e.g. the "71" printed after the battle size slider
+        control.label = control.label or control.value   # a picture button keeps its text
         control.value = " ".join(after)
     if before:
         control.label = " ".join(before + ([control.label] if control.label else []))
@@ -309,3 +325,25 @@ def arrange(found, layout):
                     i.label = f"{side} {i.label}".strip()
                 break
     return found
+
+def attach_plus(group):
+    """A "+" button belongs to the nearest control on its left in the row
+    (character screen: "Ironflesh  0  +"). It becomes that control's Right
+    arrow action, and the text between them (the level) becomes its value."""
+    plus = [i for i in group if i.kind == "button" and (i.value or i.label) == "+"]
+    if not plus:
+        return group
+    drop = set()
+    for p in plus:
+        owners = [c for c in group if c.kind != "text" and c not in plus and c.x < p.x]
+        if not owners:
+            continue
+        owner = max(owners, key=lambda c: c.x)
+        between = [t for t in group if t.kind == "text" and owner.x < t.x < p.x]
+        if between:
+            owner.label = owner.label or owner.value   # a picture button keeps its text
+            owner.value = " ".join(t.label for t in between)
+            drop.update(id(t) for t in between)
+        owner.raise_at = (p.x + 0.008, p.y + 0.008)
+        drop.add(id(p))
+    return [i for i in group if id(i) not in drop]
