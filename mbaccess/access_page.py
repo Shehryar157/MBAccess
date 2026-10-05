@@ -3,10 +3,10 @@
 The game's Options screen has three tabs (General Options, Video Options,
 Controls) built into the engine, and we can't add a real one. So the menu
 reader adds "Accessibility" to the tab row it reads out. Pressing it doesn't
-click anything: the reader swaps the game's list for ours. The page lists
-only the tab row and our settings, never the game's own buttons (Done,
-Back...), because we don't read the game's widgets for it. The game's screen
-stays as it was underneath; pressing one of the real tabs goes back to it.
+click anything: the reader swaps the game tab's settings for ours. The page
+lists the tab row, our settings, then the screen's own buttons (Done...),
+which click the real ones. The game's screen stays as it was underneath;
+pressing one of the real tabs switches to it, as a click would.
 
 Items here are ordinary form.Item objects with a "virtual" name, so the
 reader speaks and moves through them like any other screen.
