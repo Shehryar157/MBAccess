@@ -85,7 +85,7 @@ class Item:
         y = self.y + self.click[1]
         if key == "right" and self.raise_at:
             return ("click",) + self.raise_at
-        if key == "activate" and self.kind in ("option", "button", "tab", "checkbox", "edit"):
+        if key == "activate" and self.kind in ("option", "button", "tab", "checkbox", "edit", "slot"):
             return ("click", self.x + self.click[0], y)
         if key in ("left", "right") and self.kind == "spinner" and len(self.arrows) == 2:
             return ("click", self.arrows[key == "right"] + 0.01, self.y + 0.015)

@@ -11,6 +11,8 @@
     "game_windows": 14523120,
     "open_windows": 14523264,
     "tooltip": 8835376,
+    "item_kinds": 9143636,
+    "item_kind_size": 3128,
     "widget_text": 504,
     "widget_position": 412,
     "widget_flags": 444,
@@ -23,7 +25,7 @@
       "16": {"name": "Load game", "tree": true},
       "11": {"name": "Character", "tree": true, "layout": {"columns": [0.3, 0.69]}},
       "8": {"name": "Party", "tree": true, "layout": {"columns": [0.34, 0.66]}},
-      "7": {"name": "Inventory", "tree": true, "tooltip": true, "layout": {
+      "7": {"name": "Inventory", "tree": true, "tooltip": true, "held": 2992, "layout": {
         "columns": [0.34, 0.54, 0.66], "by_columns": false,
         "slot_names": [[0.451, 0.605, "Head"], [0.451, 0.517, "Body"], [0.451, 0.429, "Feet"],
                        [0.363, 0.517, "Hands"], [0.363, 0.317, "Horse"],

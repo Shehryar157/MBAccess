@@ -38,6 +38,7 @@ MAX_SCROLL_TRIES = 20
 PICK_MARGIN = 0.01    # a drop-down row lower than this is off the bottom of the screen
 PICK_WAIT = 0.3       # seconds for a drop-down list to open
 TIP_LINES, TIP_STRIDE = 12, 0x90   # tooltip: rgl::string lines
+HOLD_WAIT = 0.4       # seconds for a click on a cell to pick up or put down
 TIP_WAIT = 0.4        # seconds to wait for a tooltip before calling a cell empty
 ACTION_KEYS = {keys.RETURN: "activate", keys.SPACE: "activate",
                keys.LEFT: "left", keys.RIGHT: "right"}
@@ -62,6 +63,7 @@ class MenuWatcher:
         self.root_offsets = {}       # window number -> where its root widget is
         self.tip_wait = None         # (since, tooltip before, widget): waiting to speak a cell
         self.config = {}
+        self.hold_check = None       # (since, item held before): after clicking a cell
 
     def set_game(self, address, menus):
         """A campaign started or a save was loaded: the game object moved."""
@@ -218,6 +220,8 @@ class MenuWatcher:
                 self.say(new.value or "blank")
         if self.tip_wait:
             self.check_tooltip()
+        if self.hold_check:
+            self.check_held()
         if self.pending:
             key, tries = self.pending
             self.pending = None
@@ -260,6 +264,45 @@ class MenuWatcher:
         if self.mouse is not None and item.kind != "text" and item.visible():
             self.mouse.hover(item.x + item.click[0], item.y + item.click[1])
 
+    # --- carrying items (inventory) --------------------------------------
+    # The game picks an item up on one click and puts it down on the next.
+    # The inventory window says whether something is on the mouse (+held)
+    # and which item kind (+held+4, -1 for none); names come from the
+    # game's item table, one record of item_kind_size bytes per kind.
+
+    def held(self):
+        """Item kind number on the mouse, or None."""
+        window = self.window(self.top_window())
+        offset = self.config["held"]
+        if not self.reader.i32(window + offset):
+            return None
+        return self.reader.i32(window + offset + 4)
+
+    def item_name(self, kind):
+        table = self.reader.ptr(self.screen["item_kinds"])
+        count = self.reader.i32(self.screen["item_kinds"] + 4)
+        if kind is None or not 0 <= kind < count:
+            return "something"
+        return text_mod.clean(self.reader.rgl_string(table + kind * self.screen["item_kind_size"]))
+
+    def check_held(self):
+        started, before = self.hold_check
+        now = self.held()
+        if now == before and time.time() - started < HOLD_WAIT:
+            return
+        self.hold_check = None
+        if now == before:
+            # Still the same: the cell refused it (a fish isn't a helmet),
+            # or an empty cell was clicked with nothing held.
+            self.say(f"can't put {self.item_name(before)} there" if before is not None
+                     else "nothing to pick up")
+        elif before is None:
+            self.say(f"picked up {self.item_name(now)}")
+        elif now is None:
+            self.say(f"put down {self.item_name(before)}")
+        else:
+            self.say(f"put down {self.item_name(before)}, picked up {self.item_name(now)}")
+
     # --- tooltips (inventory cells) --------------------------------------
 
     def tooltip(self):
@@ -286,6 +329,9 @@ class MenuWatcher:
             self.tip_wait = (time.time(), None, item.widget)   # hover once it's in view
             return
         before = self.tooltip()
+        # A nudge first: if the mouse is already on this spot, moving "there"
+        # isn't a movement, and the game only updates its tooltip on one.
+        self.mouse.hover(item.x + item.click[0] + 0.005, item.y + item.click[1] + 0.005)
         self.hover()
         self.tip_wait = (time.time(), before, item.widget)
 
@@ -345,6 +391,8 @@ class MenuWatcher:
             self.mouse.click(row_x, row_y)
             return
         if action[0] == "click":
+            if item.kind == "slot" and "held" in self.config:
+                self.hold_check = (time.time(), self.held())
             # Menu options get a quick click (see click.click).
             self.mouse.click(*action[1:], hold=0 if item.kind == "option" else 0.08)
         else:

@@ -42,7 +42,7 @@ def click(hwnd, x, y, hold=0.08):
     _user32.mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
 
 
-def drag(hwnd, from_x, to_x, y, steps=8):
+def drag(hwnd, from_x, to_x, y, steps=8, to_y=None):
     """Hold the button on a slider's handle and slide it sideways.
 
     The game ignores clicks on a slider's track; it only follows the handle
@@ -53,7 +53,7 @@ def drag(hwnd, from_x, to_x, y, steps=8):
     _user32.mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
     for i in range(1, steps + 1):
         time.sleep(0.02)
-        move(hwnd, from_x + (to_x - from_x) * i / steps, y)
+        move(hwnd, from_x + (to_x - from_x) * i / steps, y + (to_y - y) * i / steps)
     time.sleep(0.03)
     _user32.mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
 
@@ -84,8 +84,8 @@ class Mouse:
     def click(self, x, y, hold=0.08):
         self._do(click, x, y, hold)
 
-    def drag(self, from_x, to_x, y):
-        self._do(drag, from_x, to_x, y)
+    def drag(self, from_x, to_x, y, to_y=None):
+        self._do(drag, from_x, to_x, y, 8, to_y)
 
     def wheel(self, x, y, notches):
         self._do(wheel, x, y, notches)

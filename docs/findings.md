@@ -126,3 +126,11 @@ Nothing verified in memory yet. Try the same techniques: search for menu 0's tex
 - Character creation: Done stays disabled until all attribute AND skill points are spent (a name alone isn't enough). Worth saying why when it's unavailable.
 - tools/find_text.py "text": Ctrl+F over the game's memory (ASCII + UTF-16). tools/shot.py: screenshot. tools/drive.py "item" key count: press any key on an item.
 - The auto-started mod (pythonw run.py --with-game) runs alongside test tools; it only reacts to real key presses while the game is in front.
+
+## Inventory (Warband 1.174, VERIFIED 2026-10-05, session 4)
+
+- Window 7 = inventory; its root is at +0xa7c (found by the root search). Cells are class **0x817964** ("slot"), 0.088 square (size at +0x1ac). Containers: "inv" = equipment (x 0.451: Head 0.605, Body 0.517, Feet 0.429; x 0.363: Hands 0.517, Horse 0.317; x 0.552: weapons 0.605 down to 0.341), "int" in "int_s" = the player's 3x10 grid (scrolls; int_s y 0.099 + height 0.598), "nt" in "nt_s" = the other side's 3x3 grid (Discard, or a merchant). A cell widget holds NO item number.
+- **Tooltip**: one global, rgl::string lines 0x90 apart at **0x86d130** (exe .data, stable). All lines blank when nothing is hovered. It updates within a frame of the mouse moving, but: leaving an item blanks it for a frame first; it only updates on a real movement (nudge first if the mouse is already there); it doesn't show while the game window is in the background. Lines: name, (condition e.g. 29 / 29), Sell price, Weight, stats, requirements.
+- **Moving items**: one click picks up, the next click puts down (a release at another cell after holding the button does NOT drop it). window+**0xbb0** = 1 while something is on the mouse, **+0xbb4** = its item kind number (-1 for none). A refused drop (fish on Head) leaves it held.
+- **Item kinds**: global **0x8b8554** -> item 0's name (rgl::string at the record start), 0x8b8558 = count (620 in Native). Record size **0xc38**. 0 INVALID ITEM, 1 Spear, 82 Rhetorica ad Herennium, 110 Smoked Fish, 143 Saddle Horse, 555 Hunting Crossbow. Names are the base names (no "Swaybacked").
+- Scroll boxes: any container named "*_s" or "*_vs" scrolls; visible range = its y to y + height (+0x1b0). Visibility is judged at the click spot, not the corner (a cell can poke in with its middle hidden).
