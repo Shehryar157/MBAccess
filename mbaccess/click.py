@@ -11,6 +11,7 @@ from ctypes import wintypes
 
 _user32 = ctypes.WinDLL("user32")
 MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP, MOUSEEVENTF_WHEEL = 0x0002, 0x0004, 0x0800
+MOUSEEVENTF_RIGHTDOWN, MOUSEEVENTF_RIGHTUP = 0x0008, 0x0010
 WHEEL_DELTA = 120  # one notch
 SCREEN_HEIGHT = 0.75
 
@@ -29,17 +30,19 @@ def move(hwnd, x, y):
     _user32.SetCursorPos(point.x, point.y)
 
 
-def click(hwnd, x, y, hold=0.08):
+def click(hwnd, x, y, hold=0.08, right=False):
     """Script-built screens (Custom Battle) miss quick clicks, so by default
     we hover a moment and hold the button like a person would. Game menus
     act as soon as the button goes down and show the next menu at once, so
     a held click would also press whatever appears under the mouse: they
     use a short hold."""
+    down, up = ((MOUSEEVENTF_RIGHTDOWN, MOUSEEVENTF_RIGHTUP) if right
+                else (MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP))
     move(hwnd, x, y)
     time.sleep(0.1 if hold else 0.03)
-    _user32.mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
+    _user32.mouse_event(down, 0, 0, 0, 0)
     time.sleep(hold or 0.03)
-    _user32.mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
+    _user32.mouse_event(up, 0, 0, 0, 0)
 
 
 def drag(hwnd, from_x, to_x, y, steps=8):
@@ -81,8 +84,8 @@ class Mouse:
     def hover(self, x, y):
         self._do(move, x, y)
 
-    def click(self, x, y, hold=0.08):
-        self._do(click, x, y, hold)
+    def click(self, x, y, hold=0.08, right=False):
+        self._do(click, x, y, hold, right)
 
     def drag(self, from_x, to_x, y):
         self._do(drag, from_x, to_x, y)

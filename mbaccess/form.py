@@ -81,12 +81,15 @@ class Item:
 
     def action(self, key):
         """The mouse action for a key name, or None. Actions are tuples:
-        ("click", x, y) or ("drag", from_x, to_x, y)."""
+        ("click", x, y), ("right click", x, y) or ("drag", from_x, to_x, y)."""
         y = self.y + self.click[1]
         if key == "right" and self.raise_at:
             return ("click",) + self.raise_at
         if key == "activate" and self.kind in ("option", "button", "tab", "checkbox", "edit", "slot"):
             return ("click", self.x + self.click[0], y)
+        if key == "special" and self.kind == "slot":
+            # The item's one special action: read a book, slaughter livestock.
+            return ("right click", self.x + self.click[0], y)
         if key in ("left", "right") and self.kind == "spinner" and len(self.arrows) == 2:
             return ("click", self.arrows[key == "right"] + 0.01, self.y + 0.015)
         if key in ("left", "right") and self.kind == "dropdown" and self.choices:

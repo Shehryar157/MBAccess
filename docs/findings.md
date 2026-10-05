@@ -134,3 +134,8 @@ Nothing verified in memory yet. Try the same techniques: search for menu 0's tex
 - **Moving items**: one click picks up, the next click puts down (a release at another cell after holding the button does NOT drop it). window+**0xbb0** = 1 while something is on the mouse, **+0xbb4** = its item kind number (-1 for none). A refused drop (fish on Head) leaves it held.
 - **Item kinds**: global **0x8b8554** -> item 0's name (rgl::string at the record start), 0x8b8558 = count (620 in Native). Record size **0xc38**. 0 INVALID ITEM, 1 Spear, 82 Rhetorica ad Herennium, 110 Smoked Fish, 143 Saddle Horse, 555 Hunting Crossbow. Names are the base names (no "Swaybacked").
 - Scroll boxes: any container named "*_s" or "*_vs" scrolls; visible range = its y to y + height (+0x1b0). Visibility is judged at the click spot, not the corner (a cell can poke in with its middle hidden).
+
+## Item actions and F1 help (session 5, 2026-10-05, untested in game)
+
+- Item actions, from ui.csv/hints.csv: left click picks up and puts down (equip, discard via the "Discard" 3x3 grid, loot, trade); Ctrl+click = quick buy/sell; right click = the item's ONE special action (books: read; livestock: "Slaughter this %s and eat it?"). Food and drink are never used by hand. Mod: Shift+Enter right-clicks a cell. Ctrl+click not mapped yet.
+- F1 help (mbaccess/help.py), like FFC's: groups by screen, starts on Inventory when the screen has slots. We can't hide keys from the game: Escape closes the help AND reaches the game. In battles F1 is the game's order key (conflict to solve later).

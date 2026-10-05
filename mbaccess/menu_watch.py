@@ -14,7 +14,8 @@ says how to read each window number:
   labels, checkboxes, spinners and sliders.
 
 The game is mouse-only, so we keep our own cursor: Up/Down/Home/End move it,
-Enter or Space presses, Left/Right change spinners and sliders, and we move
+Enter or Space presses, Left/Right change spinners and sliders, Shift+Enter
+right-clicks (an item's special action, like reading a book), and we move
 the real mouse to do it. Rows scrolled out of view are still readable (the
 memory has them); before pressing one, we turn the mouse wheel until it's
 in view.
@@ -182,6 +183,10 @@ class MenuWatcher:
                 parts.append("Options: " + "; ".join(o for o in options if o))
         return text_mod.spoken(config.get("name", ""), *parts)
 
+    def on_inventory(self):
+        """Is the screen showing item cells? (Picks the help's starting group.)"""
+        return any(i.kind == "slot" for i in self.options)
+
     def option_text(self):
         return f"{self.options[self.cursor].spoken()}, {self.cursor + 1} of {len(self.options)}"
 
@@ -252,6 +257,8 @@ class MenuWatcher:
                     self.tip_wait = None
                     self.say(self.option_text())
                     self.hover()
+            elif key == keys.RETURN and keys.is_down(keys.SHIFT):
+                self.act("special")
             elif key in ACTION_KEYS:
                 if key == keys.SPACE and self.options[self.cursor].kind == "edit":
                     continue    # a space typed into the box, not a press
@@ -389,6 +396,9 @@ class MenuWatcher:
             self.mouse.click(open_x, open_y)
             time.sleep(PICK_WAIT)          # the list takes a moment to open
             self.mouse.click(row_x, row_y)
+            return
+        if action[0] == "right click":
+            self.mouse.click(*action[1:], right=True)
             return
         if action[0] == "click":
             if item.kind == "slot" and "held" in self.config:

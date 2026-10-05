@@ -9,7 +9,7 @@ import os
 import sys
 import time
 
-from mbaccess import click, keys, launcher, process, session, speech
+from mbaccess import click, help, keys, launcher, process, session, speech
 from mbaccess.mem import Reader
 from mbaccess.menu_watch import MenuWatcher
 
@@ -49,6 +49,7 @@ def play_session(game):
         return window["hwnd"]
 
     key_watch = keys.KeyWatcher(game_window)
+    helper = help.Help(speech.say)
 
     # The main menu needs no campaign, so the watcher starts without one;
     # set_game hands it the campaign object once there is one.
@@ -72,7 +73,13 @@ def play_session(game):
                 if not watcher.enabled:
                     speech.say("Menu reading isn't set up for this game version yet. "
                                "Run the discovery tool once.")
-        watcher.poll(key_watch.pressed())
+        pressed = key_watch.pressed()
+        if helper.handle_keys(pressed):
+            pressed = ()             # the help has the keys while it's open
+        elif keys.F1 in pressed:
+            helper.show("Inventory" if watcher.on_inventory() else "Menus and screens")
+            pressed = ()
+        watcher.poll(pressed)
         time.sleep(POLL_SECONDS)
 
 

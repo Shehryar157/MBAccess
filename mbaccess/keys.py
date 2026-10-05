@@ -12,7 +12,15 @@ _user32 = ctypes.WinDLL("user32")
 
 UP, DOWN, RETURN, HOME, END = 0x26, 0x28, 0x0D, 0x24, 0x23
 LEFT, RIGHT, SPACE = 0x25, 0x27, 0x20
-ALL = (UP, DOWN, RETURN, HOME, END, LEFT, RIGHT, SPACE)
+F1, ESCAPE = 0x70, 0x1B
+SHIFT, CONTROL = 0x10, 0x11   # either side's key
+ALL = (UP, DOWN, RETURN, HOME, END, LEFT, RIGHT, SPACE, F1, ESCAPE)
+
+
+def is_down(vk):
+    """Is this key held right now? For modifiers: Shift+Enter is an Enter
+    that went down while is_down(SHIFT) is true."""
+    return bool(_user32.GetAsyncKeyState(vk) & 0x8000)
 
 
 class KeyWatcher:
@@ -27,7 +35,7 @@ class KeyWatcher:
         if not hwnd or _user32.GetForegroundWindow() != hwnd:
             self.down.clear()
             return []
-        now = {k for k in self.keys if _user32.GetAsyncKeyState(k) & 0x8000}
+        now = {k for k in self.keys if is_down(k)}
         new = [k for k in self.keys if k in now and k not in self.down]
         self.down = now
         return new
