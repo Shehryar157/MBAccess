@@ -18,7 +18,9 @@ text): 156 bytes. Nothing in the manager is easy to search for, but the
 skill table right after it is: skills[0]'s id is the module's first skill
 ("skl_trade" in Native). So we find that string and step back.
 
-These are the 1.153 headers; NOT yet verified on 1.174. Which option array
+The 1.174 port of WSE (kumpuu/WSE, see docs/research.md) has the same
+conversation_manager, and the same fields from face_generator to skills, but
+it's NOT yet verified in the live game. Which option array
 holds your replies isn't known either: tools/probe_conversation.py prints
 both during a conversation, and the profile's screen["conversation"]
 records the answer ("options": "speaker" or "partner").

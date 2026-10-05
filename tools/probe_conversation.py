@@ -54,7 +54,7 @@ def main():
         text_at = conv.find(game, first, whole_memory=True)
     if text_at is None:
         print(f"No {first!r} skill id with a plausible conversation manager before it.")
-        print("The 1.174 layout may differ from the 1.153 headers: tell Claude, with this output.")
+        print("The live layout may differ from the WSE headers: tell Claude, with this output.")
         return
     count = r.i32(text_at + conv.NUM_OPTIONS)
     print(f"speaker_text at {text_at:#x}: {r.rgl_string(text_at)!r}")

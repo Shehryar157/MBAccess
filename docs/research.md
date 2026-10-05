@@ -25,6 +25,12 @@ last, real battles.
   License: WTFPL, so we can reuse it freely. `WarbandLib/` maps the engine's internal
   structures for Warband 1.153. WFS is an older sibling, so field layouts should be close but
   NOT identical, and every address will differ. Treat it as a map, not as ground truth.
+- `reference/wse174`: kumpuu/WSE, the same WSE ported to **Warband 1.174** (our version).
+  Clone it with `git clone https://github.com/kumpuu/WSE reference/wse174`. Prefer it over
+  `reference/wse`: game_data.h has 1.174 padding fixes, and `wb_addresses.cpp` has 1.174
+  addresses (the WARBAND_VANILLA block; its loader says the Steam 1.174 exe has the same CRC).
+  Only the structures WSE itself uses were re-checked: troop.h still has the 1.153 layout,
+  while the live game has troop fields 4 bytes later (findings/screens.md). Still a map.
 - `reference/module_system`: the Warband 1.171 Module System (Python), from
   int19h/mb_warband_module_system. It shows how menus, dialogue, troops and so on are defined
   and compiled into the .txt files.
