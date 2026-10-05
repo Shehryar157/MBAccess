@@ -104,3 +104,13 @@ Nothing verified in memory yet. Try the same techniques: search for menu 0's tex
 - Scrolling: one wheel notch over the list moves it 0.062, and the positions in memory update (smooth animation: for a moment a label and its control can sit on different rows). Visible list area: from the "_vs" widget's y (0.05) to about 0.64.
 - Windows: 13 = Options (General), 14 = Video options, 15 = Controls. Each tab is its own window. Controls: two-column key list (x 0.23 and 0.58), keys are image widgets with text; Map Controls keys are plain text (not rebindable).
 - Code: mbaccess/form.py (TreeReader + rows pairing); a window with "tree": true in the profile uses it. Screen identity = sorted widget addresses (stable while a screen is open). Tools: tools/probe_tree.py <window>, tools/probe_widgets.py <window>.
+
+## More screens (Warband 1.174, VERIFIED 2026-10-05)
+
+- Screen numbers: 0 = tutorial message box, 1 = question box (save policy), 3 = loading screen (hint + progress), 11 = Character, 16 = Load game, 29 = Custom battle. Unlisted windows now default to the tree reader.
+- Root widget isn't always at +0x13c (Load game: +0xbf0). Search the window for a pointer to an object of class 0x8135c4 (root).
+- Flags bit 0x2 = disabled (greyed out), e.g. Load/Delete with no saves, Done on Character before a name.
+- Slider: +0x2bc value, +0x2c0 minimum, +0x2c4 maximum (Options 0-1, Custom battle 0-100 and 1-75).
+- Clicks: script-built screens (Custom battle) ignore a fast click; hover 0.1 s and hold 0.08 s. But game menus act on button DOWN and show the next menu at once, so a held click also presses the next menu's option under the mouse: menus need the fast click (hold 0.03). Buttons (0x812904) react from x+0 to x+0.14, y+0.01 to y+0.03.
+- Custom battle: headings ("Faction", "Army Size") sit about 0.3 left of the control below them (centred text?); the army-mix sliders are labelled by unreadable icons (class 0x812d6c; Infantry, Archers, Cavalry top to bottom). Handled by the profile "layout" (names, heading_offset, sides).
+- Character screen: skill names, attributes, proficiencies and "+" are image widgets with text; "+" sits right of its item on the same row (hidden when maxed). Name box = class 0x7c4eec (edit): click it, then key presses go to the game; its text is at the usual +0x1f8. Skill description container "characterskill_desc" shows the hovered skill's text (not spoken yet). "Reset Changes" button appears after spending a point.

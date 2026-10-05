@@ -16,9 +16,9 @@
     "windows": {
       "4": {"name": "Main menu", "buttons": 376, "slots": 8, "click": [0.15, 0.012]},
       "18": {"buttons": 376, "slots": 16, "menu_text": true, "click": [0.1, 0.02]},
-      "13": {"name": "Options", "tree": true},
-      "14": {"name": "Video options", "tree": true},
-      "15": {"name": "Controls", "tree": true},
+      "13": {"name": "Options", "tree": true, "selected_tab": "General Options"},
+      "14": {"name": "Video options", "tree": true, "selected_tab": "Video Options"},
+      "15": {"name": "Controls", "tree": true, "selected_tab": "Controls"},
       "16": {"name": "Load game", "tree": true},
       "11": {"name": "Character", "tree": true, "layout": {"columns": [0.3, 0.69]}},
       "29": {"name": "Custom battle", "tree": true, "layout": {
@@ -36,7 +36,8 @@
       "0x8144ec": "spinner",
       "0x812ae4": "slider",
       "0x7c4d04": "image",
-      "0x8135c4": "root"
+      "0x8135c4": "root",
+      "0x7c4eec": "edit"
     }
   }
 }

@@ -26,9 +26,9 @@ HIDDEN, DISABLED = 0x1, 0x2
 ROW = 0.012                      # widgets this close in height share a row
 SLIDER_WIDTH = 0.205             # the slider track, in screen units
 SLIDER_STEP = 0.05               # Left/Right move a slider by 5%
-CONTROLS = ("button", "tab", "checkbox", "spinner", "slider")
+CONTROLS = ("button", "tab", "checkbox", "spinner", "slider", "edit")
 ROLE = {"button": "button", "tab": "tab", "checkbox": "checkbox",
-        "spinner": "spinner", "slider": "slider"}
+        "spinner": "spinner", "slider": "slider", "edit": "edit box"}
 
 
 @dataclass
@@ -70,7 +70,7 @@ class Item:
         y = self.y + self.click[1]
         if key == "right" and self.raise_at:
             return ("click",) + self.raise_at
-        if key == "activate" and self.kind in ("option", "button", "tab", "checkbox"):
+        if key == "activate" and self.kind in ("option", "button", "tab", "checkbox", "edit"):
             return ("click", self.x + self.click[0], y)
         if key in ("left", "right") and self.kind == "spinner" and len(self.arrows) == 2:
             return ("click", self.arrows[key == "right"] + 0.01, self.y + 0.015)
@@ -189,6 +189,10 @@ class TreeReader:
                     images.append(self.position(k)[0])
             except ReadError:
                 continue
+        if kind == "edit":
+            # Its text is what you typed: a value, so typing is spoken as it changes.
+            item.label, item.value = "", item.label
+            item.click = (0.05, 0.015)
         if kind in ("button", "tab"):
             item.click = (0.07, 0.02)   # buttons react from x+0 to +0.14, y+0.01 to +0.03
         if kind == "checkbox":

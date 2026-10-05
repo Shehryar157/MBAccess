@@ -143,6 +143,9 @@ class MenuWatcher:
             items = self.tree.items(self.root(top), config.get("scroll_top", SCROLL_TOP),
                                     config.get("layout"))
             key = self.tree.key
+            for item in items:      # each Options tab is its own window
+                if item.kind == "tab" and item.label == config.get("selected_tab"):
+                    item.value = "selected"
             if not items:
                 return None     # nothing readable (e.g. the 3D scene)
         else:
@@ -201,7 +204,10 @@ class MenuWatcher:
         self.cursor = same[0] if same else min(self.cursor, len(items) - 1)
         new = items[self.cursor]
         if old and new.label == old.label and new.value != old.value:
-            self.say(new.value)
+            if new.kind == "edit" and new.value.startswith(old.value):
+                self.say(new.value[len(old.value):])   # echo what was typed
+            else:
+                self.say(new.value or "blank")
         if self.pending:
             key, tries = self.pending
             self.pending = None
@@ -229,6 +235,8 @@ class MenuWatcher:
                 self.say(self.option_text())
                 self.hover()
             elif key in ACTION_KEYS:
+                if key == keys.SPACE and self.options[self.cursor].kind == "edit":
+                    continue    # a space typed into the box, not a press
                 self.act(ACTION_KEYS[key])
 
     def hover(self):
