@@ -20,6 +20,7 @@ memory has them); before pressing one, we turn the mouse wheel until it's
 in view.
 """
 import struct
+import time
 
 from . import keys
 from . import text as text_mod
@@ -34,6 +35,8 @@ ROOT_SEARCH = 0x1000    # how far into a window to look for it otherwise
 SCROLL_TOP = 0.64       # top edge of a scrolling list (Options); bottom is read
 WHEEL_STEP = 0.062      # one wheel notch moves a list this far
 MAX_SCROLL_TRIES = 20
+PICK_MARGIN = 0.01    # a drop-down row lower than this is off the bottom of the screen
+PICK_WAIT = 0.3       # seconds for a drop-down list to open
 ACTION_KEYS = {keys.RETURN: "activate", keys.SPACE: "activate",
                keys.LEFT: "left", keys.RIGHT: "right"}
 
@@ -259,6 +262,21 @@ class MenuWatcher:
                 notches = -1 if item.y < bottom else 1   # negative = scroll down
                 self.mouse.wheel(item.x + item.click[0], (bottom + top) / 2, notches)
                 self.pending = (key, tries + 1)
+            return
+        if action[0] == "pick":
+            # Drop-down: open it, then click the choice's row in the list.
+            # A list near the bottom of the screen runs off it, so scroll
+            # the page up a notch first if the row would be off-screen.
+            open_x, open_y, row_x, row_y = action[1:]
+            if row_y < PICK_MARGIN:
+                if item.scroll and tries < MAX_SCROLL_TRIES:
+                    bottom, top = item.scroll
+                    self.mouse.wheel(open_x, (bottom + top) / 2, -1)
+                    self.pending = (key, tries + 1)
+                return
+            self.mouse.click(open_x, open_y)
+            time.sleep(PICK_WAIT)          # the list takes a moment to open
+            self.mouse.click(row_x, row_y)
             return
         if action[0] == "click":
             # Menu options get a quick click (see click.click).

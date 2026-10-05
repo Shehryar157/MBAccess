@@ -20,15 +20,20 @@ from . import text as text_mod
 from .mem import ReadError
 
 NAME, CHILDREN = 0x2d0, 0x364   # container name and child vector
-CHECKED = 0x2b0                  # checkbox: 1 when ticked
+SIZE = 0x1ac                     # width, height (floats); position is the bottom-left corner
+CHECKED = 0x2b0                 # checkbox: 1 when ticked
 SLIDER_VALUE = 0x2bc             # slider: value, then its minimum and maximum (floats)
 HIDDEN, DISABLED = 0x1, 0x2
 ROW = 0.012                      # widgets this close in height share a row
+FAR = 0.3                        # text further apart than this on a row is separate
 SLIDER_WIDTH = 0.205             # the slider track, in screen units
 SLIDER_STEP = 0.05               # Left/Right move a slider by 5%
-CONTROLS = ("button", "tab", "checkbox", "spinner", "slider", "edit")
+# Drop-down: its choices are an stl::vector of rgl::strings (0x90 bytes each),
+# the chosen index, and the height of one row of the open list.
+CHOICES, CHOSEN, LIST_ROW, RGL_STRING = 0x2e8, 0x2b0, 0x320, 0x90
+CONTROLS = ("button", "tab", "checkbox", "spinner", "slider", "edit", "dropdown")
 ROLE = {"button": "button", "tab": "tab", "checkbox": "checkbox",
-        "spinner": "spinner", "slider": "slider", "edit": "edit box"}
+        "spinner": "spinner", "slider": "slider", "edit": "edit box", "dropdown": "drop-down"}
 
 
 @dataclass
@@ -45,6 +50,9 @@ class Item:
     widget: int = 0              # its address in the game's memory
     disabled: bool = False       # greyed out: shown but can't be used
     raise_at: tuple = None       # (x, y) of its "+" button, if it has one
+    choices: tuple = ()          # drop-down: all its choices, in the game's order
+    chosen: int = 0              # drop-down: index of the current choice
+    list_row: float = 0.0        # drop-down: height of one row of the open list
 
     def spoken(self):
         words = self.label
@@ -74,6 +82,15 @@ class Item:
             return ("click", self.x + self.click[0], y)
         if key in ("left", "right") and self.kind == "spinner" and len(self.arrows) == 2:
             return ("click", self.arrows[key == "right"] + 0.01, self.y + 0.015)
+        if key in ("left", "right") and self.kind == "dropdown" and self.choices:
+            target = self.chosen + (1 if key == "right" else -1)
+            if not 0 <= target < len(self.choices):
+                return None
+            # The open list hangs below the box, last choice at the top
+            # ("Always, Melee only, Ranged only, Never").
+            row = len(self.choices) - 1 - target
+            return ("pick", self.x + self.click[0], y,
+                    self.x + self.click[0], self.y - (row + 0.5) * self.list_row)
         if key in ("left", "right") and self.kind == "slider":
             step = SLIDER_STEP if key == "right" else -SLIDER_STEP
             target = min(1.0, max(0.0, self.fraction + step))
@@ -94,6 +111,14 @@ class TreeReader:
 
     def position(self, p):
         return struct.unpack("<ff", self.r.read(p + self.s["widget_position"], 8))
+
+    def middle(self, p, default=(0.02, 0.01)):
+        """Where to click, relative to the widget's corner: the middle of its
+        size (+0x1ac, width and height), if it has a sensible one. Wide
+        picture buttons with centred text (the Esc menu's "Options") only
+        react near their text, far right of the corner."""
+        w, h = struct.unpack("<ff", self.r.read(p + SIZE, 8))
+        return (w / 2, h / 2) if 0.005 < w < 1 and 0.005 < h < 0.3 else default
 
     def hidden(self, p):
         return self.r.u32(p + self.s["widget_flags"]) & HIDDEN
@@ -151,7 +176,7 @@ class TreeReader:
                         if kind == "label":
                             found.append(Item("text", words, x, y, scroll=scroll, widget=p))
                         else:   # a picture button with text, e.g. a key binding "W"
-                            found.append(Item("button", "", x, y, value=words, click=(0.02, 0.01),
+                            found.append(Item("button", "", x, y, value=words, click=self.middle(p),
                                               scroll=scroll, widget=p, disabled=self.disabled(p)))
                 if name and name.endswith("_vs"):
                     # The list scrolls: its bottom edge is this widget's y.
@@ -202,6 +227,15 @@ class TreeReader:
         elif kind == "spinner":
             item.value = " ".join(texts)
             item.arrows = tuple(sorted(images)[:1] + sorted(images)[-1:]) if len(images) >= 2 else ()
+        elif kind == "dropdown":
+            start, end = struct.unpack("<II", self.r.read(p + CHOICES, 8))
+            if start and 0 < end - start <= 64 * RGL_STRING:
+                item.choices = tuple(text_mod.clean(self.r.rgl_string(a))
+                                     for a in range(start, end, RGL_STRING))
+            item.chosen = self.r.u32(p + CHOSEN)
+            item.list_row = struct.unpack("<f", self.r.read(p + LIST_ROW, 4))[0]
+            item.label, item.value = "", item.label   # its text is the current choice
+            item.click = self.middle(p)
         elif kind == "slider":
             value, low, high = struct.unpack("<3f", self.r.read(p + SLIDER_VALUE, 12))
             # Options sliders run 0-1, Custom Battle's 0-100 or 1-75.
@@ -251,9 +285,16 @@ def rows(found, by_columns=True):
         if not in_block:
             flush()
         if not controls:
-            first = group[0]
-            first.label = " ".join(i.label for i in group)
-            result.append(first)
+            # Text on one row is one line, unless it's far apart: headings of
+            # side-by-side panels ("Party Skills" ... "Company: 1 / 41").
+            line = group[0]
+            for i in group[1:]:
+                if i.x - line.x > FAR:
+                    result.append(line)
+                    line = i
+                else:
+                    line.label += " " + i.label
+            result.append(line)
             continue
         if len(controls) == 1 and not in_block:
             result.append(single(group, controls[0]))
@@ -279,7 +320,18 @@ def rows(found, by_columns=True):
             block.append(Item("text", " ".join(texts), group[-1].x, group[-1].y,
                               scroll=group[-1].scroll, widget=group[-1].widget))
     flush()
-    return result
+    # A drop-down with no label on its row is named by the heading just above
+    # it ("Overall Quality" over "Custom").
+    for n in range(len(result) - 1, 0, -1):
+        item, above = result[n], result[n - 1]
+        if item.kind == "dropdown" and not item.label and above.kind == "text" \
+                and 0 < above.y - item.y < 0.06:
+            item.label = above.label if above.label.endswith(":") else above.label + ":"
+            del result[n - 1]
+    # A heading and a label under it can hold the same words ("Party Skills").
+    return [i for n, i in enumerate(result)
+            if not (n and i.kind == "text" and result[n - 1].kind == "text"
+                    and i.label == result[n - 1].label)]
 
 
 def single(group, control):

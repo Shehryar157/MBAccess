@@ -21,6 +21,7 @@
       "15": {"name": "Controls", "tree": true, "selected_tab": "Controls"},
       "16": {"name": "Load game", "tree": true},
       "11": {"name": "Character", "tree": true, "layout": {"columns": [0.3, 0.69]}},
+      "8": {"name": "Party", "tree": true, "layout": {"columns": [0.34, 0.66]}},
       "29": {"name": "Custom battle", "tree": true, "layout": {
         "names": {"0.23": "Infantry", "0.19": "Archers", "0.15": "Cavalry"},
         "heading_offset": [0.2, 0.45],
@@ -29,7 +30,7 @@
     },
     "classes": {
       "0x7c4bac": "label",
-      "0x8134ac": "label",
+      "0x8134ac": "dropdown",
       "0x812904": "button",
       "0x81bac4": "tab",
       "0x819b7c": "checkbox",
