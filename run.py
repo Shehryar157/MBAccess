@@ -76,6 +76,10 @@ def play_session(game):
                     speech.say("Menu reading isn't set up for this game version yet. "
                                "Run the discovery tool once.")
         pressed = key_watch.pressed()
+        if keys.CONTROL in pressed:
+            # Stop talking, as NVDA does on Ctrl. NVDA and JAWS already do it
+            # themselves; this covers the Windows voice (SAPI) fallback.
+            speech.silence()
         if helper.handle_keys(pressed):
             pressed = ()             # the help has the keys while it's open
         elif keys.F9 in pressed:

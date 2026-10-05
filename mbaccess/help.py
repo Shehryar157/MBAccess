@@ -16,9 +16,10 @@ from . import keys
 GROUPS = [
     ("Anywhere", [
         ("F9: this help. F9 or Escape closes it.", None),
+        ("Control: stop speech, as in NVDA.", None),
     ]),
     ("Game messages", [
-        ("New messages are read as they appear.", None),
+        ("New messages are read as they appear, each waiting for the one before to finish.", None),
         ("Left and right brackets: previous or next message buffer: All, "
          "then one per category, such as Combat or Money and trade.", None),
         ("Semicolon and apostrophe: previous or next message in the buffer.", None),
