@@ -37,6 +37,8 @@ WHEEL_STEP = 0.062      # one wheel notch moves a list this far
 MAX_SCROLL_TRIES = 20
 PICK_MARGIN = 0.01    # a drop-down row lower than this is off the bottom of the screen
 PICK_WAIT = 0.3       # seconds for a drop-down list to open
+TIP_LINES, TIP_STRIDE = 12, 0x90   # tooltip: rgl::string lines
+TIP_WAIT = 0.4        # seconds to wait for a tooltip before calling a cell empty
 ACTION_KEYS = {keys.RETURN: "activate", keys.SPACE: "activate",
                keys.LEFT: "left", keys.RIGHT: "right"}
 
@@ -58,6 +60,8 @@ class MenuWatcher:
         self.cursor = 0
         self.pending = None          # (key, tries): an action waiting for scrolling
         self.root_offsets = {}       # window number -> where its root widget is
+        self.tip_wait = None         # (since, tooltip before, widget): waiting to speak a cell
+        self.config = {}
 
     def set_game(self, address, menus):
         """A campaign started or a save was loaded: the game object moved."""
@@ -190,6 +194,7 @@ class MenuWatcher:
             self.last, self.options, self.pending = None, [], None
             return
         state, items, config = found
+        self.config = config
         if state != self.last and not self.same_screen(state, items):
             self.last, self.pending = state, None
             self.options, self.cursor = items, 0
@@ -211,6 +216,8 @@ class MenuWatcher:
                 self.say(new.value[len(old.value):])   # echo what was typed
             else:
                 self.say(new.value or "blank")
+        if self.tip_wait:
+            self.check_tooltip()
         if self.pending:
             key, tries = self.pending
             self.pending = None
@@ -235,8 +242,12 @@ class MenuWatcher:
                 self.cursor = {keys.UP: (self.cursor - 1) % n, keys.DOWN: (self.cursor + 1) % n,
                                keys.HOME: 0, keys.END: n - 1}[key]
                 self.pending = None
-                self.say(self.option_text())
-                self.hover()
+                if self.wants_tooltip():
+                    self.ask_tooltip()      # spoken once the game shows what's there
+                else:
+                    self.tip_wait = None
+                    self.say(self.option_text())
+                    self.hover()
             elif key in ACTION_KEYS:
                 if key == keys.SPACE and self.options[self.cursor].kind == "edit":
                     continue    # a space typed into the box, not a press
@@ -249,6 +260,62 @@ class MenuWatcher:
         if self.mouse is not None and item.kind != "text" and item.visible():
             self.mouse.hover(item.x + item.click[0], item.y + item.click[1])
 
+    # --- tooltips (inventory cells) --------------------------------------
+
+    def tooltip(self):
+        """The game's one tooltip: up to TIP_LINES rgl::strings, 0x90 bytes
+        apart, at a fixed address. All blank when nothing is hovered."""
+        base = self.screen["tooltip"]
+        lines = (text_mod.clean(self.reader.rgl_string(base + n * TIP_STRIDE))
+                 for n in range(TIP_LINES))
+        return [line for line in lines if line]
+
+    def wants_tooltip(self):
+        item = self.options[self.cursor]
+        return (item.kind == "slot" and self.config.get("tooltip") and "tooltip" in self.screen
+                and self.mouse is not None)
+
+    def ask_tooltip(self):
+        """Hover a cell and wait for its tooltip; poll() speaks it. Cells
+        scrolled out of view get the wheel first, like a press would."""
+        item = self.options[self.cursor]
+        if not item.visible():
+            bottom, top = item.scroll
+            self.mouse.wheel(item.x + item.click[0], (bottom + top) / 2,
+                             item.wheel_notches())
+            self.tip_wait = (time.time(), None, item.widget)   # hover once it's in view
+            return
+        before = self.tooltip()
+        self.hover()
+        self.tip_wait = (time.time(), before, item.widget)
+
+    def check_tooltip(self):
+        started, before, widget = self.tip_wait
+        item = self.options[self.cursor]
+        if item.widget != widget:
+            self.tip_wait = None
+            return
+        if before is None:              # scrolling: a notch a tick until it's in view
+            if item.visible():
+                self.ask_tooltip()
+            elif time.time() - started > TIP_WAIT * 5:
+                self.tip_wait = None        # give up; it won't come into view
+            else:
+                bottom, top = item.scroll
+                self.mouse.wheel(item.x + item.click[0], (bottom + top) / 2,
+                                 item.wheel_notches())
+            return
+        lines = self.tooltip()
+        # Leaving an item blanks the tooltip for a frame or two before the
+        # next item's text appears, so only new, non-blank text is an answer
+        # before the wait is up. After it, blank means an empty cell, and the
+        # same text means the same kind of item.
+        if (not lines or lines == before) and time.time() - started < TIP_WAIT:
+            return
+        self.tip_wait = None
+        words = ". ".join(lines) if lines else "empty"
+        self.say(f"{item.label}: {words}, {self.cursor + 1} of {len(self.options)}")
+
     def act(self, key, tries=0):
         item = self.options[self.cursor]
         action = item.action(key)
@@ -259,8 +326,7 @@ class MenuWatcher:
             # next tick, once the game has moved the list.
             if tries < MAX_SCROLL_TRIES:
                 bottom, top = item.scroll
-                notches = -1 if item.y < bottom else 1   # negative = scroll down
-                self.mouse.wheel(item.x + item.click[0], (bottom + top) / 2, notches)
+                self.mouse.wheel(item.x + item.click[0], (bottom + top) / 2, item.wheel_notches())
                 self.pending = (key, tries + 1)
             return
         if action[0] == "pick":

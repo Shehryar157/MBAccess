@@ -31,7 +31,7 @@ SLIDER_STEP = 0.05               # Left/Right move a slider by 5%
 # Drop-down: its choices are an stl::vector of rgl::strings (0x90 bytes each),
 # the chosen index, and the height of one row of the open list.
 CHOICES, CHOSEN, LIST_ROW, RGL_STRING = 0x2e8, 0x2b0, 0x320, 0x90
-CONTROLS = ("button", "tab", "checkbox", "spinner", "slider", "edit", "dropdown")
+CONTROLS = ("button", "tab", "checkbox", "spinner", "slider", "edit", "dropdown", "slot")
 ROLE = {"button": "button", "tab": "tab", "checkbox": "checkbox",
         "spinner": "spinner", "slider": "slider", "edit": "edit box", "dropdown": "drop-down"}
 
@@ -53,6 +53,7 @@ class Item:
     choices: tuple = ()          # drop-down: all its choices, in the game's order
     chosen: int = 0              # drop-down: index of the current choice
     list_row: float = 0.0        # drop-down: height of one row of the open list
+    group: str = ""              # name of the container it's in, e.g. "inv" (equipment)
 
     def spoken(self):
         words = self.label
@@ -67,10 +68,16 @@ class Item:
         return f"{words}, unavailable" if self.disabled else words
 
     def visible(self):
+        """Is the spot we'd click inside its scroll area? (Its corner isn't
+        enough: a cell can poke in at the top with its middle hidden.)"""
         if self.scroll is None:
             return True
         bottom, top = self.scroll
-        return bottom <= self.y <= top
+        return bottom <= self.y + self.click[1] <= top
+
+    def wheel_notches(self):
+        """Which way to turn the wheel to bring it into view: -1 scrolls down."""
+        return -1 if self.y + self.click[1] < self.scroll[0] else 1
 
     def action(self, key):
         """The mouse action for a key name, or None. Actions are tuples:
@@ -155,9 +162,9 @@ class TreeReader:
     # --- the walk --------------------------------------------------------
 
     def items(self, root, scroll_top, layout=None):
-        found, stack, seen = [], [(root, None)], set()
+        found, stack, seen = [], [(root, None, "")], set()
         while stack:
-            p, scroll = stack.pop()
+            p, scroll, group = stack.pop()
             if p in seen or p < 0x10000 or len(seen) > 2000:
                 continue
             seen.add(p)
@@ -168,6 +175,7 @@ class TreeReader:
                 name, kids = self.children(p)
                 if kind in CONTROLS:
                     found.append(self.control(p, kind, kids, scroll))
+                    found[-1].group = group
                     continue        # its children (label, arrows) are read by control()
                 if kind in ("label", "image"):
                     words = self.text(p)
@@ -178,10 +186,13 @@ class TreeReader:
                         else:   # a picture button with text, e.g. a key binding "W"
                             found.append(Item("button", "", x, y, value=words, click=self.middle(p),
                                               scroll=scroll, widget=p, disabled=self.disabled(p)))
-                if name and name.endswith("_vs"):
-                    # The list scrolls: its bottom edge is this widget's y.
-                    scroll = (self.position(p)[1], scroll_top)
-                stack.extend((k, scroll) for k in reversed(kids))
+                if name and name.endswith(("_vs", "_s")):
+                    # The list scrolls: its bottom edge is this widget's y,
+                    # its top that plus its height, if it has a sensible one.
+                    bottom = self.position(p)[1]
+                    height = struct.unpack("<f", self.r.read(p + SIZE + 4, 4))[0]
+                    scroll = (bottom, bottom + height if 0.05 < height < 1 else scroll_top)
+                stack.extend((k, scroll, name or group) for k in reversed(kids))
             except ReadError:
                 continue            # a freed or half-built widget; skip it
         # Which screen this is: the widgets' addresses stay put while it's
@@ -220,6 +231,8 @@ class TreeReader:
             item.click = (0.05, 0.015)
         if kind in ("button", "tab"):
             item.click = (0.07, 0.02)   # buttons react from x+0 to +0.14, y+0.01 to +0.03
+        if kind == "slot":
+            item.click = self.middle(p, (0.044, 0.044))   # an inventory cell
         if kind == "checkbox":
             item.label = item.label or " ".join(texts)
             item.value = "checked" if self.r.u32(p + CHECKED) else "not checked"
@@ -328,10 +341,13 @@ def rows(found, by_columns=True):
                 and 0 < above.y - item.y < 0.06:
             item.label = above.label if above.label.endswith(":") else above.label + ":"
             del result[n - 1]
-    # A heading and a label under it can hold the same words ("Party Skills").
+    # A heading and a label under it can hold the same words ("Party Skills"),
+    # and a heading can name the one thing under it ("Horse" over the Horse slot).
     return [i for n, i in enumerate(result)
             if not (n and i.kind == "text" and result[n - 1].kind == "text"
-                    and i.label == result[n - 1].label)]
+                    and i.label == result[n - 1].label)
+            and not (i.kind == "text" and n + 1 < len(result)
+                     and result[n + 1].label == i.label)]
 
 
 def single(group, control):
@@ -360,6 +376,7 @@ def arrange(found, layout):
       that side's name in front of their label.
     """
     controls = [i for i in found if i.kind != "text"]
+    name_slots(controls, found, layout)
     for i in controls:
         for y, name in layout.get("names", {}).items():
             if i.kind == "slider" and not i.label and abs(i.y - float(y)) < 0.006:
@@ -381,6 +398,35 @@ def arrange(found, layout):
                     i.label = f"{side} {i.label}".strip()
                 break
     return found
+
+def name_slots(controls, found, layout):
+    """Inventory cells are blank pictures, so they need names (the item in
+    one is read from the game's tooltip when it's hovered):
+    - "slot_names": [[x, y, "Head"], ...]: fixed cells, e.g. the equipment;
+    - "slot_groups": {"int": "Inventory"}: a grid, numbered across then down.
+      A grid not listed takes the heading above its panel ("Discard", or a
+      merchant's name)."""
+    fixed = layout.get("slot_names", [])
+    grids = {}
+    for i in controls:
+        if i.kind != "slot":
+            continue
+        name = next((n for x, y, n in fixed if abs(i.x - x) < 0.01 and abs(i.y - y) < 0.01), None)
+        if name:
+            i.label = name
+        else:
+            grids.setdefault(i.group, []).append(i)
+    for group, cells in grids.items():
+        title = layout.get("slot_groups", {}).get(group)
+        if not title:
+            left = min(c.x for c in cells)
+            headings = [t for t in found if t.kind == "text" and t.y > max(c.y for c in cells)
+                        and abs(t.x - left) < 0.15]
+            title = max(headings, key=lambda t: t.y).label if headings else "Slot"
+        cells.sort(key=lambda c: (-round(c.y, 2), c.x))
+        for n, c in enumerate(cells, 1):
+            c.label = f"{title} {n}"
+
 
 def attach_plus(group):
     """A "+" button belongs to the nearest control on its left in the row

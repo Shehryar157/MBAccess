@@ -10,6 +10,7 @@
   "screen": {
     "game_windows": 14523120,
     "open_windows": 14523264,
+    "tooltip": 8835376,
     "widget_text": 504,
     "widget_position": 412,
     "widget_flags": 444,
@@ -22,6 +23,13 @@
       "16": {"name": "Load game", "tree": true},
       "11": {"name": "Character", "tree": true, "layout": {"columns": [0.3, 0.69]}},
       "8": {"name": "Party", "tree": true, "layout": {"columns": [0.34, 0.66]}},
+      "7": {"name": "Inventory", "tree": true, "tooltip": true, "layout": {
+        "columns": [0.34, 0.54, 0.66], "by_columns": false,
+        "slot_names": [[0.451, 0.605, "Head"], [0.451, 0.517, "Body"], [0.451, 0.429, "Feet"],
+                       [0.363, 0.517, "Hands"], [0.363, 0.317, "Horse"],
+                       [0.552, 0.605, "Weapon 1"], [0.552, 0.517, "Weapon 2"],
+                       [0.552, 0.429, "Weapon 3"], [0.552, 0.341, "Weapon 4"]],
+        "slot_groups": {"int": "Inventory"}}},
       "29": {"name": "Custom battle", "tree": true, "layout": {
         "names": {"0.23": "Infantry", "0.19": "Archers", "0.15": "Cavalry"},
         "heading_offset": [0.2, 0.45],
@@ -31,6 +39,7 @@
     "classes": {
       "0x7c4bac": "label",
       "0x8134ac": "dropdown",
+      "0x817964": "slot",
       "0x812904": "button",
       "0x81bac4": "tab",
       "0x819b7c": "checkbox",
