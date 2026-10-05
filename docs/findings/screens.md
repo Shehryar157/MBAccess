@@ -1,0 +1,31 @@
+## Widget tree and form screens (Warband 1.174, VERIFIED 2026-10-05)
+
+- Every window's root widget is at **window+0x13c**. A container widget has its name (rgl::string) at **+0x2d0** and an stl::vector of child pointers (start, end, capacity) at **+0x364**. Treat an object as a container only when the name is non-empty: plain labels can have junk that looks like a vector there.
+- Widget class = the vtable (first dword). Classes: 0x7c4bac label; 0x812904 button; 0x81bac4 tab; 0x819b7c checkbox; 0x8144ec spinner (looks like a drop-down: left/right arrow images + a label child holding the value); 0x812ae4 slider; 0x7c4d04 image (with text = a key-binding button on Controls); 0x8134ac a real drop-down (e.g. "Use Desktop Resolution", "Melee only"; read as a label for now, opening it not tried); 0x81b9bc tab bar; 0x8135c4 screen root; 0x81cfcc scroll area ("..._vs"), 0x7c510c its scrolling content ("..._t_c").
+- Checkbox: **+0x2b0** = 1 when ticked; its label is a label child. Slider: **+0x2bc** float 0-1 (battle size 0.342 = 71 on 30-150). Hover highlight byte = widget+0x1f2.
+- Clicks (tested reversibly): checkbox click at (x+0.05, y+0.01) toggles; spinner arrows at (arrow_x+0.01, y+0.015) step the value; slider ignores clicks on its track: DRAG the handle from x+f*0.205 (track width about 0.205) while holding the button.
+- Scrolling: one wheel notch over the list moves it 0.062, and the positions in memory update (smooth animation: for a moment a label and its control can sit on different rows). Visible list area: from the "_vs" widget's y (0.05) to about 0.64.
+- Windows: 13 = Options (General), 14 = Video options, 15 = Controls. Each tab is its own window. Controls: two-column key list (x 0.23 and 0.58), keys are image widgets with text; Map Controls keys are plain text (not rebindable).
+- Code: mbaccess/form.py (TreeReader + rows pairing); a window with "tree": true in the profile uses it. Screen identity = sorted widget addresses (stable while a screen is open). Tools: tools/probe_tree.py <window>, tools/probe_widgets.py <window>.
+
+## More screens (Warband 1.174, VERIFIED 2026-10-05)
+
+- Screen numbers: 0 = tutorial message box, 1 = question box (save policy), 3 = loading screen (hint + progress), 11 = Character, 16 = Load game, 29 = Custom battle. Unlisted windows now default to the tree reader.
+- Root widget isn't always at +0x13c (Load game: +0xbf0). Search the window for a pointer to an object of class 0x8135c4 (root).
+- Flags bit 0x2 = disabled (greyed out), e.g. Load/Delete with no saves, Done on Character before a name.
+- Slider: +0x2bc value, +0x2c0 minimum, +0x2c4 maximum (Options 0-1, Custom battle 0-100 and 1-75).
+- Clicks: script-built screens (Custom battle) ignore a fast click; hover 0.1 s and hold 0.08 s. But game menus act on button DOWN and show the next menu at once, so a held click also presses the next menu's option under the mouse: menus need the fast click (hold 0.03). Buttons (0x812904) react from x+0 to x+0.14, y+0.01 to y+0.03.
+- Custom battle: headings ("Faction", "Army Size") sit about 0.3 left of the control below them (centred text?); the army-mix sliders are labelled by unreadable icons (class 0x812d6c; Infantry, Archers, Cavalry top to bottom). Handled by the profile "layout" (names, heading_offset, sides).
+- Character screen: skill names, attributes, proficiencies and "+" are image widgets with text; "+" sits right of its item on the same row (hidden when maxed). Name box = class 0x7c4eec (edit): click it, then key presses go to the game; its text is at the usual +0x1f8. Skill description container "characterskill_desc" shows the hovered skill's text (not spoken yet). "Reset Changes" button appears after spending a point.
+
+## Drop-downs, Esc menu, party screen (Warband 1.174, VERIFIED 2026-10-05, session 4)
+
+- Drop-down (class 0x8134ac): choices = stl::vector of rgl::strings (0x90 bytes each) at **+0x2e8** (start, end, cap); chosen index **+0x2b0**; row height of the open list **+0x320** (0.029); its own text (+0x1f8) is the current choice. Options has 1 (Turn Camera with Horse: Never, Ranged only, Melee only, Always), Video has 4 (Screen Resolution 18 choices, Number of Corpses, Number of Rag Dolls, Overall Quality).
+- Clicking the box opens a list that hangs BELOW the box with the LAST choice at the top: choice i's row centre = box_y - (count - 1 - i + 0.5) * row. Verified by screenshot (1920x1080 at y 0.067). Near the screen's bottom the list runs off-screen (Never was unclickable), so scroll the page first. Tested: Left/Right through all 4 camera choices, Corpses 20 -> 40 -> 20.
+- Widget size (width, height floats) at **+0x1ac**, next to absolute position +0x19c. Esc-menu buttons are 0.25 wide with centred text and only react near the text: click the size's middle.
+- Window 5 = Esc (pause) menu: Return to Game, Options, Save & Exit, Save, Save As, Quit without Saving (image widgets with text). The Save buttons don't highlight inside the start scene.
+- Window 8 = party screen. Three panels: columns at x 0.34 and 0.66 (profile layout). Troop entries are image widgets with text "name (90%)" inside party_members0_0. The left "party skills" lines (Surgery (1), Path-finding (2)(+1)...) are NOT anywhere in memory as text (searched ASCII and UTF-16): the engine draws them and drops the string. Must be rebuilt from troop skills.
+- Window 10 = scene/battle HUD (tactical). Window 31 = face editor (sliders; order mixed, "Skin Beard Hair" joined: TODO).
+- Character creation: Done stays disabled until all attribute AND skill points are spent (a name alone isn't enough). Worth saying why when it's unavailable.
+- tools/find_text.py "text": Ctrl+F over the game's memory (ASCII + UTF-16). tools/shot.py: screenshot. tools/drive.py "item" key count: press any key on an item.
+- The auto-started mod (pythonw run.py --with-game) runs alongside test tools; it only reacts to real key presses while the game is in front.

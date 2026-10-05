@@ -175,8 +175,9 @@ class MenuWatcher:
 
     def with_access_tab(self, items, key, config):
         """On an Options screen, add our Accessibility tab after the game's
-        tabs. While it's open, list only the tabs and our settings: the
-        game's buttons (Done and so on) are left out."""
+        tabs. While it's open, list the tabs, our settings, then the game's
+        own buttons (Done and so on, which still work). The game tab's
+        settings are left out, as switching tabs hides them for a sighted player."""
         tabs = [i for i in items if i.kind == "tab"]
         if not (config.get("selected_tab") and tabs):
             self.page.open = False      # left the Options screens
@@ -186,7 +187,9 @@ class MenuWatcher:
             return items[:last + 1] + [self.page.tab()] + items[last + 1:], key, config
         for t in tabs:
             t.value = ""                # the game's tab is still selected underneath
-        items = tabs + [self.page.tab()] + self.page.items()
+        # Buttons outside the scrolling settings list belong to the whole screen.
+        buttons = [i for i in items if i.kind == "button" and i.scroll is None]
+        items = tabs + [self.page.tab()] + self.page.items() + buttons
         # start: the cursor begins on the first setting, not on a tab.
         return items, ("accessibility",), dict(config, name="Accessibility", start=len(tabs) + 1)
 

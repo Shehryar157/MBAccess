@@ -32,7 +32,8 @@ GROUPS = [
          "or raise a skill or attribute that has a plus button.", None),
         ("In a name box: type as usual, and the letters are read back.", None),
         ("On the Options screens, an Accessibility tab follows Controls: the mod's own "
-         "settings. Press a game tab to go back. Escape closes Options as usual.", None),
+         "settings, then the screen's own buttons. Press a game tab to switch to it, "
+         "as a sighted player clicks it. Escape closes Options as usual.", None),
     ]),
     ("Inventory", [
         ("Up and Down arrows: move through the equipment slots, your bag "
