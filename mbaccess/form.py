@@ -54,6 +54,7 @@ class Item:
     chosen: int = 0              # drop-down: index of the current choice
     list_row: float = 0.0        # drop-down: height of one row of the open list
     group: str = ""              # name of the container it's in, e.g. "inv" (equipment)
+    virtual: str = ""            # one of the mod's own items (Accessibility tab), not the game's
 
     def spoken(self):
         words = self.label

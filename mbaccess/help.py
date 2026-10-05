@@ -31,6 +31,8 @@ GROUPS = [
         ("Left and Right arrows: change a spinner, slider or drop-down, "
          "or raise a skill or attribute that has a plus button.", None),
         ("In a name box: type as usual, and the letters are read back.", None),
+        ("On the Options screens, an Accessibility tab follows Controls: the mod's own "
+         "settings. Press a game tab to go back. Escape closes Options as usual.", None),
     ]),
     ("Inventory", [
         ("Up and Down arrows: move through the equipment slots, your bag "

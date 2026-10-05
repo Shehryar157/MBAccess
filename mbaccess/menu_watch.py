@@ -46,8 +46,11 @@ ACTION_KEYS = {keys.RETURN: "activate", keys.SPACE: "activate",
 
 
 class MenuWatcher:
-    def __init__(self, reader, game_address, offsets, menus, say, screen=None, mouse=None):
+    def __init__(self, reader, game_address, offsets, menus, say, screen=None, mouse=None,
+                 page=None, settings=None):
         self.reader = reader
+        self.page = page             # the Accessibility tab (access_page.AccessPage), if any
+        self.settings = settings
         self.game = game_address     # the campaign object; None at the main menu
         self.offsets = offsets
         self.screen = screen or {}   # the profile's "screen" addresses
@@ -158,6 +161,8 @@ class MenuWatcher:
                     item.value = "selected"
             if not items:
                 return None     # nothing readable (e.g. the 3D scene)
+            if self.page:
+                items, key, config = self.with_access_tab(items, key, config)
         else:
             items = self.read_options(top, config)
             key = tuple(i.label for i in items)
@@ -167,6 +172,23 @@ class MenuWatcher:
                 return None
             number, body = self.read_state()
         return (top, number, body, key), items, config
+
+    def with_access_tab(self, items, key, config):
+        """On an Options screen, add our Accessibility tab after the game's
+        tabs. While it's open, list only the tabs and our settings: the
+        game's buttons (Done and so on) are left out."""
+        tabs = [i for i in items if i.kind == "tab"]
+        if not (config.get("selected_tab") and tabs):
+            self.page.open = False      # left the Options screens
+            return items, key, config
+        if not self.page.open:
+            last = items.index(tabs[-1])
+            return items[:last + 1] + [self.page.tab()] + items[last + 1:], key, config
+        for t in tabs:
+            t.value = ""                # the game's tab is still selected underneath
+        items = tabs + [self.page.tab()] + self.page.items()
+        # start: the cursor begins on the first setting, not on a tab.
+        return items, ("accessibility",), dict(config, name="Accessibility", start=len(tabs) + 1)
 
     # --- speaking --------------------------------------------------------
 
@@ -208,7 +230,7 @@ class MenuWatcher:
         self.config = config
         if state != self.last and not self.same_screen(state, items):
             self.last, self.pending = state, None
-            self.options, self.cursor = items, 0
+            self.options, self.cursor = items, min(config.get("start", 0), len(items) - 1)
             self.say(self.describe(state[1], state[2], config))
             return
         self.last = state
@@ -243,6 +265,9 @@ class MenuWatcher:
         instead of starting over."""
         if not (self.last and self.options and state[0] == self.last[0]):
             return False
+        if ("accessibility",) in (state[3], self.last[3]):
+            return False    # into or out of the Accessibility tab: read the page
+
         here = self.options[self.cursor].widget
         return bool(here) and any(i.widget == here for i in items)
 
@@ -272,7 +297,7 @@ class MenuWatcher:
         """Put the mouse over the cursor's item, so the game highlights it
         (and plays its hover sound) as it would for a sighted player."""
         item = self.options[self.cursor]
-        if self.mouse is not None and item.kind != "text" and item.visible():
+        if self.mouse is not None and item.kind != "text" and not item.virtual and item.visible():
             self.mouse.hover(item.x + item.click[0], item.y + item.click[1])
 
     # --- carrying items (inventory) --------------------------------------
@@ -370,11 +395,31 @@ class MenuWatcher:
         if (not lines or lines == before) and time.time() - started < TIP_WAIT:
             return
         self.tip_wait = None
+        lines = self.detail(lines)
         words = ". ".join(lines) if lines else "empty"
         self.say(f"{item.label}: {words}, {self.cursor + 1} of {len(self.options)}")
 
+    def detail(self, lines):
+        """Cut a tooltip down to the Accessibility tab's "Item details"
+        setting. Line 1 is the item's name; the price line says "price"."""
+        level = self.settings.get("item_details") if self.settings else "Full"
+        if not lines or level == "Full":
+            return lines
+        if level == "Name only":
+            return lines[:1]
+        return lines[:1] + [line for line in lines[1:] if "price" in line.lower()]
+
     def act(self, key, tries=0):
         item = self.options[self.cursor]
+        if item.virtual == "tab":
+            if key == "activate":
+                self.page.open = True    # poll() reads the page out next tick
+            return
+        if item.virtual:
+            self.page.act(item, key)
+            return
+        if item.kind == "tab" and self.page and self.page.open and key == "activate":
+            self.page.open = False       # back to the game's own tab
         action = item.action(key)
         if action is None or self.mouse is None:
             return

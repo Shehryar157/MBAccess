@@ -9,7 +9,8 @@ import os
 import sys
 import time
 
-from mbaccess import click, help, keys, launcher, messages, process, session, speech
+from mbaccess import (access_page, click, help, keys, launcher, messages, process, session,
+                      settings, speech)
 from mbaccess.mem import Reader
 from mbaccess.menu_watch import MenuWatcher
 
@@ -50,13 +51,19 @@ def play_session(game):
 
     key_watch = keys.KeyWatcher(game_window)
     helper = help.Help(speech.say)
+    prefs = settings.Settings()
     log_address = game.profile.screen.get("message_log")
-    news = messages.MessageWatcher(Reader(game), log_address, speech.say) if log_address else None
+    news = messages.MessageWatcher(Reader(game), log_address, speech.say,
+                                   settings=prefs) if log_address else None
+    # The Accessibility tab lists one "Speak ... messages" box per buffer category.
+    categories = [b.name for b in news.buffers[1:]] if news else []
+    page = access_page.AccessPage(prefs, categories)
 
     # The main menu needs no campaign, so the watcher starts without one;
     # set_game hands it the campaign object once there is one.
     watcher = MenuWatcher(Reader(game), None, game.profile.game_offsets, [], speech.say,
-                          screen=game.profile.screen, mouse=click.Mouse(game_window))
+                          screen=game.profile.screen, mouse=click.Mouse(game_window),
+                          page=page, settings=prefs)
     while game.is_running():
         launch.poll()
         # The game object exists only once a campaign starts, and loading a

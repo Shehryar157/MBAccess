@@ -48,8 +48,9 @@ class Buffer:
 
 
 class MessageWatcher:
-    def __init__(self, reader, log_address, say, categories=None):
+    def __init__(self, reader, log_address, say, categories=None, settings=None):
         self.reader = reader
+        self.settings = settings     # which categories to speak (Accessibility tab)
         self.log = log_address
         self.say = say
         self.categories = load_categories() if categories is None else categories
@@ -76,16 +77,18 @@ class MessageWatcher:
         for message in new:
             if not message:
                 continue
-            self.add(message)
-            if speak:
+            name = self.add(message)     # muted ones still go in the buffers
+            if speak and (self.settings is None or self.settings.speaks_category(name)):
                 self.say(message, interrupt=False)   # after whatever's being said
 
     def add(self, message):
+        """File a message in All and its category's buffer; return the category."""
         self.buffers[0].messages.append(message)
         name = categorize(message, self.categories)
         for b in self.buffers[1:]:
             if b.name == name:
                 b.messages.append(message)
+        return name
 
     # --- reviewing --------------------------------------------------------
 
