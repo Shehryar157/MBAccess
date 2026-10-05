@@ -18,7 +18,13 @@
       "18": {"buttons": 376, "slots": 16, "menu_text": true, "click": [0.1, 0.02]},
       "13": {"name": "Options", "tree": true},
       "14": {"name": "Video options", "tree": true},
-      "15": {"name": "Controls", "tree": true}
+      "15": {"name": "Controls", "tree": true},
+      "16": {"name": "Load game", "tree": true},
+      "29": {"name": "Custom battle", "tree": true, "layout": {
+        "names": {"0.23": "Infantry", "0.19": "Archers", "0.15": "Cavalry"},
+        "heading_offset": [0.2, 0.45],
+        "sides": [[0.32, "Player"], [0.64, ""], [1.5, "Enemy"]],
+        "by_columns": false}}
     },
     "classes": {
       "0x7c4bac": "label",
@@ -28,7 +34,8 @@
       "0x819b7c": "checkbox",
       "0x8144ec": "spinner",
       "0x812ae4": "slider",
-      "0x7c4d04": "image"
+      "0x7c4d04": "image",
+      "0x8135c4": "root"
     }
   }
 }

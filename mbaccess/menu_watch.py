@@ -29,7 +29,8 @@ from .mem import ReadError
 HIDDEN = 0x1
 # Click a little right of the button's left edge and halfway up its row.
 DEFAULT_CLICK = (0.1, 0.02)
-ROOT = 0x13c            # a window's root widget
+ROOT = 0x13c            # where a window's root widget usually is
+ROOT_SEARCH = 0x1000    # how far into a window to look for it otherwise
 SCROLL_TOP = 0.64       # top edge of a scrolling list (Options); bottom is read
 WHEEL_STEP = 0.062      # one wheel notch moves a list this far
 MAX_SCROLL_TRIES = 20
@@ -53,6 +54,7 @@ class MenuWatcher:
         self.options = []
         self.cursor = 0
         self.pending = None          # (key, tries): an action waiting for scrolling
+        self.root_offsets = {}       # window number -> where its root widget is
 
     def set_game(self, address, menus):
         """A campaign started or a save was loaded: the game object moved."""
@@ -82,6 +84,20 @@ class MenuWatcher:
 
     def window(self, number):
         return self.reader.ptr(self.screen["game_windows"] + 4 * number)
+
+    def root(self, number):
+        """A window's root widget. It's usually at +0x13c, but not always
+        (Load Game: +0xbf0), so search the window for an object of the root
+        class and remember where it was."""
+        window = self.window(number)
+        offset = self.root_offsets.get(number, ROOT)
+        if self.tree.kind_at(window + offset) == "root":
+            return self.reader.ptr(window + offset)
+        for offset in range(0, ROOT_SEARCH, 4):
+            if self.tree.kind_at(window + offset) == "root":
+                self.root_offsets[number] = offset
+                return self.reader.ptr(window + offset)
+        return self.reader.ptr(window + ROOT)
 
     def read_options(self, number, config):
         s, r = self.screen, self.reader
@@ -118,13 +134,17 @@ class MenuWatcher:
             number, body = self.read_state()
             return ("menu", number, body), [], {"menu_text": True}
         top = self.top_window()
-        config = self.windows.get(top)
-        if config is None:
+        if top is None or not 0 <= top < 32:
             return None
+        # Windows we haven't described get the tree reader: any screen built
+        # from known widget kinds then reads without extra work.
+        config = self.windows.get(top, {"tree": True})
         if config.get("tree"):
-            items = self.tree.items(self.reader.ptr(self.window(top) + ROOT),
-                                    config.get("scroll_top", SCROLL_TOP))
+            items = self.tree.items(self.root(top), config.get("scroll_top", SCROLL_TOP),
+                                    config.get("layout"))
             key = self.tree.key
+            if not items:
+                return None     # nothing readable (e.g. the 3D scene)
         else:
             items = self.read_options(top, config)
             key = tuple(i.label for i in items)
