@@ -1,4 +1,4 @@
-## Inventory (Warband 1.174, VERIFIED 2026-10-05, session 4)
+﻿## Inventory (Warband 1.174, VERIFIED 2026-10-05, session 4)
 
 - Window 7 = inventory; its root is at +0xa7c (found by the root search). Cells are class **0x817964** ("slot"), 0.088 square (size at +0x1ac). Containers: "inv" = equipment (x 0.451: Head 0.605, Body 0.517, Feet 0.429; x 0.363: Hands 0.517, Horse 0.317; x 0.552: weapons 0.605 down to 0.341), "int" in "int_s" = the player's 3x10 grid (scrolls; int_s y 0.099 + height 0.598), "nt" in "nt_s" = the other side's 3x3 grid (Discard, or a merchant). A cell widget holds NO item number.
 - **Tooltip**: one global, rgl::string lines 0x90 apart at **0x86d130** (exe .data, stable). All lines blank when nothing is hovered. It updates within a frame of the mouse moving, but: leaving an item blanks it for a frame first; it only updates on a real movement (nudge first if the mouse is already there); it doesn't show while the game window is in the background. Lines: name, (condition e.g. 29 / 29), Sell price, Weight, stats, requirements.
@@ -26,4 +26,4 @@
   Inventory), Tab hidden from the game. Headings above grids (Discard, Outfit, Arms, the player's
   name) were becoming one-item sections: now they name their grid (HEADING_GAP 0.15) and
   everything else is one "Details" list (cost, armor, encumbrance, Return, money). Tooltip
-  "(29 / 29)" = ammo left or shield durability; now read "29 of 29" (likely the user's "29 29").
+  "(29 / 29)" = ammo left or shield durability; the user wants it left as the game writes it.

@@ -20,7 +20,6 @@ the real mouse to do it. Rows scrolled out of view are still readable (the
 memory has them); before pressing one, we turn the mouse wheel until it's
 in view.
 """
-import re
 import struct
 import time
 
@@ -38,9 +37,7 @@ SCROLL_TOP = 0.64       # top edge of a scrolling list (Options); bottom is read
 WHEEL_STEP = 0.062      # one wheel notch moves a list this far
 MAX_SCROLL_TRIES = 20
 GRID_ROW = 0.02         # cells closer than this in height are on the same row
-HEADING_GAP = 0.15      # a text this far above a grid's top row is its heading
-AMOUNT = re.compile(r"\((\d+) / (\d+)\)")
-PICK_MARGIN = 0.01    # a drop-down row lower than this is off the bottom of the screen
+HEADING_GAP = 0.15      # a text this far above a grid's top row is its headingPICK_MARGIN = 0.01    # a drop-down row lower than this is off the bottom of the screen
 PICK_WAIT = 0.3       # seconds for a drop-down list to open
 TIP_LINES, TIP_STRIDE = 12, 0x90   # tooltip: rgl::string lines
 HOLD_WAIT = 0.4       # seconds for a click on a cell to pick up or put down
@@ -509,9 +506,9 @@ class MenuWatcher:
         if not self.options:
             return
         for key in pressed:
-            if key in (keys.TAB, keys.SHIFT_TAB):
+            if key in (keys.TAB, keys.SHIFT_TAB, keys.CTRL_LEFT, keys.CTRL_RIGHT):
                 if self.has_sections():
-                    self.switch_section(-1 if key == keys.SHIFT_TAB else 1)
+                    self.switch_section(-1 if key in (keys.SHIFT_TAB, keys.CTRL_LEFT) else 1)
                 continue
             sections = self.sections()
             here = self.section_of(self.cursor, sections)
@@ -591,9 +588,7 @@ class MenuWatcher:
         base = self.screen["tooltip"]
         lines = (text_mod.clean(self.reader.rgl_string(base + n * TIP_STRIDE))
                  for n in range(TIP_LINES))
-        # "(29 / 29)": ammunition left or a shield's durability. Speech reads
-        # the slash badly ("29 29"), so say "29 of 29".
-        return [AMOUNT.sub(r"\1 of \2", line) for line in lines if line]
+        return [line for line in lines if line]
 
     def wants_tooltip(self):
         item = self.options[self.cursor]

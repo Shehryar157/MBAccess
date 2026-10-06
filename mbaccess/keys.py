@@ -26,7 +26,8 @@ SHIFT, CONTROL = 0x10, 0x11   # either side's key
 # about on other layouts).
 LEFT_BRACKET, RIGHT_BRACKET, SEMICOLON, QUOTE = 0xDB, 0xDD, 0xBA, 0xDE
 TAB = 0x09
-SHIFT_TAB = 0x109    # not a real key code: the hook reports Shift+Tab as this
+# Not real key codes: the hook reports these key combinations as their own.
+SHIFT_TAB, CTRL_LEFT, CTRL_RIGHT = 0x109, 0x125, 0x127
 ALL = (UP, DOWN, RETURN, HOME, END, LEFT, RIGHT, SPACE, F9, ESCAPE,
        LEFT_BRACKET, RIGHT_BRACKET, SEMICOLON, QUOTE, CONTROL, TAB)
 
@@ -122,7 +123,11 @@ class HookKeyWatcher:
             front = _user32.GetForegroundWindow()
             if wparam in (WM_KEYDOWN, WM_SYSKEYDOWN):
                 if vk in self.keys and (vk not in self.held or vk in REPEATS):
-                    reported = SHIFT_TAB if vk == TAB and SHIFT in self.held else vk
+                    reported = vk
+                    if vk == TAB and SHIFT in self.held:
+                        reported = SHIFT_TAB
+                    elif vk in (LEFT, RIGHT) and CONTROL in self.held:
+                        reported = CTRL_LEFT if vk == LEFT else CTRL_RIGHT
                     self.events.put((reported, front, vk in self.held))
                     self.arrived.set()
                 self.held.add(vk)

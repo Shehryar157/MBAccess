@@ -28,7 +28,8 @@ GROUPS = [
     ("Menus and screens", [
         ("Up and Down arrows: previous or next item. Home and End: first or last. "
          "Hold an arrow to keep moving.", None),
-        ("Tab and Shift Tab: next or previous section, on screens that have them, "
+        ("Tab and Shift Tab, or Control Right and Control Left: next or previous section, "
+         "on screens that have them, "
          "like the columns of the party and character screens. Each section remembers "
          "where you were. Up and Down stay inside a section.", None),
         ("Enter or Space: press the item.", None),
@@ -41,7 +42,8 @@ GROUPS = [
     ]),
     ("Inventory", [
         ("The inventory is grids: your equipment, your bag, and the other side's items "
-         "(Discard, a merchant, or loot). Tab and Shift Tab move between them.", None),
+         "(Discard, a merchant, or loot). Tab and Shift Tab, or Control Right and "
+         "Control Left, move between them.", None),
         ("All four arrows move around a grid, cell by cell, as it looks on screen. "
          "Home and End: first or last cell. Each cell reads its item and price, or empty.", None),
         ("Enter: pick up the item, then Enter on another cell to put it down. "
