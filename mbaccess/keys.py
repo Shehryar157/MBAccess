@@ -13,6 +13,7 @@ only when the game is the foreground window.
 import ctypes
 import queue
 import threading
+import time
 from ctypes import wintypes
 
 _user32 = ctypes.WinDLL("user32")
@@ -40,6 +41,9 @@ class KeyWatcher:
         self.keys = keys
         self.down = set()
 
+    def wait(self, seconds):
+        time.sleep(seconds)     # polling can't be woken by a key
+
     def pressed(self):
         """Keys that went down since the last call (empty if game not in front)."""
         hwnd = self.hwnd_getter()
@@ -58,6 +62,8 @@ WH_KEYBOARD_LL = 13
 WM_KEYDOWN, WM_KEYUP, WM_SYSKEYDOWN, WM_SYSKEYUP = 0x100, 0x101, 0x104, 0x105
 # The hook sees which side's Shift or Ctrl it was; we only care that it was one.
 SIDES = {0xA0: SHIFT, 0xA1: SHIFT, 0xA2: CONTROL, 0xA3: CONTROL}
+# Held down, these repeat at the Windows keyboard repeat rate, as in any list.
+REPEATS = {UP, DOWN, LEFT, RIGHT}
 
 
 class KBDLLHOOKSTRUCT(ctypes.Structure):
@@ -80,8 +86,9 @@ class HookKeyWatcher:
     def __init__(self, hwnd_getter, keys=ALL):
         self.hwnd_getter = hwnd_getter
         self.keys = set(keys)
-        self.events = queue.Queue()     # (key, window in front when it went down)
+        self.events = queue.Queue()     # (key, window in front, is it a repeat)
         self.held = set()               # to skip the auto-repeat of a held key
+        self.arrived = threading.Event()   # set by the hook: wakes wait() at once
         self._proc = HOOKPROC(self._on_key)   # keep a reference, or it's freed
         ready = threading.Event()
         self.ok = False
@@ -108,23 +115,31 @@ class HookKeyWatcher:
             info = ctypes.cast(lparam, ctypes.POINTER(KBDLLHOOKSTRUCT)).contents
             vk = SIDES.get(info.vkCode, info.vkCode)
             if wparam in (WM_KEYDOWN, WM_SYSKEYDOWN):
-                if vk in self.keys and vk not in self.held:
-                    self.events.put((vk, _user32.GetForegroundWindow()))
+                if vk in self.keys and (vk not in self.held or vk in REPEATS):
+                    self.events.put((vk, _user32.GetForegroundWindow(), vk in self.held))
+                    self.arrived.set()
                 self.held.add(vk)
             elif wparam in (WM_KEYUP, WM_SYSKEYUP):
                 self.held.discard(vk)
         return _user32.CallNextHookEx(None, code, wparam, lparam)
 
+    def wait(self, seconds):
+        """Sleep until a key arrives or the time is up, whichever is first."""
+        self.arrived.wait(seconds)
+
     def pressed(self):
         """Keys that went down since the last call, in order, while the game was in front."""
+        self.arrived.clear()
         hwnd = self.hwnd_getter()
         new = []
         while True:
             try:
-                vk, front = self.events.get_nowait()
+                vk, front, repeat = self.events.get_nowait()
             except queue.Empty:
                 return new
-            if hwnd and front == hwnd:
+            # Repeats that piled up while we were busy count once, so a
+            # held arrow doesn't keep going after it's let go.
+            if hwnd and front == hwnd and not (repeat and vk in new):
                 new.append(vk)
 
 

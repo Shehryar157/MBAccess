@@ -8,6 +8,7 @@ pointers out of the game.
 A Reader wraps anything with a read(address, length) -> bytes method: the real
 game process, or a FakeMemory in tests (duck typing).
 """
+import contextlib
 import struct
 
 # rgl::string, from reference/wse/WarbandLib/rgl_string.h:
@@ -26,11 +27,57 @@ class ReadError(Exception):
     """The address couldn't be read (unmapped, or the game closed)."""
 
 
+PAGE = 0x1000   # memory comes in 4 KB pages
+
+
 class Reader:
     def __init__(self, source):
         self.source = source
+        self.pages = None       # page address -> bytes, inside cached()
+        self.depth = 0
+
+    @contextlib.contextmanager
+    def cached(self):
+        """Within this block, fetch whole 4 KB pages and keep them.
+
+        Asking Windows for 4 bytes costs about as much as for 4096, and a
+        screen read does hundreds of small reads close together, so this
+        makes it several times faster. The pages are dropped at the end,
+        so the next block sees fresh memory."""
+        if self.depth == 0:
+            self.pages = {}
+        self.depth += 1
+        try:
+            yield
+        finally:
+            self.depth -= 1
+            if self.depth == 0:
+                self.pages = None
 
     def read(self, address, length):
+        if self.pages is not None and 0 < length <= PAGE:
+            first = address - address % PAGE
+            try:
+                data = self._page(first)
+                if address + length > first + PAGE:      # runs into the next page
+                    data += self._page(first + PAGE)
+                offset = address - first
+                return data[offset:offset + length]
+            except ReadError:
+                pass    # a page we can't read whole: try just the bytes asked for
+        return self._direct(address, length)
+
+    def _page(self, address):
+        if address not in self.pages:
+            try:
+                self.pages[address] = self._direct(address, PAGE)
+            except ReadError:
+                self.pages[address] = None
+        if self.pages[address] is None:
+            raise ReadError(f"page {address:#x} unreadable")
+        return self.pages[address]
+
+    def _direct(self, address, length):
         try:
             return self.source.read(address, length)
         except ReadError:

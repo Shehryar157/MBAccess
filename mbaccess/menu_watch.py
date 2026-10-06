@@ -75,6 +75,7 @@ class MenuWatcher:
         self.tip_wait = None         # (since, tooltip before, widget): waiting to speak a cell
         self.config = {}
         self.hold_check = None       # (since, item held before): after clicking a cell
+        self.carried = []            # keys from a tick whose read failed
 
     def set_game(self, address, menus, skills=()):
         """A campaign started or a save was loaded: the game object moved."""
@@ -170,7 +171,15 @@ class MenuWatcher:
 
         state is a tuple we compare with last tick's to notice a new screen;
         it leaves out values (a ticked box), which are spoken on their own.
+        One cached block: the whole screen comes from one snapshot of memory.
         """
+        cached = getattr(self.reader, "cached", None)
+        if cached is None:          # a test's stand-in reader
+            return self.read_screen()
+        with cached():
+            return self.read_screen()
+
+    def read_screen(self):
         if not self.reads_buttons:
             # No button addresses for this game version yet: menu text only.
             if not (self.enabled and self.game):
@@ -272,10 +281,14 @@ class MenuWatcher:
     # --- the loop --------------------------------------------------------
 
     def poll(self, pressed=()):
+        pressed, self.carried = self.carried + list(pressed), []
         try:
             found = self.read()
         except ReadError:
-            return  # mid-update or loading; try again next tick
+            # Mid-update or loading: try again next tick, keeping the keys
+            # (a few, so a long load doesn't replay a pile of presses).
+            self.carried = pressed[-3:]
+            return
         if found is None:
             self.last, self.options, self.pending = None, [], None
             return
@@ -505,7 +518,10 @@ class MenuWatcher:
         if action[0] == "click":
             if item.kind == "slot" and "held" in self.config:
                 self.hold_check = (time.time(), self.held())
-            # Menu options get a quick click (see click.click).
-            self.mouse.click(*action[1:], hold=0 if item.kind == "option" else 0.08)
+            # Menu options get a quick click (see click.click), and so do
+            # screens whose profile says they take one ("quick_click"); a
+            # few, like Custom Battle, miss quick clicks, so it's per screen.
+            quick = item.kind == "option" or self.config.get("quick_click")
+            self.mouse.click(*action[1:], hold=0 if quick else 0.08)
         else:
             self.mouse.drag(*action[1:])

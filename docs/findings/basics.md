@@ -42,3 +42,20 @@
   scale the coordinates.
 - Main menu at 1280x720: "Start a New Game" at (244, 288). Welcome menu: Continue (426, 482).
   Gender menu: Male, Female, then Go back (426, 556).
+
+### Responsiveness (measured 2026-10-06)
+
+- One memory read costs about 0.1 ms whatever its size (the trip to Windows, plus pymem). A main
+  loop pass is about 5 ms on menus and conversations; form screens were the slow part (Options 54
+  ms, character screen about 76 ms) because the tree walker makes hundreds of small reads.
+- Fix: Reader.cached() fetches whole 4 KB pages and keeps them for one screen read
+  (MenuWatcher.read). Options: 54 -> 28 ms, same items. The rest is mostly Python work in the
+  tree walker (text.clean, form.control): the next thing to speed up if needed.
+- Keys come from a low-level keyboard hook (keys.HookKeyWatcher): no lost presses, the loop
+  wakes the moment a key arrives, arrows auto-repeat, and repeats that pile up while busy count
+  once.
+- Clicks: menu options use a quick click (0.06 s); other screens a held one (0.18 s), because
+  Custom Battle missed quick clicks. Profile "quick_click": true switches a screen to the quick
+  one. Verified: Esc menu (window 5). Character screen: a quick click on Statistics closed the
+  screen or missed (unclear), so it stays slow until tested with skill points to spend.
+- Character screen has no "-" or Reset buttons: points can't be taken back (verified 2026-10-06).
