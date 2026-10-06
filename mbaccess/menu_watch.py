@@ -20,6 +20,8 @@ the real mouse to do it. Rows scrolled out of view are still readable (the
 memory has them); before pressing one, we turn the mouse wheel until it's
 in view.
 """
+import json
+import os
 import struct
 import time
 
@@ -48,6 +50,12 @@ TIP_WAIT = 0.4        # seconds to wait for a tooltip before calling a cell empt
 # options (156 bytes each), a bool, and the partner's line.
 CONV_SENTENCE, CONV_NUM_OPTIONS = 28, 36
 CONV_SPEAKER_TEXT = 40 + 2 * 1024 * 156 + 4
+HIGHLIGHT = 0x1f2       # widget byte: non-zero while the mouse is over it
+AIM_WAIT = 0.15         # seconds for the game to light up a hovered button
+# Screens whose picture we found out by hovering (window number -> letterbox),
+# kept between runs so each screen is learned once.
+LEARNED = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                       "learned.json")
 ACTION_KEYS = {keys.RETURN: "activate", keys.SPACE: "activate",
                keys.LEFT: "left", keys.RIGHT: "right"}
 
@@ -81,6 +89,14 @@ class MenuWatcher:
         self.tip_nudged = False      # moved the mouse again for a slow tooltip
         self.carried = []            # keys from a tick whose read failed
         self.settling = None         # a new screen seen once, waiting for a second read
+        self.aim_check = None        # (since, widget, tried the other picture): after a hover
+        self.trial = None            # letterbox being tried on this screen, or None
+        self.learned_path = LEARNED
+        try:
+            with open(LEARNED, encoding="utf-8") as f:
+                self.learned = json.load(f)
+        except (OSError, ValueError):
+            self.learned = {}
         self.announce = ""           # a section's name, said before the next item
         self.section_memory = {}     # section key -> widget we were on there
         self.grid_headings = {}      # grid group -> the heading above it
@@ -308,7 +324,7 @@ class MenuWatcher:
         state, items, config = found
         self.config = config
         if self.mouse:      # only some screens keep the monitor's shape (click.py)
-            self.mouse.letterbox = bool(config.get("letterbox"))
+            self.mouse.letterbox = self.letterboxed(state[0], config)
         if state != self.last and not self.same_screen(state, items):
             # The game builds a screen over a frame or two: a first read can
             # still hold a button from the old one ("11 of 11" with ten).
@@ -317,7 +333,7 @@ class MenuWatcher:
             if look != self.settling:
                 self.settling, self.carried = look, pressed[-3:]
                 return
-            self.settling = None
+            self.settling, self.aim_check, self.trial = None, None, None
             self.last, self.pending = state, None
             self.announce, self.section_memory = "", {}
             self.options, self.cursor = items, min(config.get("start", 0), len(items) - 1)
@@ -344,6 +360,8 @@ class MenuWatcher:
                 self.say(new.value or "blank")
         if self.tip_wait:
             self.check_tooltip()
+        if self.aim_check:
+            self.check_aim()
         if self.hold_check:
             self.check_held()
         if self.move_check:
@@ -558,6 +576,50 @@ class MenuWatcher:
         item = self.options[self.cursor]
         if self.mouse is not None and item.kind != "text" and not item.virtual and item.visible():
             self.mouse.hover(item.x + item.click[0], item.y + item.click[1])
+            if item.kind == "button" and item.widget and not item.disabled:
+                self.aim_check = (time.monotonic(), item.widget, self.trial is not None)
+
+    # --- checking our aim --------------------------------------------------
+    # Some screens keep the monitor's shape (black bars, click.py); the game
+    # doesn't say which. After a hover we look at the button's highlight: if
+    # it didn't light up, we try the other picture once, and if that works we
+    # remember it for this window. If neither works (the player moved the
+    # mouse), we put things back.
+
+    def letterboxed(self, window, config):
+        if self.trial is not None:
+            return self.trial
+        return self.learned.get(str(window), bool(config.get("letterbox")))
+
+    def check_aim(self):
+        since, widget, retried = self.aim_check
+        if time.monotonic() - since < AIM_WAIT:
+            return
+        self.aim_check = None
+        item = self.options[self.cursor]
+        if item.widget != widget:
+            return              # moved on already
+        try:
+            lit = self.reader.read(widget + HIGHLIGHT, 1)[0]
+        except ReadError:
+            return
+        window = str(self.last[0])
+        if lit:
+            if retried and self.trial is not None:
+                self.learned[window] = self.trial
+                self.trial = None
+                try:
+                    with open(self.learned_path, "w", encoding="utf-8") as f:
+                        json.dump(self.learned, f, indent=2)
+                except OSError:
+                    pass
+            return
+        if retried:
+            self.trial = None   # neither picture worked: not our aim
+            return
+        self.trial = not self.letterboxed(self.last[0], self.config)
+        self.mouse.letterbox = self.trial
+        self.hover()
 
     # --- carrying items (inventory) --------------------------------------
     # The game picks an item up on one click and puts it down on the next.

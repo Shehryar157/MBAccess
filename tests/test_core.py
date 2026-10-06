@@ -387,3 +387,29 @@ def test_inventory_cells_named_from_memory():
     w.name_cell()
     assert said[-1] == "Smoked Fish, price 44, 2"                       # trading: price from the window
     assert w.options[0].action("quick")[0] == "ctrl click"               # Ctrl+Enter
+
+
+def test_aim_check_learns_a_letterboxed_screen(tmp_path):
+    from mbaccess import menu_watch
+    from mbaccess.form import Item
+    w, said, _ = make_menu_watcher()
+    button = 0x44000000
+    w.reader = Reader(FakeMemory())
+    w.reader.source.write(button, bytes(0x200))
+
+    class BarsMouse:            # the button lights up only when we aim with bars
+        letterbox = False
+        def hover(self, x, y):
+            w.reader.source.blocks[button][menu_watch.HIGHLIGHT] = int(self.letterbox)
+    w.mouse = BarsMouse()
+    w.learned, w.learned_path = {}, str(tmp_path / "learned.json")
+    w.options, w.cursor = [Item("button", "Save", 0.18, 0.3, widget=button)], 0
+    w.last, w.config = (5, None, "", ()), {}
+    w.hover()
+    w.aim_check = (0, button, False)        # pretend the wait is over
+    w.check_aim()
+    assert w.trial is True and w.mouse.letterbox is True
+    w.aim_check = (0, button, True)
+    w.check_aim()
+    assert w.learned == {"5": True} and w.trial is None
+    assert "True" in open(w.learned_path).read() or "true" in open(w.learned_path).read()

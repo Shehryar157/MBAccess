@@ -6,3 +6,4 @@ loader/*.dll
 loader/*.lib
 loader/*.pdb
 settings.json
+learned.json

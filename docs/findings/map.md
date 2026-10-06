@@ -37,9 +37,23 @@
   Faction: +0 name (rgl::string, "Kingdom of Nords"), +0x94 id ("fac_kingdom_4").
   Names starting "{!}" are internal.
 
+## Visibility (session 11, 2026-10-06, on the map just outside Jelkala; PROBABLE)
+
+- The map is window 6. Its tree reads: "Paused" (shown while not travelling), the six buttons
+  Camp/Reports/Notes/Inventory/Character/Party, the date and the time of day.
+- Party 0 at Jelkala (-73, -80.4), 474 parties. label_visible (+0x1ec) = 1 and
+  label_transparency (+0x1e8) = 1.0 for the nearest Looters (2.4 away); Looters 4.2 away and
+  further: 0 and 0.0. So for moving parties +0x1ec / +0x1e8 look like "spotted" (in sight
+  range), NOT "on camera": the screenshot (camera low, looking north) didn't show those Looters.
+- Lords inside a town (King Graveth 1.8 away, flags 0x410004) have 0 / -1000: hidden.
+- Towns and castles carry flag 0x4000 (always visible) and show on the map whatever their
+  label_visible; only the nearest town had it at 1. Plan: list static places always (unless
+  0x100 disabled), moving parties only while +0x1ec is 1.
+- Unverified: the spotting range (party skill Spotting), night, and whether +0x1ec stays 1 while
+  a spotted party is behind the camera.
+
 ## Not yet known
 
-- How the game decides a party is visible to the player (label_visible? entity flags?).
 - What a map click writes (move_mode values, target party vs point), to make Enter = click.
 
 ## Plan agreed with the user (session 10, 2026-10-06)
