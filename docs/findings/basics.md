@@ -76,3 +76,12 @@
 - The main menu's button table exists BEFORE startup loading finishes, so the mod announced
   "Main menu" over the loading splash and Enter did nothing. Not fixed yet: a startup recording
   (one-shot changes cluster at about 11, 26, 33 and 52 snapshots after Play) needs analysing.
+- Startup recording files (temporary, may be gone): %TEMP%\mbload\snaps.pkl (exe data
+  0x7f0000-0xE00000 every ~0.85 s, 110 snapshots, index 0-1 = launcher) and cands.pkl (one-shot
+  changes). Its screenshots are black after the launcher: the recorder kept the launcher's
+  window handle (bug in the throwaway script; re-find the window each time). If the files are
+  gone, re-record with the user starting the game. Idea to test: game_windows / the open-window
+  deque during loading, and the globals pointing at the loading text (0x8b8b64/68 -> struct
+  holding "Loading Textures...", which stays after loading so the text alone is no signal).
+- Unverified idea: main menu clicks are "option" quick clicks (0.03 s hover); if a press still
+  sometimes does nothing after loading, give window 4 a held click.

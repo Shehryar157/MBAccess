@@ -41,3 +41,30 @@
 
 - How the game decides a party is visible to the player (label_visible? entity flags?).
 - What a map click writes (move_mode values, target party vs point), to make Enter = click.
+
+## Plan agreed with the user (session 10, 2026-10-06)
+
+- RULE: only what a sighted player has. No "fake walking" (holding an arrow to steer). Map travel
+  is clicking a place, a party or a ground spot; WASD only pans the camera.
+- To build: (1) a list key: visible places and parties, nearest first, with compass direction
+  and distance (and troops/kingdom); Enter = the same as clicking it (travel or chase).
+  (2) Announcements a sighted player would notice on screen: terrain change, parties coming
+  into or leaving view, arriving or stopping, night and day; each switchable on the
+  Accessibility tab. (3) A status key: nearest place and terrain, moving or not and where to,
+  date and time. Clicking empty ground: later.
+- Next research (needs the player ON THE MAP): the visibility flag (label_visible +0x1ec?), and
+  what a map click writes (move_mode / target fields near +0x5354, guessed). The user allowed a
+  short click test only after asking; ask again.
+- AFTER the map, scenes: wall-proximity sine beeps in ALL directions (stereo pan; behind needs a
+  different sound), 3-4 pitches rising as you get closer, starting about 4 m on foot (the user
+  asked for 5 ft "or more if too short"; M&B units are metres), further on horseback. Sounds
+  for objects, doors and people will come from the user. Hard part: finding walls (engine
+  raycast from inside the game via the loader DLL, or our own collision from scene files).
+
+## Session state at the end of session 10
+
+- No save game exists (Savegames folder empty): the old intro campaign is gone. The user does
+  character creation themselves, then asks me to take over through the intro to the map; save
+  as soon as we're on the map.
+- Starting the game: mb_warband.exe started directly exits (Steam relaunch), and
+  "steam.exe -applaunch 48700" and steam://rungameid/48700 did nothing. Ask the user to start it.
