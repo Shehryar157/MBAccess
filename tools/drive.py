@@ -27,6 +27,7 @@ found, module = session.locate(game)
 if found:
     w.set_game(found, session.load_menus(game, module))
 w.poll()
+w.poll()     # a new screen is spoken on the second matching read
 
 if len(sys.argv) > 1:
     import win
@@ -46,6 +47,7 @@ if len(sys.argv) > 1:
     time.sleep(0.5)
     said.clear()
     w.last = None
+    w.poll()
     w.poll()
     click.Mouse(lambda: hwnd).hover(0.99, 0.74)   # park the mouse in a corner
 

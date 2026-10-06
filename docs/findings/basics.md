@@ -73,6 +73,10 @@
   move (window size, monitor shape, the setting re-read when the file changes). Verified by
   hover-scanning the highlight byte (widget +0x1f2): all 8 main menu buttons and Load game's
   Cancel light up where we aim. Other screens untested since the change.
+- 2026-10-06 session 11: the Esc menu (window 5, opened from a scene) is letterboxed too
+  (screenshot: black bars, same art as the main menu). Without the flag only the two middle
+  buttons lit up; with "letterbox": true all six light up where we aim (VERIFIED by hover).
+  Any screen with the main menu's background art probably needs it: check new ones by hover.
 - The main menu's button table exists BEFORE startup loading finishes, so the mod announced
   "Main menu" over the loading splash and Enter did nothing. Not fixed yet: a startup recording
   (one-shot changes cluster at about 11, 26, 33 and 52 snapshots after Play) needs analysing.

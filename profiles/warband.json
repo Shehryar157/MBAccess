@@ -26,7 +26,7 @@
     "windows": {
       "4": {"name": "Main menu", "buttons": 376, "slots": 8, "click": [0.15, 0.012], "letterbox": true},
       "18": {"buttons": 376, "slots": 16, "menu_text": true, "click": [0.1, 0.02]},
-      "5": {"tree": true, "quick_click": true},
+      "5": {"tree": true, "quick_click": true, "letterbox": true},
       "12": {"conversation": true, "buttons": 676, "slots": 64, "speaker": 648, "continue": 656, "click": [0.45, 0.02], "scroll": [0.01, 0.28]},
       "13": {"name": "Options", "tree": true, "selected_tab": "General Options"},
       "14": {"name": "Video options", "tree": true, "selected_tab": "Video Options"},
