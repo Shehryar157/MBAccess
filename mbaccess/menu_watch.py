@@ -306,6 +306,8 @@ class MenuWatcher:
             return
         state, items, config = found
         self.config = config
+        if self.mouse:      # only some screens keep the monitor's shape (click.py)
+            self.mouse.letterbox = bool(config.get("letterbox"))
         if state != self.last and not self.same_screen(state, items):
             self.last, self.pending = state, None
             self.announce, self.section_memory = "", {}

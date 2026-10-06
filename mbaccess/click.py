@@ -5,13 +5,15 @@ tall, with y measured UP from the bottom, whatever the real resolution. We
 turn that into pixels of the window's client area (the inside, without the
 title bar), then into desktop pixels, move the mouse there and click.
 
-The picture doesn't always fill the window. With "enable_aspect_ratio_control"
-on in rgl_config.txt (the default), the game keeps the MONITOR's shape and
-centres the picture, with black bars above and below (or left and right).
-Measured 2026-10-06: a 4:3 window 426x320 on a 16:9 monitor shows a 426x240
-picture between two 40-pixel bars, and the 1.0 x 0.75 layout fills exactly
-that picture. So we work out the picture's rectangle on every move: a change
-of resolution, window size or setting is picked up straight away.
+Most screens (Load game, Options...) stretch that layout over the whole
+window. The MAIN MENU doesn't: with "enable_aspect_ratio_control" on in
+rgl_config.txt (the default) it keeps the monitor's shape and is centred,
+with black bars above and below (or left and right). Measured 2026-10-06: a
+4:3 window 426x320 on a 16:9 monitor shows the main menu in a 426x240 strip
+between two 40-pixel bars, while Load game's Cancel lights up down to row 306.
+Screens like the main menu say "letterbox": true in the profile; we work out
+the picture's rectangle on every move, so a change of resolution, window
+size or setting is picked up straight away.
 """
 import ctypes
 import os
@@ -94,17 +96,17 @@ def use_config(path):
     _aspect_setting = AspectSetting(path)
 
 
-def move(hwnd, x, y):
+def move(hwnd, x, y, letterbox=False):
     rect = wintypes.RECT()
     _user32.GetClientRect(hwnd, ctypes.byref(rect))
-    aspect = monitor_aspect(hwnd) if _aspect_setting.keep() else None
+    aspect = monitor_aspect(hwnd) if letterbox and _aspect_setting.keep() else None
     px, py = to_pixels(rect.right, rect.bottom, x, y, aspect)
     point = wintypes.POINT(px, py)
     _user32.ClientToScreen(hwnd, ctypes.byref(point))
     _user32.SetCursorPos(point.x, point.y)
 
 
-def click(hwnd, x, y, hold=0.08, right=False, ctrl=False):
+def click(hwnd, x, y, hold=0.08, right=False, ctrl=False, letterbox=False):
     """Script-built screens (Custom Battle) miss quick clicks, so by default
     we hover a moment and hold the button like a person would. Game menus
     act as soon as the button goes down and show the next menu at once, so
@@ -113,7 +115,7 @@ def click(hwnd, x, y, hold=0.08, right=False, ctrl=False):
     pressed by us, as the player may already have let go of it."""
     down, up = ((MOUSEEVENTF_RIGHTDOWN, MOUSEEVENTF_RIGHTUP) if right
                 else (MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP))
-    move(hwnd, x, y)
+    move(hwnd, x, y, letterbox)
     if ctrl:
         _user32.keybd_event(0, CTRL_SCAN, KEYEVENTF_SCANCODE, 0)
     try:
@@ -127,25 +129,25 @@ def click(hwnd, x, y, hold=0.08, right=False, ctrl=False):
             _user32.keybd_event(0, CTRL_SCAN, KEYEVENTF_SCANCODE | KEYEVENTF_KEYUP, 0)
 
 
-def drag(hwnd, from_x, to_x, y, steps=8):
+def drag(hwnd, from_x, to_x, y, steps=8, letterbox=False):
     """Hold the button on a slider's handle and slide it sideways.
 
     The game ignores clicks on a slider's track; it only follows the handle
     while the button is held, so we move there in small steps.
     """
-    move(hwnd, from_x, y)
+    move(hwnd, from_x, y, letterbox)
     time.sleep(0.03)
     _user32.mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
     for i in range(1, steps + 1):
         time.sleep(0.02)
-        move(hwnd, from_x + (to_x - from_x) * i / steps, y)
+        move(hwnd, from_x + (to_x - from_x) * i / steps, y, letterbox)
     time.sleep(0.03)
     _user32.mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
 
 
-def wheel(hwnd, x, y, notches):
+def wheel(hwnd, x, y, notches, letterbox=False):
     """Turn the mouse wheel over (x, y): positive scrolls up, negative down."""
-    move(hwnd, x, y)
+    move(hwnd, x, y, letterbox)
     time.sleep(0.03)
     # mouse_event wants the amount as an unsigned 32-bit number, so a
     # negative one is wrapped around (two's complement), like C would.
@@ -157,11 +159,12 @@ class Mouse:
 
     def __init__(self, hwnd_getter):
         self.hwnd_getter = hwnd_getter
+        self.letterbox = False      # set per screen by the menu watcher
 
     def _do(self, action, *args):
         hwnd = self.hwnd_getter()
         if hwnd:
-            action(hwnd, *args)
+            action(hwnd, *args, letterbox=self.letterbox)
 
     def hover(self, x, y):
         self._do(move, x, y)
