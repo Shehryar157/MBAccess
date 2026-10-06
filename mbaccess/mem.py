@@ -77,6 +77,15 @@ class Reader:
             raise ReadError(f"page {address:#x} unreadable")
         return self.pages[address]
 
+    def write(self, address, data):
+        """Change the game's memory (a travel order). Rare: only on a key."""
+        try:
+            self.source.write(address, data)
+        except Exception as e:
+            raise ReadError(f"{address:#x}+{len(data)}: can't write: {e}") from e
+        if self.pages is not None:
+            self.pages.clear()      # what we cached is out of date now
+
     def _direct(self, address, length):
         try:
             return self.source.read(address, length)

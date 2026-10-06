@@ -53,6 +53,14 @@ GROUPS = [
         ("Control Enter: move the item to the other side at once, without carrying it: "
          "quick buy or sell when trading, quick take when looting.", None),
     ]),
+    ("World map", [
+        ("To reach the map: in a town or village scene, press Tab to leave it; "
+         "in the place's menu, choose Leave.", None),
+        ("The map opens on Places: towns, castles and villages, and moving parties "
+         "while you can see them, nearest first, with distance and direction.", None),
+        ("Enter on a place: travel there, as clicking it would. The mod says when you arrive.", None),
+        ("Tab: the map's buttons: Camp, Reports, Notes, Inventory, Character and Party.", None),
+    ]),
 ]
 
 

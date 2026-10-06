@@ -74,6 +74,23 @@
 - Surrender to Looters: lost ~80 denars, health 100%, moved ~22 units south (Jelkala ->
   near Ibdeles).
 
+## Map list BUILT (session 12, 2026-10-07; list verified read-only, travel UNTESTED)
+
+- mbaccess/world_map.py, profile screen["map"] (all offsets above), window 6
+  {"name": "Map", "tree": true, "map": true}. The places are virtual items (widget = the
+  party's address, so the cursor follows a place as the list re-sorts) in their own section
+  "Places"; Tab goes to "Map buttons". Re-read once a second: one 0x278-byte read per party,
+  25 ms for 474 slots. tools/probe_map.py prints the list (read-only).
+- Verified in the Ibdeles village menu: 185 items, nearest first; directions agree with the
+  known towns (Jelkala 18 north of Ibdeles). Wording: "Jelkala, town, 18 north, Kingdom of
+  Rhodoks"; moving parties add "N troops". Distances are map units (meaning unknown).
+- Enter writes the order (behaviour 1 + target, move target point and party, move mode 2
+  last). Reader.write / Game.write (pymem write_bytes) added for it. Arrival is announced when
+  behaviour becomes 8 with the target as object. KNOWN GAP: the place's menu doesn't open on
+  arrival (see Travel orders). Unverified: behaviour 1 for a hostile party (a click wrote 4).
+- Ideas not built: 185 items is long: first-letter jump or a filter (towns only / parties
+  only); a status key; announcements (spotted, terrain, night); clicking ground.
+
 ## Not yet known
 
 - What a map click writes (move_mode values, target party vs point), to make Enter = click.

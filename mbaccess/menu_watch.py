@@ -62,9 +62,10 @@ ACTION_KEYS = {keys.RETURN: "activate", keys.SPACE: "activate",
 
 class MenuWatcher:
     def __init__(self, reader, game_address, offsets, menus, say, screen=None, mouse=None,
-                 page=None, settings=None, party_skills=None):
+                 page=None, settings=None, party_skills=None, world_map=None):
         self.reader = reader
         self.party_skills = party_skills   # party_skills.PartySkills, if the profile has it
+        self.world_map = world_map         # world_map.WorldMap: places on the map screen
         self.skills = []                   # the module's skills (modfiles.Skill)
         self.page = page             # the Accessibility tab (access_page.AccessPage), if any
         self.settings = settings
@@ -230,6 +231,9 @@ class MenuWatcher:
                 return None     # nothing readable (e.g. the 3D scene)
             if config.get("party_skills"):
                 items = self.with_party_skills(items)
+            if config.get("map") and self.world_map and self.game:
+                # The places come first: the map opens on them.
+                items = self.world_map.items(self.game) + items
             if self.page:
                 items, key, config = self.with_access_tab(items, key, config)
         else:
@@ -392,6 +396,8 @@ class MenuWatcher:
     # section remembers where you were. One section = the plain list.
 
     def section_key(self, item):
+        if item.virtual == "map":
+            return ("list", "places")
         if item.kind == "slot":
             return ("grid", item.group)
         columns = (self.config.get("layout") or {}).get("columns")
@@ -465,6 +471,8 @@ class MenuWatcher:
             return names[key[1]]
         if key == ("list", "details"):
             return "Details"
+        if self.config.get("map"):
+            return "Places" if key[1] == "places" else "Map buttons"
         first = self.options[members[0]]
         if key[0] == "grid":
             return (self.grid_headings.get(key[1])
@@ -871,6 +879,10 @@ class MenuWatcher:
         if item.virtual == "tab":
             if key == "activate":
                 self.page.open = True    # poll() reads the page out next tick
+            return
+        if item.virtual == "map":
+            if key == "activate":
+                self.world_map.travel(self.game, item)
             return
         if item.virtual:
             self.page.act(item, key)

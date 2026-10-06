@@ -46,6 +46,10 @@ class Game:
             raise ReadError(f"{address:#x}+{length}: unreadable")
         return buffer.raw
 
+    def write(self, address, data):
+        """WriteProcessMemory, through pymem (we opened the game with full access)."""
+        self.pm.write_bytes(address, bytes(data), len(data))
+
     def regions(self):
         """(start, size) of the writable memory regions: where game data lives."""
         return [(start, size) for start, size, _ in regions.regions(self.pm.process_handle)]

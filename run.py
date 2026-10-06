@@ -9,7 +9,7 @@ import os
 import sys
 import time
 
-from mbaccess import (access_page, click, help, keys, launcher, messages, party_skills,
+from mbaccess import (access_page, click, help, keys, launcher, messages, party_skills, world_map,
                       process, session, settings, speech)
 from mbaccess.mem import Reader
 from mbaccess.menu_watch import MenuWatcher
@@ -61,13 +61,15 @@ def play_session(game):
 
     offsets = game.profile.screen.get("party_skills")
     team = party_skills.PartySkills(Reader(game), offsets) if offsets else None
+    map_offsets = game.profile.screen.get("map")
+    atlas = world_map.WorldMap(Reader(game), map_offsets, speech.say) if map_offsets else None
 
     click.use_config(game.profile.config_file)   # where the picture sits in the window
     # The main menu needs no campaign, so the watcher starts without one;
     # set_game hands it the campaign object once there is one.
     watcher = MenuWatcher(Reader(game), None, game.profile.game_offsets, [], speech.say,
                           screen=game.profile.screen, mouse=click.Mouse(game_window),
-                          page=page, settings=prefs, party_skills=team)
+                          page=page, settings=prefs, party_skills=team, world_map=atlas)
     next_launcher = 0
     while game.is_running():
         # Looking for the launcher costs a little; while it's open, follow it
