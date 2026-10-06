@@ -71,3 +71,14 @@
   (+0xb20) looked like junk, so they're unused.
 - **Slow tooltips**: if the tooltip hasn't matched the name after 0.2 s, the mouse is nudged
   once more; details are given up after 1.2 s (the name was already spoken).
+
+## Open (2026-10-06, end of session 9)
+
+- Untested because the game can't reach these screens yet: looting (needs a battle; an
+  auto-resolved one would do, so the campaign map comes first) and a companion's gear (needs
+  recruiting in a tavern scene, which needs walking). The code reads whatever troop the game
+  sets as the screen troop (game+0x14370), so they should work; check that the other side's
+  cells name the right items.
+- Trading is the nearest test: prices (buy or sell?), Ctrl+Enter buying and selling, the
+  merchant's goods. Check whether a town menu offers trade without walking.
+- The user hasn't heard any of session 9's inventory work through NVDA yet.
