@@ -26,3 +26,9 @@
 - Window 6 holds pointers to the main menu buttons at +0x5a8 and window 17 at +0x4d8: probably stale or shared containers, not checked.
 - click.click doesn't bring the game to the front. Fine when the user presses Enter in the game; for tests from outside, call CFCAccess tools/win.py focus() first.
 - Code: profile screen["windows"] maps window number -> {name, buttons, slots, click, menu_text}. Adding a screen with the same button-table shape is one JSON entry.
+
+## Open problem (reported by the user 2026-10-06, not investigated)
+
+- In a new game's intro, right after the menu about leaving the inn (menu_start_phase_3/4, just
+  before the street fight), the next menu's option reads "29 29". menu_start_phase_4's text is
+  {s11} and it has two "Continue..." options. Check the live buttons there next time.
