@@ -22,6 +22,7 @@ in view.
 """
 import json
 import os
+import re
 import struct
 import time
 
@@ -58,6 +59,11 @@ LEARNED = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
                        "learned.json")
 ACTION_KEYS = {keys.RETURN: "activate", keys.SPACE: "activate",
                keys.LEFT: "left", keys.RIGHT: "right"}
+# Escape presses the screen's own way back: an option or button starting
+# with one of these ("Go back", "Leave...", "Resume travelling", "Done").
+BACK = re.compile(r"(go back|back|leave|return|cancel|never ?mind|forget it|done|close)\b"
+                  r"|resume travel", re.IGNORECASE)
+SEARCH_PAUSE = 1.0      # seconds between letters before type search starts over
 
 
 class MenuWatcher:
@@ -101,6 +107,7 @@ class MenuWatcher:
         self.announce = ""           # a section's name, said before the next item
         self.section_memory = {}     # section key -> widget we were on there
         self.grid_headings = {}      # grid group -> the heading above it
+        self.search, self.search_at = "", 0.0   # type search: letters so far, last one's time
 
     def set_game(self, address, menus, skills=()):
         """A campaign started or a save was loaded: the game object moved."""
@@ -548,6 +555,17 @@ class MenuWatcher:
         if not self.options:
             return
         for key in pressed:
+            if key in keys.LETTERS:
+                if self.searching():
+                    self.type_search(chr(key).lower())
+                continue
+            if key == keys.ESCAPE:
+                back = self.back_item()
+                if back is not None:
+                    self.cursor = back
+                    self.say(self.options[back].label)
+                    self.act("activate")
+                continue    # with no way back, the game gets the Escape
             if key in (keys.TAB, keys.SHIFT_TAB, keys.CTRL_LEFT, keys.CTRL_RIGHT):
                 if self.has_sections():
                     self.switch_section(-1 if key in (keys.SHIFT_TAB, keys.CTRL_LEFT) else 1)
@@ -577,6 +595,55 @@ class MenuWatcher:
                 if key == keys.SPACE and self.options[self.cursor].kind == "edit":
                     continue    # a space typed into the box, not a press
                 self.act(ACTION_KEYS[key])
+
+    # --- Escape and type search ---------------------------------------------
+
+    def back_item(self):
+        """Index of the screen's way back (the last one, as menus put "Go
+        back" and "Leave" at the bottom), or None. Not where Escape already
+        means something in the game: a screen's profile can say "escape": false."""
+        if not self.options or self.config.get("escape") is False:
+            return None
+        found = [n for n, i in enumerate(self.options)
+                 if i.kind in ("option", "button") and not i.virtual and not i.disabled
+                 and BACK.match(i.label)]
+        return found[-1] if found else None
+
+    def searching(self):
+        """Do letters search this screen? Not in a name box (they're typed),
+        and not where the profile says the game needs them ("type_search": false)."""
+        return bool(self.options) and not self.typing() \
+            and self.config.get("type_search", True) \
+            and not (keys.is_down(keys.CONTROL) or keys.is_down(keys.ALT))
+
+    def type_search(self, letter):
+        """Jump to the next item starting with the letters typed so far.
+        Letters close together build a word ("j", "je", "jel"); the same
+        letter again and again steps through the items starting with it."""
+        now = time.monotonic()
+        if now - self.search_at > SEARCH_PAUSE:
+            self.search = ""
+        self.search_at = now
+        self.search += letter
+        word = self.search
+        repeat = len(word) > 1 and word == letter * len(word)
+        if repeat:
+            word = letter
+        # A new word may match the item we're on; a single letter or a
+        # repeat moves on to the next one.
+        first = 1 if len(word) == 1 else 0
+        n = len(self.options)
+        for step in range(first, n + first):
+            index = (self.cursor + step) % n
+            item = self.options[index]
+            if item.kind != "slot" and item.label.lower().startswith(word):
+                sections = self.sections()
+                before = self.section_of(self.cursor, sections)
+                after = self.section_of(index, sections)
+                title = self.section_title(after, sections[after]) if after != before else ""
+                self.go(index, title)
+                return
+        self.say(f"No {self.search}")
 
     def hover(self):
         """Put the mouse over the cursor's item, so the game highlights it

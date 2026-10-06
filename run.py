@@ -109,9 +109,18 @@ def play_session(game):
             if not watcher.typing():
                 news.handle_keys(pressed)    # the menu reader ignores these keys
         watcher.poll(pressed)
-        # Tab moves between sections where a screen has them; there the game
-        # never sees it. Everywhere else Tab is the game's (leave a scene).
-        key_watch.swallow = frozenset({keys.TAB}) if watcher.has_sections() else frozenset()
+        # Keys the mod uses on this screen never reach the game: Tab where
+        # there are sections, Escape where it presses the screen's way back,
+        # letters where they type-search. Everywhere else they're the game's
+        # (Tab leaves a scene, Escape opens the pause menu, WASD walks).
+        mine = set()
+        if watcher.has_sections():
+            mine.add(keys.TAB)
+        if watcher.back_item() is not None:
+            mine.add(keys.ESCAPE)
+        if watcher.searching():
+            mine.update(keys.LETTERS)
+        key_watch.swallow = frozenset(mine)
         key_watch.wait(POLL_SECONDS)     # wakes at once when a key arrives
 
 

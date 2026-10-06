@@ -28,8 +28,11 @@ LEFT_BRACKET, RIGHT_BRACKET, SEMICOLON, QUOTE = 0xDB, 0xDD, 0xBA, 0xDE
 TAB = 0x09
 # Not real key codes: the hook reports these key combinations as their own.
 SHIFT_TAB, CTRL_LEFT, CTRL_RIGHT = 0x109, 0x125, 0x127
+ALT = 0x12
+# Type search: a letter or digit's key code is its capital character (VK_A = "A").
+LETTERS = tuple(range(0x30, 0x3A)) + tuple(range(0x41, 0x5B))
 ALL = (UP, DOWN, RETURN, HOME, END, LEFT, RIGHT, SPACE, F9, ESCAPE,
-       LEFT_BRACKET, RIGHT_BRACKET, SEMICOLON, QUOTE, CONTROL, TAB)
+       LEFT_BRACKET, RIGHT_BRACKET, SEMICOLON, QUOTE, CONTROL, TAB) + LETTERS
 
 
 def is_down(vk):

@@ -33,6 +33,11 @@ GROUPS = [
          "like the columns of the party and character screens. Each section remembers "
          "where you were. Up and Down stay inside a section.", None),
         ("Enter or Space: press the item.", None),
+        ("Escape: go back. It presses the screen's own way out, like Go back, Leave, "
+         "Resume travelling or Done. Where there's none, as on the map, "
+         "Escape is the game's: the pause menu.", None),
+        ("Letters and numbers: jump to the next item starting with them. Type quickly "
+         "to spell more of a name; the same letter again goes to the next one.", None),
         ("Left and Right arrows: change a spinner, slider or drop-down, "
          "or raise a skill or attribute that has a plus button.", None),
         ("In a name box: type as usual, and the letters are read back.", None),
@@ -60,6 +65,8 @@ GROUPS = [
          "while you can see them, nearest first, with distance and direction.", None),
         ("Enter on a place: travel there, as clicking it would. The mod says when you arrive.", None),
         ("Tab: the map's buttons: Camp, Reports, Notes, Inventory, Character and Party.", None),
+        ("Letters search the places, so the game's letter shortcuts (I, P, C) don't work "
+         "here: use the map buttons instead.", None),
     ]),
 ]
 

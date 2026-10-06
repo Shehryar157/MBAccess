@@ -91,6 +91,20 @@
 - Ideas not built: 185 items is long: first-letter jump or a filter (towns only / parties
   only); a status key; announcements (spotted, terrain, night); clicking ground.
 
+## Escape and type search (session 12, 2026-10-07; unit-tested, UNTESTED in game)
+
+- All screens (menu_watch.back_item / type_search): Escape presses the LAST option or button
+  whose label starts with go back / back / leave / return / resume travel / cancel / never mind
+  / forget it / done / close; the hook swallows Escape only then (run.py), so the map and
+  scenes keep the game's Escape. Letters and digits type-search (1 s pause starts over; the
+  same letter repeated steps through matches); swallowed only while a screen has items and
+  no edit box is focused. Window 10 (scene) has "type_search": false, "escape": false so
+  walking keys can never be eaten. Side effect: on the map the game's I/P/C shortcuts are
+  replaced by type search (the map buttons do the same).
+- The user found Esc missing in a "travel menu" (probably Camp: "Resume travelling").
+- Silence on the map and in menus: Native has no ambience outside 3D scenes; the user's
+  rgl_config.txt had music_volume = 0.0746 (7%).
+
 ## Not yet known
 
 - What a map click writes (move_mode values, target party vs point), to make Enter = click.
