@@ -63,3 +63,16 @@
   35 through pymem: nearly all of it is Windows, so cutting the NUMBER of reads (page cache) is
   what matters. text.clean is memoized (lru_cache); the launcher check runs twice a second
   unless the launcher is open. Scene screen poll 3.1 -> 1.3 ms.
+
+### Click positions and the picture (VERIFIED 2026-10-06, session 10)
+
+- Only the MAIN MENU (window 4) keeps the monitor's shape (enable_aspect_ratio_control = 1 in
+  rgl_config.txt): a 4:3 window 426x320 (640x480 at 150% Windows scaling) on a 16:9 monitor
+  shows it in a 426x240 strip between 40-pixel black bars. Load game (16) fills the whole
+  window. Profile "letterbox": true marks such screens; click.py works out the picture on every
+  move (window size, monitor shape, the setting re-read when the file changes). Verified by
+  hover-scanning the highlight byte (widget +0x1f2): all 8 main menu buttons and Load game's
+  Cancel light up where we aim. Other screens untested since the change.
+- The main menu's button table exists BEFORE startup loading finishes, so the mod announced
+  "Main menu" over the loading splash and Enter did nothing. Not fixed yet: a startup recording
+  (one-shot changes cluster at about 11, 26, 33 and 52 snapshots after Play) needs analysing.
