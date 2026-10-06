@@ -304,3 +304,46 @@ def test_cell_names_drop_only_the_grids_own_name():
     w.config = {"layout": {"section_names": {"inv": "Equipment", "int": "Inventory"}}}
     assert [w.cell_name(i) for i in w.options if i.kind == "slot"] == ["Weapon 1", "5", "2"]
     assert ("list", "details") not in w.sections()     # the heading names its grid
+
+
+def test_inventory_cells_named_from_memory():
+    """A cell's item comes from the troop via the window's widget tables:
+    instant names, "empty", the quality word, and None for the Discard pile
+    (no screen troop), which falls back to the tooltip."""
+    from mbaccess.form import Item
+    mem = FakeMemory()
+    WIN, TROOPS, KINDS, MODS = 0x30000000, 0x31000000, 0x32000000, 0x33000000
+    inv = {"troops": 0x100, "troop_size": 0x1000, "troop_bag": 0x2d0, "troop_equipment": 0xf68,
+           "screen_troop": 0x104, "bag_cells": 0x174, "equipment_cells": 0xa80, "per_side": [96, 10],
+           "modifiers": MODS, "modifier_size": 0x128}
+    window = bytearray(0x1000)
+    struct.pack_into("<3I", window, 0x174, 0xA0, 0xA1, 0xA2)        # your bag cells 0-2
+    struct.pack_into("<I", window, 0x174 + 96 * 4, 0xB0)              # Discard cell 0
+    struct.pack_into("<3I", window, 0xa80, 0xC0, 0xC1, 0xC2)         # Weapon 1-3
+    mem.write(WIN, window)
+    game = bytearray(0x200)
+    struct.pack_into("<Ii", game, 0x100, TROOPS, -1)                  # no screen troop
+    mem.write(GAME, game)
+    troop = bytearray(0x1000)
+    struct.pack_into("<4i", troop, 0x2d0, -1, 0, 2, 0)                # bag: empty, Fish
+    struct.pack_into("<6i", troop, 0xf68, -1, 0, -1, 0, 1, 2 << 24)   # Weapon 3: Rusty Sword
+    mem.write(TROOPS, troop)
+    mem.write(KINDS - 0x100, struct.pack("<Ii", KINDS, 3) + bytes(0xf8))
+    mem.write(KINDS, b"".join(pack_rgl_string(KINDS + 0x90 * n, name)
+                              for n, name in enumerate(["INVALID", "Sword", "Smoked Fish"])))
+    mem.write(MODS, b"".join(pack_rgl_string(MODS + 0x128 * n, name).ljust(0x128, b"\0")
+                             for n, name in enumerate(["Plain %s", "Cracked %s", "Rusty %s"])))
+    screen = {"inventory": inv, "item_kinds": KINDS - 0x100, "item_kind_size": 0x90}
+    said = []
+    w = MenuWatcher(Reader(mem), GAME, {}, [], lambda t, interrupt=True: said.append(t), screen=screen)
+    w.top_window, w.window = (lambda: 7), (lambda n: WIN)
+    cell = lambda widget, label, group: Item("slot", label, 0.7, 0.5, group=group, widget=widget)
+    assert w.cell_contents(cell(0xA0, "Inventory 1", "int")) == ""
+    assert w.cell_contents(cell(0xA1, "Inventory 2", "int")) == "Smoked Fish"
+    assert w.cell_contents(cell(0xC2, "Weapon 3", "inv")) == "Rusty Sword"
+    assert w.cell_contents(cell(0xB0, "Discard 1", "nt")) is None     # nobody's: ask the tooltip
+    w.options, w.cursor = [cell(0xC2, "Weapon 3", "inv")], 0
+    w.config = {"layout": {"section_names": {"inv": "Equipment", "int": "Inventory"}}}
+    w.settings = {"item_details": "Name only"}
+    w.name_cell()
+    assert said[-1] == "Rusty Sword, Weapon 3" and w.tip_wait is None  # no waiting at all

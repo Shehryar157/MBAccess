@@ -37,7 +37,8 @@ SCROLL_TOP = 0.64       # top edge of a scrolling list (Options); bottom is read
 WHEEL_STEP = 0.062      # one wheel notch moves a list this far
 MAX_SCROLL_TRIES = 20
 GRID_ROW = 0.02         # cells closer than this in height are on the same row
-HEADING_GAP = 0.15      # a text this far above a grid's top row is its headingPICK_MARGIN = 0.01    # a drop-down row lower than this is off the bottom of the screen
+HEADING_GAP = 0.15      # a text this far above a grid's top row is its heading
+PICK_MARGIN = 0.01    # a drop-down row lower than this is off the bottom of the screen
 PICK_WAIT = 0.3       # seconds for a drop-down list to open
 TIP_LINES, TIP_STRIDE = 12, 0x90   # tooltip: rgl::string lines
 HOLD_WAIT = 0.4       # seconds for a click on a cell to pick up or put down
@@ -476,7 +477,7 @@ class MenuWatcher:
         self.pending = None
         self.announce = title
         if self.wants_tooltip():
-            self.ask_tooltip()      # spoken once the game shows what's there
+            self.name_cell()        # from memory, or once the game's tooltip shows
         else:
             self.tip_wait = None
             self.say(self.option_text())
@@ -544,23 +545,33 @@ class MenuWatcher:
     # --- carrying items (inventory) --------------------------------------
     # The game picks an item up on one click and puts it down on the next.
     # The inventory window says whether something is on the mouse (+held)
-    # and which item kind (+held+4, -1 for none); names come from the
-    # game's item table, one record of item_kind_size bytes per kind.
+    # and which item (+held+4: kind, -1 for none; +held+8: its flags); names
+    # come from the game's item table, one record of item_kind_size bytes
+    # per kind, with the quality word ("Rusty %s") from the modifier table.
 
     def held(self):
-        """Item kind number on the mouse, or None."""
+        """(item kind, flags) on the mouse, or None."""
         window = self.window(self.top_window())
         offset = self.config["held"]
         if not self.reader.i32(window + offset):
             return None
-        return self.reader.i32(window + offset + 4)
+        return struct.unpack("<iI", self.reader.read(window + offset + 4, 8))
 
-    def item_name(self, kind):
+    def item_name(self, kind, flags=0):
+        """"Rusty Sword": the kind's name inside its modifier's pattern
+        (the flags' top byte; 0 = plain, which the game shows bare)."""
         table = self.reader.ptr(self.screen["item_kinds"])
         count = self.reader.i32(self.screen["item_kinds"] + 4)
         if kind is None or not 0 <= kind < count:
             return "something"
-        return text_mod.clean(self.reader.rgl_string(table + kind * self.screen["item_kind_size"]))
+        name = text_mod.clean(self.reader.rgl_string(table + kind * self.screen["item_kind_size"]))
+        inv = self.screen.get("inventory", {})
+        modifier = flags >> 24
+        if modifier and "modifiers" in inv:
+            pattern = self.reader.rgl_string(inv["modifiers"] + modifier * inv["modifier_size"])
+            if pattern.count("%s") == 1:
+                name = pattern.replace("%s", name)
+        return name
 
     def check_held(self):
         started, before = self.hold_check
@@ -571,14 +582,53 @@ class MenuWatcher:
         if now == before:
             # Still the same: the cell refused it (a fish isn't a helmet),
             # or an empty cell was clicked with nothing held.
-            self.say(f"can't put {self.item_name(before)} there" if before is not None
+            self.say(f"can't put {self.item_name(*before)} there" if before is not None
                      else "nothing to pick up")
         elif before is None:
-            self.say(f"picked up {self.item_name(now)}")
+            self.say(f"picked up {self.item_name(*now)}")
         elif now is None:
-            self.say(f"put down {self.item_name(before)}")
+            self.say(f"put down {self.item_name(*before)}")
         else:
-            self.say(f"put down {self.item_name(before)}, picked up {self.item_name(now)}")
+            self.say(f"put down {self.item_name(*before)}, picked up {self.item_name(*now)}")
+
+    # --- what's in a cell, straight from memory --------------------------
+    # The inventory window keeps, per side (0 = you, 1 = the other side), a
+    # table of cell widgets in slot order: 96 bag cells, then 10 equipment
+    # cells. The items themselves are in the troop: a bag of 96 (kind,
+    # flags) pairs and a separate list of 10 equipped ones. Side 1 is the
+    # game's "screen troop" (a merchant, a companion, loot); with none (the
+    # Discard pile) we can't tell, and the tooltip answers instead.
+
+    def cell_slot(self, item):
+        """(side, "bag" or "equipment", slot number) of a cell, or None."""
+        inv = self.screen.get("inventory")
+        if not inv or not item.widget:
+            return None
+        window = self.window(self.top_window())
+        for part, size in zip(("bag", "equipment"), inv["per_side"]):
+            table = struct.unpack(f"<{2 * size}I",
+                                  self.reader.read(window + inv[part + "_cells"], 8 * size))
+            if item.widget in table:
+                n = table.index(item.widget)
+                return n // size, part, n % size
+        return None
+
+    def cell_contents(self, item):
+        """A cell's item name, "" when it's empty, None when we can't tell."""
+        inv = self.screen.get("inventory")
+        try:
+            where = self.cell_slot(item)
+            if where is None or self.game is None:
+                return None
+            side, part, slot = where
+            troop_no = 0 if side == 0 else self.reader.i32(self.game + inv["screen_troop"])
+            if troop_no < 0:
+                return None
+            troop = self.reader.ptr(self.game + inv["troops"]) + troop_no * inv["troop_size"]
+            kind, flags = struct.unpack("<iI", self.reader.read(troop + inv["troop_" + part] + 8 * slot, 8))
+            return self.item_name(kind, flags) if kind > 0 else ""
+        except ReadError:
+            return None
 
     # --- tooltips (inventory cells) --------------------------------------
 
@@ -595,32 +645,50 @@ class MenuWatcher:
         return (item.kind == "slot" and self.config.get("tooltip") and "tooltip" in self.screen
                 and self.mouse is not None)
 
-    def ask_tooltip(self):
+    def name_cell(self):
+        """Speak the cursor's cell. Memory names its item at once ("Smoked
+        Fish, 8"); the game's tooltip is then asked only for the details
+        (price, stats), which follow without cutting the name off. Cells
+        memory can't name (the Discard pile) wait for the tooltip instead."""
+        item = self.options[self.cursor]
+        known = self.cell_contents(item)
+        if known is None:
+            self.ask_tooltip(None)
+            return
+        self.say(f"{self.lead()}{known or 'empty'}, {self.cell_name(item)}")
+        if known and self.detail_level() != "Name only":
+            self.ask_tooltip(known)
+        else:
+            self.tip_wait = None
+            self.hover()
+
+    def ask_tooltip(self, known):
         """Hover a cell and wait for its tooltip; poll() speaks it. Cells
-        scrolled out of view get the wheel first, like a press would."""
+        scrolled out of view get the wheel first, like a press would.
+        known: the item's name if already spoken, else None."""
         item = self.options[self.cursor]
         if not item.visible():
             bottom, top = item.scroll
             self.mouse.wheel(item.x + item.click[0], (bottom + top) / 2,
                              item.wheel_notches())
-            self.tip_wait = (time.time(), None, item.widget)   # hover once it's in view
+            self.tip_wait = (time.time(), None, item.widget, known)   # hover once it's in view
             return
         before = self.tooltip()
         # A nudge first: if the mouse is already on this spot, moving "there"
         # isn't a movement, and the game only updates its tooltip on one.
         self.mouse.hover(item.x + item.click[0] + 0.005, item.y + item.click[1] + 0.005)
         self.hover()
-        self.tip_wait = (time.time(), before, item.widget)
+        self.tip_wait = (time.time(), before, item.widget, known)
 
     def check_tooltip(self):
-        started, before, widget = self.tip_wait
+        started, before, widget, known = self.tip_wait
         item = self.options[self.cursor]
         if item.widget != widget:
             self.tip_wait = None
             return
         if before is None:              # scrolling: a notch a tick until it's in view
             if item.visible():
-                self.ask_tooltip()
+                self.ask_tooltip(known)
             elif time.time() - started > TIP_WAIT * 5:
                 self.tip_wait = None        # give up; it won't come into view
             else:
@@ -629,6 +697,17 @@ class MenuWatcher:
                                  item.wheel_notches())
             return
         lines = self.tooltip()
+        if known is not None:
+            # The name is already spoken: only a tooltip about this item counts
+            # (a leftover one from another item is never read as this one's).
+            if lines and lines[0] == known:
+                self.tip_wait = None
+                extra = self.detail(lines)[1:]
+                if extra:
+                    self.say(". ".join(extra), interrupt=False)
+            elif time.time() - started > 2 * TIP_WAIT:
+                self.tip_wait = None        # no details this time; the name was said
+            return
         # Leaving an item blanks the tooltip for a frame or two before the
         # next item's text appears, so only new, non-blank text is an answer
         # before the wait is up. After it, blank means an empty cell, and the
@@ -641,10 +720,13 @@ class MenuWatcher:
         # The item first (that's what you're looking for), then which cell.
         self.say(f"{self.lead()}{words}, {self.cell_name(item)}")
 
+    def detail_level(self):
+        return self.settings.get("item_details") if self.settings else "Full"
+
     def detail(self, lines):
         """Cut a tooltip down to the Accessibility tab's "Item details"
         setting. Line 1 is the item's name; the price line says "price"."""
-        level = self.settings.get("item_details") if self.settings else "Full"
+        level = self.detail_level()
         if not lines or level == "Full":
             return lines
         if level == "Name only":

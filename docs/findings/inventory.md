@@ -17,13 +17,39 @@
   container are grids (arrows move by screen position, GRID_ROW 0.02); "columns" layouts make
   each column a section. Tab/Shift+Tab switch sections; the keyboard hook swallows Tab only
   while the screen has sections and never with Alt held. Not yet tried in the live game.
-- NEXT (not verified): reference/wse/WarbandLib/item.h + troop.h + inventory_window.h. A troop
-  has inventory.slots[96] (item_no, flags; equipment first: slots 0-3 weapons, 4 head, 5 body,
-  6 feet, 7 hands, 8 horse, 9 food?) and the inventory window has inventory_slot_widgets[2*96]
-  and equipment_slot_widgets[2*10] linking each cell widget to its slot. That would name a
-  cell's item instantly, with no hover or tooltip wait (empty cells cost 0.4 s now).
+- DONE below ("Cells named from memory"): the WarbandLib idea that equipment is slots 0-9 of
+  the bag turned out wrong; equipment is its own list.
 - Tested live 2026-10-06 with real keys: grid arrows, Tab order (Details, Discard, Equipment,
   Inventory), Tab hidden from the game. Headings above grids (Discard, Outfit, Arms, the player's
   name) were becoming one-item sections: now they name their grid (HEADING_GAP 0.15) and
   everything else is one "Details" list (cost, armor, encumbrance, Return, money). Tooltip
   "(29 / 29)" = ammo left or shield durability; the user wants it left as the game writes it.
+
+## Cells named from memory (VERIFIED live 2026-10-06, session 9)
+
+- The inventory window (7) matches WarbandLib's inventory_window.h field for field (game_window
+  ends at +0x13c). **+0x174** = inventory_slot_widgets[2 x 96]: cell widget pointers in slot
+  order, side 0 (you) then side 1 (the other side: Discard / merchant / loot); unused entries
+  hold junk. **+0xa80** = equipment_slot_widgets[2 x 10]: Weapon 1-4, Head, Body, Feet, Hands,
+  Horse (no Food cell, entry 9 = 0); side 1's half is junk when it has no equipment.
+  +0x774 inventory_prices (77777 = no price, outside trade). +0xbb0 dragging, +0xbb4 item kind,
+  +0xbb8 its flags. Found by dumping the header offsets and matching against the tree's cells.
+- Troop (stride 0xfc8, layout = 1.153): **+0x2d0 bag**, 96 x (item_no, flags); bag cell N =
+  slot N (-1 = empty). **+0xf68 equipment**, 10 x (item_no, flags) in the order above + Food.
+  Found: the player's fish showed in slot 7 = "Inventory 8" by a tooltip sweep; the equipment
+  by searching the troop for the Hunting Crossbow's kind (555).
+- Flags: top byte = item modifier (2 Rusty, 5 Battered, 0x16 Ragged, 0x18 Sturdy, 0x1f
+  Swaybacked); low bits = hit points for shields/horses (169, 100).
+- Modifier names: fixed table at **0x1d9ade8** (rgl::string "Rusty %s"), records **0x128**
+  apart, index = modifier; referenced by exe code (0x47ec9c), so static. 0 = "Plain %s", which
+  the game shows bare, so 0 adds nothing. Found with find_text "Swaybacked".
+- Side 1's troop: game **+0x14370** = cur_screen_troop_no (right after cur_menu_no, as in
+  game.h). -1 with the inventory opened by the player (Discard pile: owner unknown, the tooltip
+  is used). NOT verified for merchants, loot or a companion's gear (should be that troop).
+- Side 0 is assumed to be the player (troop 0). NOT verified when the game shows a companion.
+- Speech (menu_watch.name_cell): the name is said at once from memory (1-17 ms measured over
+  all 48 cells; empty cells were 400-650 ms before); with Item details Full / price, the
+  tooltip is still hovered and its other lines follow queued (interrupt=False), only if its
+  first line equals the name (a leftover tooltip is never read as this item). Details came
+  30-80 ms later; once (a timing fluke) not within 0.8 s, then only the name is heard.
+- Tool: tools/probe_inventory.py [troop_no] prints a troop's bag and the cell tables.
