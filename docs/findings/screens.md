@@ -37,3 +37,7 @@
 - Rule used: party skill = best level among heroes in the party (wounded count: the knocked-out player's Path-finding still showed); leader bonus +1 at 2-4, +2 at 5-7, +3 at 8-9, +4 at 10 (only 1 -> 0 and 2 -> +1 VERIFIED; the rest is the commonly cited rule). Native's script game_get_skill_modifier_for_troop adds +1 for reference books (Wound Treatment, Trainer, Surgery), NOT included yet. Checked live: Surgery 1, Wound Treatment 1, Path-finding 2 +1, as the screen shows.
 - Code: mbaccess/party_skills.py, profile screen["party_skills"] offsets, window 8 "party_skills": true puts the lines after the "Party Skills" heading. Names from Modules/<module>/skills.txt (flag 0x10 = party skill). tools/probe_troops.py [troop_no...] prints a troop's attributes and skills.
 - To verify later with companions: does the bonus come from the leader's own level when a companion is best? Do wounded companions count?
+
+## Load game save tiles (session 11, 2026-10-07)
+
+- With a save present, Load game (16) shows each save as a tile (top-left first: character name, then 'Day 1 (6:00)'). The tree reader does NOT read the tiles: only Delete, Cancel, Load (the last two 'unavailable' until a tile is clicked). A held click at the tile (x 0.18, y 0.615 for the first) selects it; then Load works. TODO: find the tile widget class (probe_tree on window 16 with a save present) and read tiles as items.
