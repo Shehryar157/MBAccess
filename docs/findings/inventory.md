@@ -22,3 +22,8 @@
   6 feet, 7 hands, 8 horse, 9 food?) and the inventory window has inventory_slot_widgets[2*96]
   and equipment_slot_widgets[2*10] linking each cell widget to its slot. That would name a
   cell's item instantly, with no hover or tooltip wait (empty cells cost 0.4 s now).
+- Tested live 2026-10-06 with real keys: grid arrows, Tab order (Details, Discard, Equipment,
+  Inventory), Tab hidden from the game. Headings above grids (Discard, Outfit, Arms, the player's
+  name) were becoming one-item sections: now they name their grid (HEADING_GAP 0.15) and
+  everything else is one "Details" list (cost, armor, encumbrance, Return, money). Tooltip
+  "(29 / 29)" = ammo left or shield durability; now read "29 of 29" (likely the user's "29 29").
