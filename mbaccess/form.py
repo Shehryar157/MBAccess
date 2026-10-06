@@ -223,8 +223,10 @@ class TreeReader:
                 if self.hidden(k):
                     continue
                 kk = self.kind(k)
-                if kk == "label" and self.text(k):
-                    texts.append(self.text(k))
+                if kk == "label":
+                    words = self.text(k)
+                    if words:
+                        texts.append(words)
                 elif kk == "image":
                     images.append(self.position(k)[0])
             except ReadError:

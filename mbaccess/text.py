@@ -1,9 +1,11 @@
 """Turning engine text into something pleasant to hear."""
+import functools
 import re
 
 PLACEHOLDER = re.compile(r"\{[!]?[a-z]+\d*\}|\{reg\d+\}", re.IGNORECASE)
 
 
+@functools.lru_cache(maxsize=4096)   # the same labels come back every tick
 def clean(text):
     """'^' is the engine's line break; unfilled {s1}-style slots are dropped."""
     text = text.replace("^", "\n")

@@ -59,3 +59,7 @@
   one. Verified: Esc menu (window 5). Character screen: a quick click on Statistics closed the
   screen or missed (unclear), so it stays slow until tested with skill points to spend.
 - Character screen has no "-" or Reset buttons: points can't be taken back (verified 2026-10-06).
+- Later 2026-10-06: a read costs about 33 microseconds direct (ReadProcessMemory via ctypes) vs
+  35 through pymem: nearly all of it is Windows, so cutting the NUMBER of reads (page cache) is
+  what matters. text.clean is memoized (lru_cache); the launcher check runs twice a second
+  unless the launcher is open. Scene screen poll 3.1 -> 1.3 ms.

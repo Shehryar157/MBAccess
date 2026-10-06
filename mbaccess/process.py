@@ -14,8 +14,13 @@ import pymem.exception
 import pymem.process
 
 from . import profiles, regions
+from .mem import ReadError
 
 _user32 = ctypes.WinDLL("user32")
+_read_memory = ctypes.WinDLL("kernel32").ReadProcessMemory
+_read_memory.argtypes = (wintypes.HANDLE, wintypes.LPCVOID, wintypes.LPVOID,
+                         ctypes.c_size_t, ctypes.POINTER(ctypes.c_size_t))
+_read_memory.restype = wintypes.BOOL
 
 
 class Game:
@@ -32,7 +37,14 @@ class Game:
         return self.pm.process_id
 
     def read(self, address, length):
-        return self.pm.read_bytes(address, length)
+        # ReadProcessMemory directly: pymem's read_bytes does the same with
+        # extra checks and conversions, and this is the mod's busiest call.
+        buffer = ctypes.create_string_buffer(length)
+        got = ctypes.c_size_t()
+        if not _read_memory(self.pm.process_handle, address, buffer, length, ctypes.byref(got)) \
+                or got.value != length:
+            raise ReadError(f"{address:#x}+{length}: unreadable")
+        return buffer.raw
 
     def regions(self):
         """(start, size) of the writable memory regions: where game data lives."""
@@ -40,9 +52,9 @@ class Game:
 
     def is_running(self):
         try:
-            self.pm.read_bytes(self.base, 2)
+            self.read(self.base, 2)
             return True
-        except pymem.exception.MemoryReadError:
+        except ReadError:
             return False
 
     def module_names(self):

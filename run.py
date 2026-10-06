@@ -67,8 +67,13 @@ def play_session(game):
     watcher = MenuWatcher(Reader(game), None, game.profile.game_offsets, [], speech.say,
                           screen=game.profile.screen, mouse=click.Mouse(game_window),
                           page=page, settings=prefs, party_skills=team)
+    next_launcher = 0
     while game.is_running():
-        launch.poll()
+        # Looking for the launcher costs a little; while it's open, follow it
+        # every tick, otherwise check twice a second for it to appear.
+        if launch.hwnd or time.time() >= next_launcher:
+            launch.poll()
+            next_launcher = time.time() + 0.5
         # The game object exists only once a campaign starts, and loading a
         # save replaces it, so look it up again every second (cheap with the
         # known pointer; a slow memory search when the pointer is unknown).
