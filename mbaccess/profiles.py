@@ -31,6 +31,13 @@ class Profile:
     # Fixed addresses and widget offsets for reading what's on screen
     # (menu buttons and so on). Empty = not found yet for this version.
     screen: dict = field(default_factory=dict)
+    # The game's settings folder inside Documents (rgl_config.txt lives there).
+    config_dir: str = ""
+
+    @property
+    def config_file(self):
+        docs = os.path.join(os.path.expanduser("~"), "Documents")
+        return os.path.join(docs, self.config_dir, "rgl_config.txt")
 
     @property
     def path(self):
@@ -60,13 +67,16 @@ class Profile:
 
 # Exe names to be confirmed once the games are installed.
 PROFILES = [
-    Profile("warband", "Mount and Blade: Warband", ("mb_warband.exe",)),
-    Profile("wfs", "With Fire and Sword", ("mb_wfas.exe",)),
+    Profile("warband", "Mount and Blade: Warband", ("mb_warband.exe",),
+            config_dir="Mount&Blade Warband"),
+    Profile("wfs", "With Fire and Sword", ("mb_wfas.exe",),
+            config_dir="Mount&Blade With Fire and Sword"),
 ]
 
 
 def for_exe(exe_name):
     for profile in PROFILES:
         if exe_name.lower() in profile.exe_names:
-            return Profile(profile.key, profile.title, profile.exe_names).load()
+            return Profile(profile.key, profile.title, profile.exe_names,
+                           config_dir=profile.config_dir).load()
     return None

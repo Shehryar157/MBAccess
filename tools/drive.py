@@ -19,6 +19,7 @@ from mbaccess.menu_watch import MenuWatcher
 
 game = process.try_attach()
 hwnd = process.find_window(game.pid)
+click.use_config(game.profile.config_file)
 said = []
 w = MenuWatcher(Reader(game), None, game.profile.game_offsets, [], said.append,
                 screen=game.profile.screen, mouse=click.Mouse(lambda: hwnd))

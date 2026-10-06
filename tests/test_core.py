@@ -173,6 +173,19 @@ def test_engine_coordinates_to_pixels():
     assert click.to_pixels(1280, 720, 0.0, 0.0) == (0, 720)
 
 
+def test_letterboxed_picture():
+    # 4:3 window on a 16:9 monitor: bars above and below (measured live).
+    assert click.picture(426, 320, 16 / 9) == (0, 40.1875, 426, 239.625)
+    # Main menu bottoms: Play Tutorial y=0.48 lit up to row 124, Exit y=0.2 to 214.
+    assert click.to_pixels(426, 320, 0.05, 0.48, 16 / 9)[1] in range(122, 128)
+    assert click.to_pixels(426, 320, 0.05, 0.2, 16 / 9)[1] in range(212, 218)
+    # A very wide window: bars left and right instead.
+    left, top, w, h = click.picture(1898, 922, 16 / 9)
+    assert top == 0 and h == 922 and round(left) == 129
+    # Aspect control off: the picture fills the window as before.
+    assert click.to_pixels(1280, 720, 0.0, 0.0, None) == (0, 720)
+
+
 def test_main_menu_without_a_campaign():
     mem = FakeMemory()
     add_menu_window(mem, [("Start a New Game", 0.44, False), ("Play Tutorial", 0.48, False)],

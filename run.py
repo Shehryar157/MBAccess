@@ -62,6 +62,7 @@ def play_session(game):
     offsets = game.profile.screen.get("party_skills")
     team = party_skills.PartySkills(Reader(game), offsets) if offsets else None
 
+    click.use_config(game.profile.config_file)   # where the picture sits in the window
     # The main menu needs no campaign, so the watcher starts without one;
     # set_game hands it the campaign object once there is one.
     watcher = MenuWatcher(Reader(game), None, game.profile.game_offsets, [], speech.say,

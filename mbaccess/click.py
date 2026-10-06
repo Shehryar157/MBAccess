@@ -4,8 +4,17 @@ The engine lays out its interface on a virtual screen 1.0 wide and 0.75
 tall, with y measured UP from the bottom, whatever the real resolution. We
 turn that into pixels of the window's client area (the inside, without the
 title bar), then into desktop pixels, move the mouse there and click.
+
+The picture doesn't always fill the window. With "enable_aspect_ratio_control"
+on in rgl_config.txt (the default), the game keeps the MONITOR's shape and
+centres the picture, with black bars above and below (or left and right).
+Measured 2026-10-06: a 4:3 window 426x320 on a 16:9 monitor shows a 426x240
+picture between two 40-pixel bars, and the 1.0 x 0.75 layout fills exactly
+that picture. So we work out the picture's rectangle on every move: a change
+of resolution, window size or setting is picked up straight away.
 """
 import ctypes
+import os
 import time
 from ctypes import wintypes
 
@@ -18,15 +27,78 @@ WHEEL_DELTA = 120  # one notch
 SCREEN_HEIGHT = 0.75
 
 
-def to_pixels(width, height, x, y):
+def picture(width, height, aspect=None):
+    """Where the picture sits in a width x height client area: (left, top,
+    picture width, picture height). aspect = the shape it keeps (width /
+    height), None = it stretches to fill the window. Pure maths, tested."""
+    if not aspect or not width or not height:
+        return 0, 0, width, height
+    if width / height > aspect:             # window too wide: bars left and right
+        w = height * aspect
+        return (width - w) / 2, 0, w, height
+    h = width / aspect                      # window too tall: bars above and below
+    return 0, (height - h) / 2, width, h
+
+
+def to_pixels(width, height, x, y, aspect=None):
     """Engine coordinates -> client pixels (pure maths, tested)."""
-    return round(x * width), round(height - y / SCREEN_HEIGHT * height)
+    left, top, w, h = picture(width, height, aspect)
+    return round(left + x * w), round(top + h - y / SCREEN_HEIGHT * h)
+
+
+class AspectSetting:
+    """Reads enable_aspect_ratio_control from rgl_config.txt, again only when
+    the file changes (the Video options screen rewrites it)."""
+
+    def __init__(self, path=None):
+        self.path = path
+        self.stamp = None
+        self.on = True       # the game's default
+
+    def keep(self):
+        try:
+            stamp = os.stat(self.path).st_mtime if self.path else None
+        except OSError:
+            stamp = None
+        if stamp != self.stamp:
+            self.stamp = stamp
+            self.on = True
+            if stamp is not None:
+                with open(self.path, encoding="utf-8", errors="replace") as f:
+                    for line in f:
+                        name, _, value = line.partition("=")
+                        if name.strip() == "enable_aspect_ratio_control":
+                            self.on = value.strip() != "0"
+        return self.on
+
+
+def monitor_aspect(hwnd):
+    """Width / height of the monitor the window is on."""
+    class MONITORINFO(ctypes.Structure):
+        _fields_ = [("cbSize", wintypes.DWORD), ("rcMonitor", wintypes.RECT),
+                    ("rcWork", wintypes.RECT), ("dwFlags", wintypes.DWORD)]
+    info = MONITORINFO(cbSize=ctypes.sizeof(MONITORINFO))
+    monitor = _user32.MonitorFromWindow(hwnd, 2)    # 2 = the nearest monitor
+    if not monitor or not _user32.GetMonitorInfoW(monitor, ctypes.byref(info)):
+        return None
+    r = info.rcMonitor
+    return (r.right - r.left) / (r.bottom - r.top) if r.bottom > r.top else None
+
+
+_aspect_setting = AspectSetting()
+
+
+def use_config(path):
+    """Tell the clicks which rgl_config.txt to read (the attached game's)."""
+    global _aspect_setting
+    _aspect_setting = AspectSetting(path)
 
 
 def move(hwnd, x, y):
     rect = wintypes.RECT()
     _user32.GetClientRect(hwnd, ctypes.byref(rect))
-    px, py = to_pixels(rect.right, rect.bottom, x, y)
+    aspect = monitor_aspect(hwnd) if _aspect_setting.keep() else None
+    px, py = to_pixels(rect.right, rect.bottom, x, y, aspect)
     point = wintypes.POINT(px, py)
     _user32.ClientToScreen(hwnd, ctypes.byref(point))
     _user32.SetCursorPos(point.x, point.y)
