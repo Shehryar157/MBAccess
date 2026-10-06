@@ -10,3 +10,15 @@
 
 - Item actions, from ui.csv/hints.csv: left click picks up and puts down (equip, discard via the "Discard" 3x3 grid, loot, trade); Ctrl+click = quick buy/sell; right click = the item's ONE special action (books: read; livestock: "Slaughter this %s and eat it?"). Food and drink are never used by hand. Mod: Shift+Enter right-clicks a cell. Ctrl+click not mapped yet.
 - F9 help (moved from F1, which is the battle order key) (mbaccess/help.py), like FFC's: groups by screen, starts on Inventory when the screen has slots. We can't hide keys from the game: Escape closes the help AND reaches the game. In battles F1 is the game's order key (conflict to solve later).
+
+## Grid navigation and a faster way to name items (2026-10-06)
+
+- Built (menu_watch sections, test_inventory_grid_arrows_and_sections): slot cells grouped by
+  container are grids (arrows move by screen position, GRID_ROW 0.02); "columns" layouts make
+  each column a section. Tab/Shift+Tab switch sections; the keyboard hook swallows Tab only
+  while the screen has sections and never with Alt held. Not yet tried in the live game.
+- NEXT (not verified): reference/wse/WarbandLib/item.h + troop.h + inventory_window.h. A troop
+  has inventory.slots[96] (item_no, flags; equipment first: slots 0-3 weapons, 4 head, 5 body,
+  6 feet, 7 hands, 8 horse, 9 food?) and the inventory window has inventory_slot_widgets[2*96]
+  and equipment_slot_widgets[2*10] linking each cell widget to its slot. That would name a
+  cell's item instantly, with no hover or tooltip wait (empty cells cost 0.4 s now).

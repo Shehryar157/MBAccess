@@ -26,7 +26,11 @@ GROUPS = [
         ("Shift with semicolon or apostrophe: oldest or newest message.", None),
     ]),
     ("Menus and screens", [
-        ("Up and Down arrows: previous or next item. Home and End: first or last.", None),
+        ("Up and Down arrows: previous or next item. Home and End: first or last. "
+         "Hold an arrow to keep moving.", None),
+        ("Tab and Shift Tab: next or previous section, on screens that have them, "
+         "like the columns of the party and character screens. Each section remembers "
+         "where you were. Up and Down stay inside a section.", None),
         ("Enter or Space: press the item.", None),
         ("Left and Right arrows: change a spinner, slider or drop-down, "
          "or raise a skill or attribute that has a plus button.", None),
@@ -36,8 +40,10 @@ GROUPS = [
          "as a sighted player clicks it. Escape closes Options as usual.", None),
     ]),
     ("Inventory", [
-        ("Up and Down arrows: move through the equipment slots, your bag "
-         "and the other side's items. Each cell reads its item and price, or empty.", None),
+        ("The inventory is grids: your equipment, your bag, and the other side's items "
+         "(Discard, a merchant, or loot). Tab and Shift Tab move between them.", None),
+        ("All four arrows move around a grid, cell by cell, as it looks on screen. "
+         "Home and End: first or last cell. Each cell reads its item and price, or empty.", None),
         ("Enter: pick up the item, then Enter on another cell to put it down. "
          "This equips, unequips, discards, loots, buys and sells.", None),
         ("Shift Enter: the item's special action, if it has one: "

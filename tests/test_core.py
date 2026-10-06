@@ -257,3 +257,38 @@ def test_party_skill_pieces():
     # Skill 1 = 3, skill 8 = 2 (second int, lowest 4 bits).
     assert party_skills.unpack_skills([0x30, 0x2, 0, 0, 0, 0], 10)[1::7] == [3, 2]
     assert [party_skills.leader_bonus(n) for n in (1, 2, 5, 8, 10)] == [0, 1, 2, 3, 4]
+
+
+def test_inventory_grid_arrows_and_sections():
+    """Arrows move by position inside a grid; Tab goes section to section
+    and comes back to the cell we left."""
+    from mbaccess import keys
+    from mbaccess.form import Item
+    said = []
+    w = MenuWatcher(None, None, {}, [], said.append)
+    slot = lambda label, x, y, group: Item("slot", label, x, y, group=group, widget=id(label) + int(x * 1e4 + y * 1e3))
+    eq = [slot("Head", 0.451, 0.605, "inv"), slot("Body", 0.451, 0.517, "inv"),
+          slot("Hands", 0.363, 0.517, "inv"), slot("Weapon 1", 0.552, 0.605, "inv"),
+          slot("Weapon 2", 0.552, 0.517, "inv")]
+    inv = [slot(f"Inventory {n + 1}", 0.70 + 0.088 * (n % 3), 0.6 - 0.088 * (n // 3), "int")
+           for n in range(9)]
+    other = [slot(f"Discard {n + 1}", 0.05 + 0.088 * (n % 3), 0.6 - 0.088 * (n // 3), "nt")
+             for n in range(4)]
+    done = Item("button", "Done", 0.9, 0.05, widget=1)
+    w.options = other + eq + inv + [done]
+    w.config = {"layout": {"section_names": {"inv": "Equipment", "int": "Inventory"}}}
+    find = lambda label: next(n for n, i in enumerate(w.options) if i.label == label)
+    w.cursor = find("Body")
+    w.handle_keys([keys.LEFT]);  assert w.options[w.cursor].label == "Hands"
+    w.handle_keys([keys.UP]);    assert w.options[w.cursor].label == "Head"
+    w.handle_keys([keys.RIGHT]); assert w.options[w.cursor].label == "Weapon 1"
+    w.handle_keys([keys.RIGHT]); assert w.options[w.cursor].label == "Weapon 1"   # edge: stays
+    w.handle_keys([keys.TAB])
+    assert w.options[w.cursor].label == "Inventory 1" and said[-1].startswith("Inventory: ")
+    w.handle_keys([keys.DOWN, keys.RIGHT]); assert w.options[w.cursor].label == "Inventory 5"
+    w.handle_keys([keys.END]);   assert w.options[w.cursor].label == "Inventory 9"
+    w.handle_keys([keys.SHIFT_TAB, keys.TAB])     # away and back: same cell
+    assert w.options[w.cursor].label == "Inventory 9"
+    w.handle_keys([keys.TAB, keys.TAB])           # Done, then round to Discard
+    assert w.options[w.cursor].label == "Discard 1" and said[-1].startswith("Discard: ")
+    assert w.has_sections()

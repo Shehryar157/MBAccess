@@ -25,8 +25,10 @@ SHIFT, CONTROL = 0x10, 0x11   # either side's key
 # The message keys, by where they are on a US keyboard ("OEM" keys move
 # about on other layouts).
 LEFT_BRACKET, RIGHT_BRACKET, SEMICOLON, QUOTE = 0xDB, 0xDD, 0xBA, 0xDE
+TAB = 0x09
+SHIFT_TAB = 0x109    # not a real key code: the hook reports Shift+Tab as this
 ALL = (UP, DOWN, RETURN, HOME, END, LEFT, RIGHT, SPACE, F9, ESCAPE,
-       LEFT_BRACKET, RIGHT_BRACKET, SEMICOLON, QUOTE, CONTROL)
+       LEFT_BRACKET, RIGHT_BRACKET, SEMICOLON, QUOTE, CONTROL, TAB)
 
 
 def is_down(vk):
@@ -40,6 +42,7 @@ class KeyWatcher:
         self.hwnd_getter = hwnd_getter  # function returning the game window
         self.keys = keys
         self.down = set()
+        self.swallow, self.game_hwnd = frozenset(), None    # polling can't hide keys
 
     def wait(self, seconds):
         time.sleep(seconds)     # polling can't be woken by a key
@@ -89,6 +92,8 @@ class HookKeyWatcher:
         self.events = queue.Queue()     # (key, window in front, is it a repeat)
         self.held = set()               # to skip the auto-repeat of a held key
         self.arrived = threading.Event()   # set by the hook: wakes wait() at once
+        self.swallow = frozenset()      # keys to hide from the game (set by run.py)
+        self.game_hwnd = None           # remembered here: the hook must not search for it
         self._proc = HOOKPROC(self._on_key)   # keep a reference, or it's freed
         ready = threading.Event()
         self.ok = False
@@ -114,13 +119,20 @@ class HookKeyWatcher:
         if code == 0:
             info = ctypes.cast(lparam, ctypes.POINTER(KBDLLHOOKSTRUCT)).contents
             vk = SIDES.get(info.vkCode, info.vkCode)
+            front = _user32.GetForegroundWindow()
             if wparam in (WM_KEYDOWN, WM_SYSKEYDOWN):
                 if vk in self.keys and (vk not in self.held or vk in REPEATS):
-                    self.events.put((vk, _user32.GetForegroundWindow(), vk in self.held))
+                    reported = SHIFT_TAB if vk == TAB and SHIFT in self.held else vk
+                    self.events.put((reported, front, vk in self.held))
                     self.arrived.set()
                 self.held.add(vk)
             elif wparam in (WM_KEYUP, WM_SYSKEYUP):
                 self.held.discard(vk)
+            # Keys the mod owns on this screen never reach the game. Not with
+            # Alt held (WM_SYSKEY...), so Alt+Tab still switches programs.
+            if vk in self.swallow and wparam in (WM_KEYDOWN, WM_KEYUP) \
+                    and front and front == self.game_hwnd:
+                return 1
         return _user32.CallNextHookEx(None, code, wparam, lparam)
 
     def wait(self, seconds):
@@ -130,7 +142,7 @@ class HookKeyWatcher:
     def pressed(self):
         """Keys that went down since the last call, in order, while the game was in front."""
         self.arrived.clear()
-        hwnd = self.hwnd_getter()
+        hwnd = self.game_hwnd = self.hwnd_getter()
         new = []
         while True:
             try:

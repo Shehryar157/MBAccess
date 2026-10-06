@@ -36,6 +36,7 @@ ROOT_SEARCH = 0x1000    # how far into a window to look for it otherwise
 SCROLL_TOP = 0.64       # top edge of a scrolling list (Options); bottom is read
 WHEEL_STEP = 0.062      # one wheel notch moves a list this far
 MAX_SCROLL_TRIES = 20
+GRID_ROW = 0.02         # cells closer than this in height are on the same row
 PICK_MARGIN = 0.01    # a drop-down row lower than this is off the bottom of the screen
 PICK_WAIT = 0.3       # seconds for a drop-down list to open
 TIP_LINES, TIP_STRIDE = 12, 0x90   # tooltip: rgl::string lines
@@ -76,6 +77,8 @@ class MenuWatcher:
         self.config = {}
         self.hold_check = None       # (since, item held before): after clicking a cell
         self.carried = []            # keys from a tick whose read failed
+        self.announce = ""           # a section's name, said before the next item
+        self.section_memory = {}     # section key -> widget we were on there
 
     def set_game(self, address, menus, skills=()):
         """A campaign started or a save was loaded: the game object moved."""
@@ -276,7 +279,12 @@ class MenuWatcher:
         return any(i.kind == "slot" for i in self.options)
 
     def option_text(self):
-        return f"{self.options[self.cursor].spoken()}, {self.cursor + 1} of {len(self.options)}"
+        return self.lead() + self.options[self.cursor].spoken() + self.position_text()
+
+    def lead(self):
+        """A section's name, once, in front of the first thing said in it."""
+        title, self.announce = self.announce, ""
+        return f"{title}: " if title else ""
 
     # --- the loop --------------------------------------------------------
 
@@ -296,6 +304,7 @@ class MenuWatcher:
         self.config = config
         if state != self.last and not self.same_screen(state, items):
             self.last, self.pending = state, None
+            self.announce, self.section_memory = "", {}
             self.options, self.cursor = items, min(config.get("start", 0), len(items) - 1)
             self.say(self.describe(state[1], state[2], config))
             return
@@ -337,21 +346,116 @@ class MenuWatcher:
         here = self.options[self.cursor].widget
         return bool(here) and any(i.widget == here for i in items)
 
+    # --- sections and grids ----------------------------------------------
+    # A screen can have sections: each group of item cells (equipment, your
+    # inventory, the other side) is a grid, where all four arrows move by
+    # position; on screens laid out in columns (party, character) each
+    # column is a list. Tab and Shift+Tab move between sections, and each
+    # section remembers where you were. One section = the plain list.
+
+    def section_key(self, item):
+        if item.kind == "slot":
+            return ("grid", item.group)
+        columns = (self.config.get("layout") or {}).get("columns")
+        if columns:
+            return ("list", next(n for n, x in enumerate(columns + [99]) if item.x < x))
+        return ("list", 0)
+
+    def sections(self):
+        """{key: [indexes into options]}, in reading order."""
+        found = {}
+        for n, item in enumerate(self.options):
+            found.setdefault(self.section_key(item), []).append(n)
+        return found
+
+    def has_sections(self):
+        return len(self.sections()) > 1
+
+    def section_title(self, key, members):
+        names = (self.config.get("layout") or {}).get("section_names", {})
+        if key[1] in names:
+            return names[key[1]]
+        first = self.options[members[0]]
+        if key[0] == "grid":
+            return first.label.rstrip("0123456789 ") or "Grid"
+        return first.spoken()
+
+    def grid_move(self, key, members):
+        """The cell next to ours in the arrow's direction, by screen position:
+        same row for Left/Right, the nearest one in line for Up/Down."""
+        here = self.options[self.cursor]
+        best = None
+        for n in members:
+            c = self.options[n]
+            dx, dy = c.x - here.x, c.y - here.y
+            if key in (keys.LEFT, keys.RIGHT):
+                if abs(dy) > GRID_ROW or (dx < -0.001) != (key == keys.LEFT) or abs(dx) <= 0.001:
+                    continue
+                score = (abs(dx), 0)
+            else:   # y grows upward
+                if abs(dy) <= GRID_ROW or (dy > 0) != (key == keys.UP):
+                    continue
+                score = (round(abs(dy), 2), abs(dx))
+            if best is None or score < best[0]:
+                best = (score, n)
+        return best[1] if best else None
+
+    def go(self, index, title=""):
+        """Move the cursor to an item and speak it (after the section's name)."""
+        self.cursor = index
+        self.pending = None
+        self.announce = title
+        if self.wants_tooltip():
+            self.ask_tooltip()      # spoken once the game shows what's there
+        else:
+            self.tip_wait = None
+            self.say(self.option_text())
+            self.hover()
+
+    def position_text(self):
+        """", 3 of 8": the place within the section (the whole screen if one)."""
+        members = self.sections().get(self.section_key(self.options[self.cursor]), [])
+        if self.cursor in members and len(members) < len(self.options):
+            return f", {members.index(self.cursor) + 1} of {len(members)}"
+        return f", {self.cursor + 1} of {len(self.options)}"
+
+    def switch_section(self, step):
+        sections = self.sections()
+        keys_ = list(sections)
+        here = self.section_key(self.options[self.cursor])
+        self.section_memory[here] = self.options[self.cursor].widget
+        target = keys_[(keys_.index(here) + step) % len(keys_)]
+        members = sections[target]
+        remembered = self.section_memory.get(target)
+        index = next((n for n in members if remembered and self.options[n].widget == remembered),
+                     members[0])
+        self.go(index, self.section_title(target, members))
+
     def handle_keys(self, pressed):
         if not self.options:
             return
         for key in pressed:
-            if key in (keys.UP, keys.DOWN, keys.HOME, keys.END):
-                n = len(self.options)
-                self.cursor = {keys.UP: (self.cursor - 1) % n, keys.DOWN: (self.cursor + 1) % n,
-                               keys.HOME: 0, keys.END: n - 1}[key]
-                self.pending = None
-                if self.wants_tooltip():
-                    self.ask_tooltip()      # spoken once the game shows what's there
+            if key in (keys.TAB, keys.SHIFT_TAB):
+                if self.has_sections():
+                    self.switch_section(-1 if key == keys.SHIFT_TAB else 1)
+                continue
+            sections = self.sections()
+            here = self.section_key(self.options[self.cursor])
+            members = sections[here] if len(sections) > 1 else list(range(len(self.options)))
+            arrows = (keys.UP, keys.DOWN, keys.HOME, keys.END)
+            if here[0] == "grid" and key in arrows + (keys.LEFT, keys.RIGHT):
+                if key in (keys.HOME, keys.END):
+                    target = members[0 if key == keys.HOME else -1]
                 else:
-                    self.tip_wait = None
-                    self.say(self.option_text())
-                    self.hover()
+                    target = self.grid_move(key, members)
+                # At the edge we stay put and say where we are again.
+                self.go(self.cursor if target is None else target)
+            elif key in arrows:
+                place = members.index(self.cursor) if self.cursor in members else 0
+                n = len(members)
+                place = {keys.UP: (place - 1) % n, keys.DOWN: (place + 1) % n,
+                         keys.HOME: 0, keys.END: n - 1}[key]
+                self.go(members[place])
             elif key == keys.RETURN and keys.is_down(keys.SHIFT):
                 self.act("special")
             elif key in ACTION_KEYS:
@@ -463,7 +567,7 @@ class MenuWatcher:
         self.tip_wait = None
         lines = self.detail(lines)
         words = ". ".join(lines) if lines else "empty"
-        self.say(f"{item.label}: {words}, {self.cursor + 1} of {len(self.options)}")
+        self.say(f"{self.lead()}{item.label}: {words}{self.position_text()}")
 
     def detail(self, lines):
         """Cut a tooltip down to the Accessibility tab's "Item details"

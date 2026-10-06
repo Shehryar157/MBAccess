@@ -37,7 +37,7 @@
                        [0.363, 0.517, "Hands"], [0.363, 0.317, "Horse"],
                        [0.552, 0.605, "Weapon 1"], [0.552, 0.517, "Weapon 2"],
                        [0.552, 0.429, "Weapon 3"], [0.552, 0.341, "Weapon 4"]],
-        "slot_groups": {"int": "Inventory"}}},
+        "slot_groups": {"int": "Inventory"}, "section_names": {"inv": "Equipment", "int": "Inventory"}}},
       "29": {"name": "Custom battle", "tree": true, "layout": {
         "names": {"0.23": "Infantry", "0.19": "Archers", "0.15": "Cavalry"},
         "heading_offset": [0.2, 0.45],

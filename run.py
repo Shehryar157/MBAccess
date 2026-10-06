@@ -106,6 +106,9 @@ def play_session(game):
             if not watcher.typing():
                 news.handle_keys(pressed)    # the menu reader ignores these keys
         watcher.poll(pressed)
+        # Tab moves between sections where a screen has them; there the game
+        # never sees it. Everywhere else Tab is the game's (leave a scene).
+        key_watch.swallow = frozenset({keys.TAB}) if watcher.has_sections() else frozenset()
         key_watch.wait(POLL_SECONDS)     # wakes at once when a key arrives
 
 
