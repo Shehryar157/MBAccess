@@ -28,8 +28,12 @@ from .form import Item
 from .mem import RGL_STRING_STATIC, ReadError
 
 DISABLED, ALWAYS_VISIBLE = 0x100, 0x4000
-TRAVEL_TO_PARTY, IN_TOWN = 1, 8        # ai behaviours (header_parties.py)
-MOVE_TO_PARTY = 2                       # move mode a click on a party writes
+# The player's click order: behaviour 4 ("attack party" in header_parties.py,
+# but for the player it means "go and meet it": arriving starts the encounter
+# that opens the place's menu or the conversation). Behaviour 1, "travel to
+# party", is the AI lords' order: the party rides in quietly and no menu opens.
+MEET, IN_TOWN = 4, 8
+MOVE_TO_POINT, MOVE_TO_PARTY = 1, 2     # move modes: a place click / a party click
 REFRESH = 1.0          # seconds between reads of the party table
 CHUNK = 0x278          # one read per party: from its start to attached_to
 STACK_SIZE = 32
@@ -182,24 +186,28 @@ class WorldMap:
         if spot is None:
             return
         o, me = self.o, self.player(game)
-        self.r.write(me + o["behaviour"], struct.pack("<ii", TRAVEL_TO_PARTY, spot.number))
+        self.r.write(me + o["behaviour"], struct.pack("<ii", MEET, spot.number))
         self.r.write(me + o["move_target"], struct.pack("<ff", spot.x, spot.y))
-        self.r.write(me + o["move_target_party"], struct.pack("<i", spot.number))
-        self.r.write(me + o["move_mode"], struct.pack("<i", MOVE_TO_PARTY))
+        if spot.kind:       # a place doesn't move: a click on it orders "ride to this point"
+            mode = MOVE_TO_POINT
+        else:               # a moving party: follow it (the game keeps the point updated)
+            mode = MOVE_TO_PARTY
+            self.r.write(me + o["move_target_party"], struct.pack("<i", spot.number))
+        self.r.write(me + o["move_mode"], struct.pack("<i", mode))
         self.target = spot
         if self.say:
             self.say(f"Travelling to {spot.name}")
 
     def check_arrival(self, game):
-        """Say when we reach the place we set off for: the game then marks
-        the party as in town with that place as its object."""
+        """Say when we reach what we set off for: the encounter changes the
+        order (to 7, negotiate, for a place), and the game opens its menu or
+        the conversation, which the mod then reads."""
         if self.target is None:
             return
         o, me = self.o, self.player(game)
         behaviour, thing = struct.unpack("<ii", self.r.read(me + o["behaviour"], 8))
-        if behaviour == IN_TOWN and thing == self.target.number:
-            if self.say:
-                self.say(f"Arrived at {self.target.name}")
-            self.target = None
-        elif behaviour != TRAVEL_TO_PARTY or thing != self.target.number:
-            self.target = None      # the player gave another order
+        if behaviour == MEET and thing == self.target.number:
+            return              # still on the way
+        if thing == self.target.number and self.say:
+            self.say(f"Arrived at {self.target.name}")
+        self.target = None      # arrived, or the player gave another order

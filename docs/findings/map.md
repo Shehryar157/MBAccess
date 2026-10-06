@@ -135,3 +135,19 @@
   as soon as we're on the map.
 - Starting the game: mb_warband.exe started directly exits (Steam relaunch), and
   "steam.exe -applaunch 48700" and steam://rungameid/48700 did nothing. Ask the user to start it.
+
+## Arrival opens the menu: FIXED (session 13, 2026-10-07; VERIFIED live)
+
+- Diffing a real click on a distant town (Jelkala) showed the player's click order is
+  behaviour **4** (+0x2d0, "attack party" in the header, but for the player it means "go and
+  meet") with +0x2d4 = the place, move mode **1** (ride to a point) and +0x5358 = the place's
+  position; +0x5364 is left alone. Our old write used behaviour 1 (travel to party, the AI
+  lords' order): the party rode in and became 8 (in town) quietly, so no menu opened.
+- With behaviour 4 the arrival starts the encounter: behaviour becomes 7 (negotiate) with the
+  place as object and the place's menu opens (window 18). Verified Jelkala (real click) and
+  Ibdeles Castle (the mod's write). For a moving party the mod writes behaviour 4 + move mode 2
+  + target party, as the earlier Looters click did (not re-tested).
+- A real click on the place you're standing on also opens its menu (castle at about x 0.52,
+  y 0.23 engine coordinates: the camera centres on the player's party). Fallback if ever needed.
+- game+0x14224 flips to 1 on any map click (not "menu open"); +0x140fc / +0x14108 writes alone
+  did nothing while the map was paused.
