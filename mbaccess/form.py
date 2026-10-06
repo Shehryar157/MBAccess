@@ -91,6 +91,9 @@ class Item:
         if key == "special" and self.kind == "slot":
             # The item's one special action: read a book, slaughter livestock.
             return ("right click", self.x + self.click[0], y)
+        if key == "quick" and self.kind == "slot":
+            # Ctrl+click: buy or sell (or take or drop) at once, no carrying.
+            return ("ctrl click", self.x + self.click[0], y)
         if key in ("left", "right") and self.kind == "spinner" and len(self.arrows) == 2:
             return ("click", self.arrows[key == "right"] + 0.01, self.y + 0.015)
         if key in ("left", "right") and self.kind == "dropdown" and self.choices:

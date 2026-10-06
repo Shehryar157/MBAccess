@@ -77,6 +77,8 @@ class MenuWatcher:
         self.tip_wait = None         # (since, tooltip before, widget): waiting to speak a cell
         self.config = {}
         self.hold_check = None       # (since, item held before): after clicking a cell
+        self.move_check = None       # (since, cell widget, its item before): after Ctrl+Enter
+        self.tip_nudged = False      # moved the mouse again for a slow tooltip
         self.carried = []            # keys from a tick whose read failed
         self.announce = ""           # a section's name, said before the next item
         self.section_memory = {}     # section key -> widget we were on there
@@ -333,6 +335,8 @@ class MenuWatcher:
             self.check_tooltip()
         if self.hold_check:
             self.check_held()
+        if self.move_check:
+            self.check_moved()
         if self.pending:
             key, tries = self.pending
             self.pending = None
@@ -530,6 +534,8 @@ class MenuWatcher:
                 self.go(members[place])
             elif key == keys.RETURN and keys.is_down(keys.SHIFT):
                 self.act("special")
+            elif key == keys.RETURN and keys.is_down(keys.CONTROL):
+                self.act("quick")
             elif key in ACTION_KEYS:
                 if key == keys.SPACE and self.options[self.cursor].kind == "edit":
                     continue    # a space typed into the box, not a press
@@ -591,6 +597,24 @@ class MenuWatcher:
         else:
             self.say(f"put down {self.item_name(*before)}, picked up {self.item_name(*now)}")
 
+    def check_moved(self):
+        """After a Ctrl+click: did the cell's item go (bought, sold, moved
+        across)? Cells memory can't read (the Discard pile) get no answer."""
+        started, widget, before = self.move_check
+        cell = next((i for i in self.options if i.widget == widget), None)
+        now = self.cell_contents(cell) if cell else None
+        if now == before and time.time() - started < HOLD_WAIT:
+            return
+        self.move_check = None
+        if before is None or now is None:
+            return
+        if not before:
+            self.say("nothing there")
+        elif now == before:
+            self.say(f"{before} stayed")       # refused: no money, no room
+        else:
+            self.say(f"{before} moved")
+
     # --- what's in a cell, straight from memory --------------------------
     # The inventory window keeps, per side (0 = you, 1 = the other side), a
     # table of cell widgets in slot order: 96 bag cells, then 10 equipment
@@ -613,6 +637,23 @@ class MenuWatcher:
                 return n // size, part, n % size
         return None
 
+    def cell_price(self, item):
+        """A bag cell's trade price from the window's table, or None when
+        not trading (the table then holds the "no price" number)."""
+        inv = self.screen.get("inventory", {})
+        if "bag_prices" not in inv:
+            return None
+        try:
+            where = self.cell_slot(item)
+            if where is None or where[1] != "bag":
+                return None
+            side, _, slot = where
+            window = self.window(self.top_window())
+            price = self.reader.i32(window + inv["bag_prices"] + 4 * (side * inv["per_side"][0] + slot))
+        except ReadError:
+            return None
+        return price if 0 <= price != inv["no_price"] else None
+
     def cell_contents(self, item):
         """A cell's item name, "" when it's empty, None when we can't tell."""
         inv = self.screen.get("inventory")
@@ -622,6 +663,10 @@ class MenuWatcher:
                 return None
             side, part, slot = where
             troop_no = 0 if side == 0 else self.reader.i32(self.game + inv["screen_troop"])
+            if troop_no < 0 and "temp_troop" in inv:
+                # No merchant or loot: the other side is the Discard pile,
+                # which is the game's scratch troop.
+                troop_no = self.reader.i32(self.game + inv["temp_troop"])
             if troop_no < 0:
                 return None
             troop = self.reader.ptr(self.game + inv["troops"]) + troop_no * inv["troop_size"]
@@ -655,6 +700,13 @@ class MenuWatcher:
         if known is None:
             self.ask_tooltip(None)
             return
+        price = self.cell_price(item) if known and self.detail_level() == "Name and price" else None
+        if price is not None:
+            # Trading: the window's own price table answers, no tooltip needed.
+            self.tip_wait = None
+            self.say(f"{self.lead()}{known}, price {price}, {self.cell_name(item)}")
+            self.hover()
+            return
         self.say(f"{self.lead()}{known or 'empty'}, {self.cell_name(item)}")
         if known and self.detail_level() != "Name only":
             self.ask_tooltip(known)
@@ -674,6 +726,7 @@ class MenuWatcher:
             self.tip_wait = (time.time(), None, item.widget, known)   # hover once it's in view
             return
         before = self.tooltip()
+        self.tip_nudged = False
         # A nudge first: if the mouse is already on this spot, moving "there"
         # isn't a movement, and the game only updates its tooltip on one.
         self.mouse.hover(item.x + item.click[0] + 0.005, item.y + item.click[1] + 0.005)
@@ -700,13 +753,20 @@ class MenuWatcher:
         if known is not None:
             # The name is already spoken: only a tooltip about this item counts
             # (a leftover one from another item is never read as this one's).
+            waited = time.time() - started
             if lines and lines[0] == known:
                 self.tip_wait = None
                 extra = self.detail(lines)[1:]
                 if extra:
                     self.say(". ".join(extra), interrupt=False)
-            elif time.time() - started > 2 * TIP_WAIT:
+            elif waited > 3 * TIP_WAIT:
                 self.tip_wait = None        # no details this time; the name was said
+            elif waited > TIP_WAIT / 2 and not self.tip_nudged:
+                # The game sometimes misses a hover after quick moves:
+                # one more real movement usually brings the tooltip.
+                self.tip_nudged = True
+                self.mouse.hover(item.x + item.click[0] - 0.005, item.y + item.click[1] - 0.005)
+                self.hover()
             return
         # Leaving an item blanks the tooltip for a frame or two before the
         # next item's text appears, so only new, non-blank text is an answer
@@ -772,6 +832,12 @@ class MenuWatcher:
             return
         if action[0] == "right click":
             self.mouse.click(*action[1:], right=True)
+            return
+        if action[0] == "ctrl click":
+            # The item moves without being carried: say where it went by
+            # comparing the cell before and after (see check_moved).
+            self.move_check = (time.time(), item.widget, self.cell_contents(item))
+            self.mouse.click(*action[1:], ctrl=True)
             return
         if action[0] == "click":
             if item.kind == "slot" and "held" in self.config:

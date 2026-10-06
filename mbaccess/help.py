@@ -50,6 +50,8 @@ GROUPS = [
          "This equips, unequips, discards, loots, buys and sells.", None),
         ("Shift Enter: the item's special action, if it has one: "
          "read a book, or slaughter livestock for food.", None),
+        ("Control Enter: move the item to the other side at once, without carrying it: "
+         "quick buy or sell when trading, quick take when looting.", None),
     ]),
 ]
 

@@ -53,3 +53,21 @@
   first line equals the name (a leftover tooltip is never read as this item). Details came
   30-80 ms later; once (a timing fluke) not within 0.8 s, then only the name is heard.
 - Tool: tools/probe_inventory.py [troop_no] prints a troop's bag and the cell tables.
+
+## Discard pile, Ctrl+Enter, trade prices, slow tooltips (2026-10-06, session 9, later)
+
+- **Discard pile = the temp troop** (VERIFIED live): Ctrl+clicking the fish into Discard put
+  (110, 0) at troop 1's bag slot 0 (found by snapshotting every "110, flags" in memory before
+  and after: set difference). game **+0x6e4** = 1 = temp_troop_no (by game.h's order; the
+  field before it is 0, the player). Used when the screen troop is -1. All three sides are
+  now named from memory with the inventory opened by the player.
+- **Ctrl+Enter = Ctrl+click** (VERIFIED live, bag -> Discard and back): the mod presses Ctrl
+  itself (scan code 0x1D, DirectInput) around the click, so a quick tap of Ctrl+Enter works.
+  The item moves to the other side's first free cell; the mod compares the cell before and
+  after: "X moved", "X stayed" (refused), "nothing there". Trading/looting: untested.
+- **Trade prices** (NOT verified, needs a merchant): with Item details "Name and price", a bag
+  cell whose window price (+0x774, 2 x 96 ints) isn't 77777 is read as "name, price N, cell"
+  with no tooltip. Whether it is the buy or the sell price is unknown; equipment prices
+  (+0xb20) looked like junk, so they're unused.
+- **Slow tooltips**: if the tooltip hasn't matched the name after 0.2 s, the mouse is nudged
+  once more; details are given up after 1.2 s (the name was already spoken).

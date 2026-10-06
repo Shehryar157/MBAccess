@@ -315,10 +315,11 @@ def test_inventory_cells_named_from_memory():
     WIN, TROOPS, KINDS, MODS = 0x30000000, 0x31000000, 0x32000000, 0x33000000
     inv = {"troops": 0x100, "troop_size": 0x1000, "troop_bag": 0x2d0, "troop_equipment": 0xf68,
            "screen_troop": 0x104, "bag_cells": 0x174, "equipment_cells": 0xa80, "per_side": [96, 10],
-           "modifiers": MODS, "modifier_size": 0x128}
+           "modifiers": MODS, "modifier_size": 0x128, "bag_prices": 0x774, "no_price": 77777}
     window = bytearray(0x1000)
     struct.pack_into("<3I", window, 0x174, 0xA0, 0xA1, 0xA2)        # your bag cells 0-2
     struct.pack_into("<I", window, 0x174 + 96 * 4, 0xB0)              # Discard cell 0
+    struct.pack_into("<2i", window, 0x774, 77777, 44)                  # trade prices: none, 44
     struct.pack_into("<3I", window, 0xa80, 0xC0, 0xC1, 0xC2)         # Weapon 1-3
     mem.write(WIN, window)
     game = bytearray(0x200)
@@ -347,3 +348,8 @@ def test_inventory_cells_named_from_memory():
     w.settings = {"item_details": "Name only"}
     w.name_cell()
     assert said[-1] == "Rusty Sword, Weapon 3" and w.tip_wait is None  # no waiting at all
+    w.options = [cell(0xA1, "Inventory 2", "int")]
+    w.settings = {"item_details": "Name and price"}
+    w.name_cell()
+    assert said[-1] == "Smoked Fish, price 44, 2"                       # trading: price from the window
+    assert w.options[0].action("quick")[0] == "ctrl click"               # Ctrl+Enter
