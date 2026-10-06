@@ -82,6 +82,7 @@ def test_watcher_speaks_once_per_change():
     assert spoken == ["You are in Praven. Options: Visit the tavern."]
     mem.blocks[GAME][MENU_NO_OFFSET:MENU_NO_OFFSET + 4] = struct.pack("<i", 0)
     watcher.poll()
+    watcher.poll()
     assert len(spoken) == 2
 
 
@@ -148,11 +149,30 @@ def make_menu_watcher(top=18):
 def test_menu_reads_visible_buttons_top_first():
     w, said, _ = make_menu_watcher()
     w.poll()
+    assert said == []       # a new screen waits for a second, matching read
+    w.poll()
+    assert said == ["Welcome. Continue..., 1 of 2."]
+
+
+def test_new_screen_waits_for_leftover_buttons():
+    # "11 of 11" with ten: the first read still had a button from the old screen.
+    mem = make_game(0, "Welcome")
+    add_menu_window(mem, [("Go back", 0.18, False), ("Continue...", 0.22, False),
+                          ("Old", 0.14, False)])
+    said = []
+    w = MenuWatcher(Reader(mem), GAME, {"cur_menu_no": MENU_NO_OFFSET,
+                                        "cur_menu_text": MENU_TEXT_OFFSET},
+                    [], said.append, screen=SCREEN, mouse=FakeMouse([]))
+    w.poll()
+    mem.blocks[0x42002000][0x50:0x54] = struct.pack("<I", 1)   # the game hides it
+    w.poll()
+    w.poll()
     assert said == ["Welcome. Continue..., 1 of 2."]
 
 
 def test_menu_cursor_and_enter_click():
     w, said, clicks = make_menu_watcher()
+    w.poll()
     w.poll()
     w.poll([keys.DOWN])
     assert said[-1] == "Go back, 2 of 2"
@@ -194,6 +214,7 @@ def test_main_menu_without_a_campaign():
     w = MenuWatcher(Reader(mem), None, {"cur_menu_no": MENU_NO_OFFSET,
                                         "cur_menu_text": MENU_TEXT_OFFSET},
                     [], said.append, screen=SCREEN, mouse=FakeMouse(clicks))
+    w.poll()
     w.poll()
     assert said == ["Main menu: Play Tutorial, 1 of 2."]
     w.poll([keys.DOWN, keys.RETURN])

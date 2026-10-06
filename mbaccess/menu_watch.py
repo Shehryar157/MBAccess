@@ -80,6 +80,7 @@ class MenuWatcher:
         self.move_check = None       # (since, cell widget, its item before): after Ctrl+Enter
         self.tip_nudged = False      # moved the mouse again for a slow tooltip
         self.carried = []            # keys from a tick whose read failed
+        self.settling = None         # a new screen seen once, waiting for a second read
         self.announce = ""           # a section's name, said before the next item
         self.section_memory = {}     # section key -> widget we were on there
         self.grid_headings = {}      # grid group -> the heading above it
@@ -309,6 +310,14 @@ class MenuWatcher:
         if self.mouse:      # only some screens keep the monitor's shape (click.py)
             self.mouse.letterbox = bool(config.get("letterbox"))
         if state != self.last and not self.same_screen(state, items):
+            # The game builds a screen over a frame or two: a first read can
+            # still hold a button from the old one ("11 of 11" with ten).
+            # Speak it only once two reads in a row agree (one tick, 50 ms).
+            look = (state, [(i.label, i.widget) for i in items])
+            if look != self.settling:
+                self.settling, self.carried = look, pressed[-3:]
+                return
+            self.settling = None
             self.last, self.pending = state, None
             self.announce, self.section_memory = "", {}
             self.options, self.cursor = items, min(config.get("start", 0), len(items) - 1)
