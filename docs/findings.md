@@ -16,6 +16,7 @@ covers it, read menus.md and screens.md: most work builds on them. Don't read ev
 | messages.md | message_log vector, message_queue, categories | game messages, message buffers, notifications |
 | launcher.md | launcher dialog control IDs, combo box | the launcher, Play/Configure |
 | loader.md | dinput8 proxy loader, build and install, logs | auto-start, the loader DLL, installing |
+| conversations.md | conversation window 12, conversation manager, skills array in memory, reaching a conversation without walking | conversations, dialogue, skill names, replacing text files with memory |
 | wfs.md | With Fire & Sword status | anything about WFS or porting to it |
 
 **Adding findings:** put each one in the file for its topic, with its date, how it was found

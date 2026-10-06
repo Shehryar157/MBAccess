@@ -12,6 +12,7 @@
     "open_windows": 14523264,
     "tooltip": 8835376,
     "message_log": 8895908,
+    "conversation": 47534880,
     "item_kinds": 9143636,
     "item_kind_size": 3128,
     "party_skills": {"troops": 82160, "parties": 82104, "troop_size": 4040, "troop_flags": 584,
@@ -22,6 +23,7 @@
     "windows": {
       "4": {"name": "Main menu", "buttons": 376, "slots": 8, "click": [0.15, 0.012]},
       "18": {"buttons": 376, "slots": 16, "menu_text": true, "click": [0.1, 0.02]},
+      "12": {"conversation": true, "buttons": 676, "slots": 64, "speaker": 648, "continue": 656, "click": [0.45, 0.02], "scroll": [0.01, 0.28]},
       "13": {"name": "Options", "tree": true, "selected_tab": "General Options"},
       "14": {"name": "Video options", "tree": true, "selected_tab": "Video Options"},
       "15": {"name": "Controls", "tree": true, "selected_tab": "Controls"},

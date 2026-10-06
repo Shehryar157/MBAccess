@@ -41,6 +41,11 @@ PICK_WAIT = 0.3       # seconds for a drop-down list to open
 TIP_LINES, TIP_STRIDE = 12, 0x90   # tooltip: rgl::string lines
 HOLD_WAIT = 0.4       # seconds for a click on a cell to pick up or put down
 TIP_WAIT = 0.4        # seconds to wait for a tooltip before calling a cell empty
+# Conversation manager (reference/wse/WarbandLib/conversation.h, verified on
+# 1.174): current sentence, number of replies, then two tables of 1024
+# options (156 bytes each), a bool, and the partner's line.
+CONV_SENTENCE, CONV_NUM_OPTIONS = 28, 36
+CONV_SPEAKER_TEXT = 40 + 2 * 1024 * 156 + 4
 ACTION_KEYS = {keys.RETURN: "activate", keys.SPACE: "activate",
                keys.LEFT: "left", keys.RIGHT: "right"}
 
@@ -131,6 +136,30 @@ class MenuWatcher:
         options.sort(key=lambda o: -o.y)    # top of the screen first
         return options
 
+    def read_conversation(self, number, config):
+        """The conversation screen: (sentence number, spoken text, items).
+
+        The words come from the engine's conversation manager (a fixed
+        address, screen["conversation"]): the partner's line and how many
+        replies there are. The reply buttons sit in the window's button table
+        like a game menu's; with no replies the game waits for a click, so we
+        offer that as "Continue"."""
+        r, s = self.reader, self.screen
+        cm = s["conversation"]
+        sentence, count = r.i32(cm + CONV_SENTENCE), r.i32(cm + CONV_NUM_OPTIONS)
+        window = self.window(number)
+        name = text_mod.clean(r.rgl_string(r.ptr(window + config["speaker"]) + s["widget_text"]))
+        body = f"{name} {r.rgl_string(cm + CONV_SPEAKER_TEXT)}".strip()
+        items = self.read_options(number, dict(config, slots=min(max(count, 0), config["slots"])))
+        for item in items:
+            item.scroll = tuple(config["scroll"]) if "scroll" in config else None
+        if not items:
+            label = r.ptr(window + config["continue"])
+            if not r.u32(label + s["widget_flags"]) & HIDDEN:
+                x, y = struct.unpack("<ff", r.read(label + s["widget_position"], 8))
+                items = [Item("option", "Continue", x, y, click=(0.1, 0.01))]
+        return sentence, body, items
+
     def read_state(self):
         number = self.reader.i32(self.game + self.offsets["cur_menu_no"])
         body = self.reader.rgl_string(self.game + self.offsets["cur_menu_text"])
@@ -154,6 +183,9 @@ class MenuWatcher:
         # Windows we haven't described get the tree reader: any screen built
         # from known widget kinds then reads without extra work.
         config = self.windows.get(top, {"tree": True})
+        if config.get("conversation"):
+            number, body, items = self.read_conversation(top, config)
+            return (top, number, body, tuple(i.label for i in items)), items, config
         if config.get("tree"):
             items = self.tree.items(self.root(top), config.get("scroll_top", SCROLL_TOP),
                                     config.get("layout"))
