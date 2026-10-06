@@ -26,8 +26,11 @@ w = MenuWatcher(Reader(game), None, game.profile.game_offsets, [], said.append,
 found, module = session.locate(game)
 if found:
     w.set_game(found, session.load_menus(game, module))
-w.poll()
-w.poll()     # a new screen is spoken on the second matching read
+for _ in range(20):      # a new screen is spoken once two reads match
+    w.poll()
+    if said:
+        break
+    time.sleep(0.05)
 
 if len(sys.argv) > 1:
     import win

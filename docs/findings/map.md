@@ -52,6 +52,28 @@
 - Unverified: the spotting range (party skill Spotting), night, and whether +0x1ec stays 1 while
   a spotted party is behind the camera.
 
+## Travel orders (session 11, 2026-10-07; VERIFIED by clicks and memory writes)
+
+- A ground click writes, in party 0: +0x2d0 ai_current_behavior = 6 (travel to point),
+  +0x5354 move mode = 1, +0x5358/+0x535c target point (x, y); +0x320 destination follows.
+- A click on a party (Looters 463) writes: +0x2d0 = 4 (attack: they're hostile; a friendly place
+  should be 1, travel to party), +0x2d4 = 463, +0x5354 = 2, +0x5364 = 463 (target party),
+  +0x5358 = its position (kept updated as it moves).
+- WRITING the order works: +0x5364 = target, +0x5358 = its position, +0x5354 = 2 made the
+  party ride straight to Jelkala (the game plans the route; the camera doesn't matter).
+  Without +0x2d0 = 1 / +0x2d4 = target it stopped on top of the town. With them it arrived and
+  behaviour became 8 (in town) with +0x2d4 = 158 (Ibdeles), BUT NO MENU OPENED.
+- A real click on Ibdeles while standing on it opened the village menu at once. In the game
+  object: +0x140fc 463 -> 158 (it held the Looters after their robbery talk: "encountered party"?),
+  +0x14104 1 -> 0, +0x14108 0 -> 1, +0x14224 0 -> 1, cur_menu_no -> 88. NEXT: test whether
+  writing +0x140fc (and the flags) on arrival opens the menu. Fallback: on arrival do one real
+  click on the place (it's under the party, on screen), as a sighted player would.
+- The map clock runs only while the party moves and no other window (party screen) is open.
+- Hostile parties that spotted you chase you: behaviour 7 (negotiate) + their number in +0x2d4
+  appeared when Looters caught the player; the conversation (window 12) followed.
+- Surrender to Looters: lost ~80 denars, health 100%, moved ~22 units south (Jelkala ->
+  near Ibdeles).
+
 ## Not yet known
 
 - What a map click writes (move_mode values, target party vs point), to make Enter = click.
