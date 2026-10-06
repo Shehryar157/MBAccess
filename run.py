@@ -49,7 +49,7 @@ def play_session(game):
             window["hwnd"], window["checked"] = process.find_window(game.pid), time.time()
         return window["hwnd"]
 
-    key_watch = keys.KeyWatcher(game_window)
+    key_watch = keys.watcher(game_window)
     helper = help.Help(speech.say)
     prefs = settings.Settings()
     log_address = game.profile.screen.get("message_log")
