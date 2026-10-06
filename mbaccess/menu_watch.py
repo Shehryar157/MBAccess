@@ -238,6 +238,8 @@ class MenuWatcher:
                 return None     # nothing readable (e.g. the 3D scene)
             if config.get("party_skills"):
                 items = self.with_party_skills(items)
+            if config.get("saves"):
+                items = self.save_tiles(top, config["saves"]) + items
             if config.get("map") and self.world_map and self.game:
                 # The places come first: the map opens on them.
                 items = self.world_map.items(self.game) + items
@@ -272,6 +274,36 @@ class MenuWatcher:
         items = tabs + [self.page.tab()] + self.page.items() + buttons
         # start: the cursor begins on the first setting, not on a tab.
         return items, ("accessibility",), dict(config, name="Accessibility", start=len(tabs) + 1)
+
+    def save_tiles(self, window, saves):
+        """Load game draws each save as a picture tile with no text; the name
+        and day ("Day 4 (7:10)") live in records inside the window object
+        (findings/screens.md). Pair the records that hold a save with the
+        textless tiles, top-left first, and make each a button: Enter clicks
+        the tile, which selects it, as for a sighted player."""
+        r, base = self.reader, self.window(window)
+        records = []
+        for n in range(saves["count"]):
+            record = base + saves["first"] + n * saves["stride"]
+            if r.i32(record + saves["exists"]) == 1:
+                name = text_mod.clean(r.rgl_string(record))
+                day = text_mod.clean(r.rgl_string(record + saves["day"]))
+                records.append((n, ", ".join(p for p in (name, day) if p)))
+        _, kids = self.tree.children(self.root(window))
+        tiles = [k for k in kids
+                 if self.tree.kind(k) == "image" and not self.tree.hidden(k) and not self.tree.text(k)]
+        tiles.sort(key=lambda k: (-round(self.tree.position(k)[1], 2), self.tree.position(k)[0]))
+        if len(tiles) != len(records):
+            # Self-check: the layout isn't what we found. Better no names
+            # than the wrong save's name on a tile.
+            records = [(None, f"Save {n}") for n in range(1, len(tiles) + 1)]
+        chosen = r.i32(base + saves["selected"])
+        items = []
+        for (n, words), tile in zip(records, tiles):
+            x, y = self.tree.position(tile)
+            items.append(Item("button", words, x, y, value="selected" if n == chosen else "",
+                              click=self.tree.middle(tile), widget=tile))
+        return items
 
     def with_party_skills(self, items):
         """The party screen draws its party skills without keeping the text,

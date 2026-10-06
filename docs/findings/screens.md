@@ -41,3 +41,21 @@
 ## Load game save tiles (session 11, 2026-10-07)
 
 - With a save present, Load game (16) shows each save as a tile (top-left first: character name, then 'Day 1 (6:00)'). The tree reader does NOT read the tiles: only Delete, Cancel, Load (the last two 'unavailable' until a tile is clicked). A held click at the tile (x 0.18, y 0.615 for the first) selects it; then Load works. TODO: find the tile widget class (probe_tree on window 16 with a save present) and read tiles as items.
+
+## Load game save tiles: DONE (session 13, 2026-10-07; VERIFIED live with one save)
+
+- The save records live INSIDE the window 16 object (that's why its root is at +0xbf0, not
+  +0x13c): 9 records from window+0x13c, stride 0x130. Record: +0 character name (rgl::string),
+  +0x90 day ("Day 4 (7:10)"), +0x120 has-a-save flag (1) then the game version (1174).
+  Found with find_text.py "Day 4 (7:10)", then reading every rgl::string in the window.
+- Selected save: window+0xc28 (-1 = none, else the record number; with one save, record and
+  tile numbers can't be told apart: UNVERIFIED with several saves). Delete and Load lose their
+  disabled flag when a save is selected.
+- Tiles: textless image widgets, direct children of the root, 0.31 x 0.2 (size +0x1ac); first at
+  (0.015, 0.51). menu_watch.save_tiles pairs records holding a save with tiles, top-left first
+  (UNVERIFIED order with several saves); if the counts differ it says "Save 1..n" (self-check).
+  Items: "Shehryar, Day 4 (7:10), selected, button"; Enter = held click on the tile's middle,
+  "selected" is spoken as a value change. Load via the mod verified. Delete NOT tested (only
+  one save): it should ask a question box (window 1).
+- Profile window 16 "saves": first, stride, count, day, exists, selected (hard-coded offsets,
+  checked by the flag and the tile count).
