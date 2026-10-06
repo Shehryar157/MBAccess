@@ -292,3 +292,15 @@ def test_inventory_grid_arrows_and_sections():
     w.handle_keys([keys.TAB, keys.TAB])           # Done, then round to Discard
     assert w.options[w.cursor].label == "Discard 1" and said[-1].startswith("Discard: ")
     assert w.has_sections()
+
+
+def test_cell_names_drop_only_the_grids_own_name():
+    from mbaccess.form import Item
+    w = MenuWatcher(None, None, {}, [], lambda s: None)
+    w.options = [Item("slot", "Weapon 1", 0.55, 0.6, group="inv", widget=1),
+                 Item("slot", "Inventory 5", 0.7, 0.6, group="int", widget=2),
+                 Item("text", "Discard", 0.07, 0.71, widget=3),
+                 Item("slot", "Discard 2", 0.11, 0.61, group="nt", widget=4)]
+    w.config = {"layout": {"section_names": {"inv": "Equipment", "int": "Inventory"}}}
+    assert [w.cell_name(i) for i in w.options if i.kind == "slot"] == ["Weapon 1", "5", "2"]
+    assert ("list", "details") not in w.sections()     # the heading names its grid

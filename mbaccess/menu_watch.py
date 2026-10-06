@@ -20,6 +20,7 @@ the real mouse to do it. Rows scrolled out of view are still readable (the
 memory has them); before pressing one, we turn the mouse wheel until it's
 in view.
 """
+import re
 import struct
 import time
 
@@ -37,6 +38,8 @@ SCROLL_TOP = 0.64       # top edge of a scrolling list (Options); bottom is read
 WHEEL_STEP = 0.062      # one wheel notch moves a list this far
 MAX_SCROLL_TRIES = 20
 GRID_ROW = 0.02         # cells closer than this in height are on the same row
+HEADING_GAP = 0.15      # a text this far above a grid's top row is its heading
+AMOUNT = re.compile(r"\((\d+) / (\d+)\)")
 PICK_MARGIN = 0.01    # a drop-down row lower than this is off the bottom of the screen
 PICK_WAIT = 0.3       # seconds for a drop-down list to open
 TIP_LINES, TIP_STRIDE = 12, 0x90   # tooltip: rgl::string lines
@@ -79,6 +82,7 @@ class MenuWatcher:
         self.carried = []            # keys from a tick whose read failed
         self.announce = ""           # a section's name, said before the next item
         self.section_memory = {}     # section key -> widget we were on there
+        self.grid_headings = {}      # grid group -> the heading above it
 
     def set_game(self, address, menus, skills=()):
         """A campaign started or a save was loaded: the game object moved."""
@@ -306,7 +310,10 @@ class MenuWatcher:
             self.last, self.pending = state, None
             self.announce, self.section_memory = "", {}
             self.options, self.cursor = items, min(config.get("start", 0), len(items) - 1)
-            self.say(self.describe(state[1], state[2], config))
+            if self.has_sections():
+                self.open_sections(config)
+            else:
+                self.say(self.describe(state[1], state[2], config))
             return
         self.last = state
         # Same screen: a value may have changed (we ticked a box, moved a slider).
@@ -362,11 +369,61 @@ class MenuWatcher:
         return ("list", 0)
 
     def sections(self):
-        """{key: [indexes into options]}, in reading order."""
-        found = {}
+        """{key: [indexes into options]}, in reading order.
+
+        A screen with grids gets the grids first, then one "Details" list
+        of everything else (costs, armor, money, buttons). A heading just
+        above a grid ("Discard", a merchant's name) names that grid instead
+        of standing alone."""
+        grids = {}
         for n, item in enumerate(self.options):
-            found.setdefault(self.section_key(item), []).append(n)
+            if item.kind == "slot":
+                grids.setdefault(item.group, []).append(n)
+        if not grids:
+            found = {}
+            for n, item in enumerate(self.options):
+                found.setdefault(self.section_key(item), []).append(n)
+            return found
+        self.grid_headings = {}
+        details = []
+        for n, item in enumerate(self.options):
+            if item.kind == "slot":
+                continue
+            group = self.heading_of(item, grids) if item.kind == "text" else None
+            if group is not None:
+                self.grid_headings.setdefault(group, item.label)
+            else:
+                details.append(n)
+        found = {("grid", g): members for g, members in grids.items()}
+        if details:
+            found[("list", "details")] = details
         return found
+
+    def heading_of(self, item, grids):
+        """The grid a text sits just above (within HEADING_GAP), or None."""
+        for group, members in grids.items():
+            cells = [self.options[n] for n in members]
+            top = max(c.y for c in cells)
+            left, right = min(c.x for c in cells), max(c.x for c in cells)
+            if 0 < item.y - top <= HEADING_GAP and left - 0.05 <= item.x <= right + 0.1:
+                return group
+        return None
+
+    def open_sections(self, config):
+        """A screen with sections opens on its start section (the profile's
+        layout "start_section", e.g. your own inventory) and says the
+        screen's name, the section's, then the first item."""
+        sections = self.sections()
+        start = (config.get("layout") or {}).get("start_section")
+        key = next((k for k in sections if k[1] == start), next(iter(sections)))
+        title = self.section_title(key, sections[key])
+        name = config.get("name", "")
+        self.go(sections[key][0], title if title == name or not name else f"{name}, {title}")
+
+    def section_of(self, index, sections):
+        """Which section an item is in (a grid's heading: the first section)."""
+        return next((k for k, members in sections.items() if index in members),
+                    next(iter(sections)))
 
     def has_sections(self):
         return len(self.sections()) > 1
@@ -375,10 +432,26 @@ class MenuWatcher:
         names = (self.config.get("layout") or {}).get("section_names", {})
         if key[1] in names:
             return names[key[1]]
+        if key == ("list", "details"):
+            return "Details"
         first = self.options[members[0]]
         if key[0] == "grid":
-            return first.label.rstrip("0123456789 ") or "Grid"
-        return first.spoken()
+            return (self.grid_headings.get(key[1])
+                    or first.label.rstrip("0123456789 ") or "Grid")
+        return ""   # a column: its first item is its heading, so no name twice
+
+    def cell_name(self, item):
+        """A cell's own name without its grid's: "5" for "Inventory 5",
+        "Feet" for the equipment's Feet."""
+        key = self.section_key(item)
+        sections = self.sections()
+        if key[0] != "grid" or key not in sections:
+            return item.label
+        # Only the grid's own name goes: "Weapon 1" in Equipment stays.
+        title = self.section_title(key, sections[key])
+        if item.label.startswith(title + " "):
+            return item.label[len(title) + 1:]
+        return item.label
 
     def grid_move(self, key, members):
         """The cell next to ours in the arrow's direction, by screen position:
@@ -414,7 +487,8 @@ class MenuWatcher:
 
     def position_text(self):
         """", 3 of 8": the place within the section (the whole screen if one)."""
-        members = self.sections().get(self.section_key(self.options[self.cursor]), [])
+        sections = self.sections()
+        members = sections.get(self.section_of(self.cursor, sections), [])
         if self.cursor in members and len(members) < len(self.options):
             return f", {members.index(self.cursor) + 1} of {len(members)}"
         return f", {self.cursor + 1} of {len(self.options)}"
@@ -422,7 +496,7 @@ class MenuWatcher:
     def switch_section(self, step):
         sections = self.sections()
         keys_ = list(sections)
-        here = self.section_key(self.options[self.cursor])
+        here = self.section_of(self.cursor, sections)
         self.section_memory[here] = self.options[self.cursor].widget
         target = keys_[(keys_.index(here) + step) % len(keys_)]
         members = sections[target]
@@ -440,7 +514,7 @@ class MenuWatcher:
                     self.switch_section(-1 if key == keys.SHIFT_TAB else 1)
                 continue
             sections = self.sections()
-            here = self.section_key(self.options[self.cursor])
+            here = self.section_of(self.cursor, sections)
             members = sections[here] if len(sections) > 1 else list(range(len(self.options)))
             arrows = (keys.UP, keys.DOWN, keys.HOME, keys.END)
             if here[0] == "grid" and key in arrows + (keys.LEFT, keys.RIGHT):
@@ -517,7 +591,9 @@ class MenuWatcher:
         base = self.screen["tooltip"]
         lines = (text_mod.clean(self.reader.rgl_string(base + n * TIP_STRIDE))
                  for n in range(TIP_LINES))
-        return [line for line in lines if line]
+        # "(29 / 29)": ammunition left or a shield's durability. Speech reads
+        # the slash badly ("29 29"), so say "29 of 29".
+        return [AMOUNT.sub(r"\1 of \2", line) for line in lines if line]
 
     def wants_tooltip(self):
         item = self.options[self.cursor]
@@ -567,7 +643,8 @@ class MenuWatcher:
         self.tip_wait = None
         lines = self.detail(lines)
         words = ". ".join(lines) if lines else "empty"
-        self.say(f"{self.lead()}{item.label}: {words}{self.position_text()}")
+        # The item first (that's what you're looking for), then which cell.
+        self.say(f"{self.lead()}{words}, {self.cell_name(item)}")
 
     def detail(self, lines):
         """Cut a tooltip down to the Accessibility tab's "Item details"
