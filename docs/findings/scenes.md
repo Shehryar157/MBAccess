@@ -123,3 +123,15 @@
 - On-foot mouse turning VERIFIED: ~15 mouse steps per degree, sign +1 (right = right).
 - Controls (Options > Controls, read live): Action F, Kick E, Game Log Window L (the
   scanner takes L in scenes), Toggle First Person R, Leave Location Tab.
+
+## Naming what's ahead; use cue (2026-10-10, session 16)
+- Collision shapes have NO owner for static scenery: stored_bodies entity_no (+0xc) is -1 for
+  28,243 of 28,258 (only barrels/buckets etc. link). Mission object +0x254 = its entity
+  pointer (79 matches in scene entities, scene+0xa0).
+- So names come by position: each solid top-level shape's bounding box (b_min +0x24,
+  b_max +0x34) gets the prop or plant whose origin lies inside it, nearest the box middle
+  (scanner.name_boxes): 99 of 104 named in the village (54 trees). walls.owner_at finds the
+  box holding the point where the front corridor touches something.
+- Use cue (hammer-on, wall_beeps._hammer_on) + prompts.py modes: "Facing it" (game's prompt)
+  or "Close enough" (within prompts.REACH = 2 m, unverified vs the game's range; F turns
+  you to it on foot, looks down if needed, presses F). Untested in game.

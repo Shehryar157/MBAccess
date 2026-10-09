@@ -13,11 +13,14 @@ PATH = os.path.join(ROOT, "settings.json")
 
 ITEM_DETAILS = ("Full", "Name and price", "Name only")
 TURN_SPEEDS = (30, 45, 60, 90, 120, 180, 240)    # degrees a second, arrow keys on foot
+INTERACT_MODES = ("Facing it", "Close enough")    # when the "you can use this" cue plays
 DEFAULTS = {
     "speak_messages": True,
     "muted_categories": [],      # message categories not spoken (still kept in the buffers)
     "item_details": "Full",      # how much of an inventory item's tooltip to read
     "turn_speed": 90,            # degrees a second while an arrow key turns you on foot
+    "name_ahead": True,          # say what's in front when you come close: "crude fence"
+    "interact_mode": "Facing it",   # Facing it: the game's own rule; Close enough: nearby
 }
 
 

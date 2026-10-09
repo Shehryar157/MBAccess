@@ -13,12 +13,13 @@ each from a fixed spot around your head:
   front diagonals even when front/back placement is fuzzy.
 """
 import math
+import queue
 import threading
 import time
 
 import numpy as np
 
-from . import keys, walls
+from . import keys, scanner as scanner_mod, walls
 from .mem import Reader, ReadError
 from .sound3d import Sound3D
 
@@ -64,6 +65,24 @@ def _beacon():
     envelope = np.minimum(1, t / 0.008) * np.exp(-t / 0.06)
     end = np.minimum(1, (length - t) / 0.015)
     out = tone * envelope * end
+    return out / np.max(np.abs(out))
+
+
+NAME_REACH = {False: 1.5, True: 2.5}    # metres: name the thing ahead when this close
+NAME_CLEAR = 0.6                        # metres further before the same thing is new again
+
+
+def _hammer_on():
+    """The "you can use this" cue: a plucked note that rises a major third without a new
+    attack, like a guitarist's hammer-on. Phase-continuous, one decaying envelope."""
+    length = 0.28
+    t = np.arange(int(RATE * length)) / RATE
+    freq = np.where(t < 0.07, 523.25, 659.25)              # C5, then E5 at 70 ms
+    phase = 2 * math.pi * np.cumsum(freq) / RATE
+    tone = sum(v * np.sin(k * phase) * np.exp(-t * (6 + 5 * k)) for k, v in
+               ((1, 1.0), (2, 0.5), (3, 0.25), (4, 0.12)))
+    envelope = np.minimum(1, t / 0.004) * np.minimum(1, (length - t) / 0.02)
+    out = tone * envelope
     return out / np.max(np.abs(out))
 
 
@@ -138,6 +157,13 @@ class WallBeeper:
         self.walls = None
         self.scene = None
         self.scanner = None             # set by run.py: what to track, and where it is
+        self.spoken = queue.Queue()     # words for the main loop to speak (it owns speech)
+        self.name_ahead = lambda: True  # set by run.py: the Accessibility setting
+        self.namer = scanner_mod.Scanner(self.reader, self.profile, lambda s: None)
+        self.box_names = []
+        self.last_ahead = None          # the shape we last named
+        self.cue_source = self.audio.source(0, 0.5 * volume / 0.35)
+        self.hammer = self.audio.buffer(0.7 * _hammer_on())
         self.ping_source = self.audio.source(0, PING_GAIN * volume / 0.35)
         self.ping_buffer = self.audio.buffer(0.8 * _beacon())
         self.next_ping = 0.0
@@ -180,6 +206,32 @@ class WallBeeper:
             return                      # only holding W again (which resets it) does
         self.audio.set(self.drone_source, gain=self.drone_gain, pitch=self.pitch)
 
+    def cue(self, angle=0.0):
+        """The hammer-on "you can use this" sound, from `angle` (scanner angles:
+        degrees, positive to the left)."""
+        self.audio.place(self.cue_source, -angle)
+        self.audio.play(self.cue_source, self.hammer)
+
+    def _name_ahead(self, player, dist):
+        """Say what's straight ahead when you come close to it: "crude fence"."""
+        if not self.name_ahead():
+            return
+        reach = NAME_REACH[player[4]]
+        d = dist["front"]
+        if d > reach + NAME_CLEAR:
+            self.last_ahead = None
+            return
+        if d > reach:
+            return
+        a = player[3] + walls.FORWARD
+        x, y = player[0] + (d + 0.15) * math.cos(a), player[1] + (d + 0.15) * math.sin(a)
+        owner = self.walls.owner_at(x, y, player[2] + 1.0)
+        if owner == self.last_ahead or owner is None and self.last_ahead == "wall":
+            return
+        self.last_ahead = owner if owner is not None else "wall"
+        name = self.box_names[owner] if owner is not None and owner < len(self.box_names) else None
+        self.spoken.put(name or "wall")
+
     def _ping(self, player):
         """Play the tracking ping from where the tracked thing is, around the head."""
         tracked = self.scanner and self.scanner.tracked
@@ -206,11 +258,14 @@ class WallBeeper:
         scene = r.u32(mission)
         if scene != self.scene:         # a new scene: read its walls once
             self.walls, self.scene = walls.SceneWalls(r, scene), scene
+            self.box_names = self.namer.name_boxes(self.walls.boxes)
+            self.last_ahead = None
         player = self.player = walls.find_player(r, mission)
         if player is None:
             return None
         reach = max(REACH.values())
         dist = walls.zone_distances(self.walls, player, reach=reach)
+        self._name_ahead(player, dist)
         return walls.corners_only(dist, player[4], reach), player[4]
 
     def _run(self):

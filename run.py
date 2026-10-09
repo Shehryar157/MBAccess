@@ -112,7 +112,12 @@ def play_session(game):
                                speed=lambda: prefs.get("turn_speed"))
     if beeper:
         beeper.scanner = scan           # the tracking ping follows the scanner's choice
-    prompt = prompts.Prompts(game, Reader(game), speech.say, scan)
+    prompt = prompts.Prompts(game, Reader(game), speech.say, scan,
+                             mode=lambda: prefs.get("interact_mode"),
+                             cue=beeper.cue if beeper else (lambda angle=0.0: None),
+                             turner=scan.turner)
+    if beeper:
+        beeper.name_ahead = lambda: prefs.get("name_ahead")
     next_launcher = 0
     while game.is_running():
         # Looking for the launcher costs a little; while it's open, follow it
@@ -161,6 +166,8 @@ def play_session(game):
                 if ACTION_KEY in pressed:
                     prompt.on_action_key()      # F on horseback: dismount
                 prompt.poll()                   # "Talk to Villager", "Mount: Saddle Horse"
+                while beeper and not beeper.spoken.empty():
+                    speech.say(beeper.spoken.get_nowait())  # "crude fence" ahead
             except Exception as e:      # a scene half loaded or just closed
                 print("scene keys:", e)
         watcher.poll(pressed)

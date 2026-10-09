@@ -76,6 +76,13 @@ GROUPS = [
          "Accessibility tab of the Options screen.", None),
         ("The game's prompts are read when they appear: Talk to someone, Mount a horse. "
          "Press F to do it, as usual.", None),
+        ("Coming close to something ahead says what it is, like crude fence or village "
+         "house. It can be turned off on the Accessibility tab.", None),
+        ("A rising two-note sound means you can use something: talk, mount, pick up, go "
+         "through. By default it plays when you face it as the game needs. With "
+         "Use cue plays when set to Close enough on the Accessibility tab, it plays "
+         "when you are near it whichever way you face, from its direction, and F turns "
+         "you to it and uses it, on foot.", None),
         ("F on horseback, looking at nothing: dismount. The mod looks down at the horse "
          "for you, as the game needs, and looks ahead again.", None),
         ("Shift A and Shift D: turn 45 degrees left or right. On horseback the mod "

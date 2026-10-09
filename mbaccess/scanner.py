@@ -342,6 +342,58 @@ class Scanner:
             return None
         return struct.unpack("<3f", reader.read(thing + pos, 12))
 
+    def landmarks(self):
+        """(name, x, y) of every visible prop and plant: what walls and trees are."""
+        mission = walls.mission_address(self.r, self.profile)
+        out = []
+        for chunk in self._chunks(mission + OBJECTS + 0x1c):
+            try:
+                block = self.r.read(chunk, 16 * OBJECT_SIZE)
+            except ReadError:
+                continue
+            for i in range(16):
+                o = i * OBJECT_SIZE
+                if struct.unpack_from("<i", block, o + 4)[0] != 1:
+                    continue
+                meta = struct.unpack_from("<i", block, o + OBJ_META)[0]
+                if meta not in (PROP, SPAWNED_PROP, PLANT, PASSAGE):
+                    continue
+                ident = self.r.rgl_string(chunk + o + OBJ_ID)
+                bare = ident[4:] if ident.startswith("spr_") else ident
+                if meta != PASSAGE and any(bare.startswith(w) or ("_" + w) in bare for w in INVISIBLE):
+                    continue
+                x, y = struct.unpack_from("<2f", block, o + OBJ_POS)
+                out.append((prop_name(ident), x, y))
+        return out
+
+    def name_boxes(self, boxes):
+        """A name for each solid shape's box: the prop or plant standing inside it,
+        nearest its middle; None when there's none (a plain wall, a rock)."""
+        marks = self.landmarks()
+        names = []
+        for x0, y0, _, x1, y1, _ in boxes:
+            cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
+            inside = [(abs(x - cx) + abs(y - cy), n) for n, x, y in marks
+                      if x0 - 0.5 <= x <= x1 + 0.5 and y0 - 0.5 <= y <= y1 + 0.5]
+            names.append(min(inside)[1] if inside else None)
+        return names
+
+    def nearby_usable(self, reach):
+        """The nearest thing you could use (person, horse, item, exit) within reach:
+        (key, words, distance, angle) or None. For the "close enough" setting."""
+        player, found = self._read_all()
+        if player is None:
+            return None
+        best = None
+        for t in found:
+            if t["category"] not in ("People", "Animals", "Items", "Exits"):
+                continue
+            d, a = relative(player, t["x"], t["y"])
+            if d <= reach and (best is None or d < best[2]):
+                verb = {"People": "Talk to ", "Animals": "Mount: ", "Items": "Pick up "}.get(t["category"], "")
+                best = (t["key"], verb + t["name"], d, a)
+        return best
+
     def agent_name(self, no):
         """(name, is_horse) for agent number `no`, or None: for the game's prompts."""
         mission = walls.mission_address(self.r, self.profile)

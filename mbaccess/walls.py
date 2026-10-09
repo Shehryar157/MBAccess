@@ -1,4 +1,4 @@
-﻿"""Walls around the player in a 3D scene (town, village, castle, battle).
+"""Walls around the player in a 3D scene (town, village, castle, battle).
 
 Read the scene's collision shapes once per scene, slice them at chest height into
 2D lines and circles, and cast rays around the player to find the nearest wall in
@@ -75,9 +75,17 @@ class SceneWalls:
     def __init__(self, reader, scene):
         self.scene = scene
         quads, capsules, spheres = [], [], []
+        boxes = []          # each solid top-level shape's bounding box: what's in front
         with reader.cached():
             begin, end = struct.unpack("<II", reader.read(scene + 0x58, 8))
             items = struct.unpack("<%dI" % ((end - begin) // 4), reader.read(begin, end - begin))
+            for p in items:
+                try:
+                    h = reader.read(p, 0x40)
+                except ReadError:
+                    continue
+                if not struct.unpack_from("<I", h, 8)[0] & (BF_NO_COLLISION | BF_TERRAIN_QUAD):
+                    boxes.append(struct.unpack_from("<3f", h, 0x24) + struct.unpack_from("<3f", h, 0x34))
             stack = list(items)
             while stack:        # walk the shape tree: composites hold more shapes
                 p = stack.pop()
@@ -111,6 +119,23 @@ class SceneWalls:
         self.capsules = np.array(capsules, dtype=np.float64).reshape(-1, 7)
         self.spheres = np.array(spheres, dtype=np.float64).reshape(-1, 4)
         self._slices = {}           # height (25 cm steps) -> (segments, circles)
+        self.boxes = np.array(boxes, dtype=np.float64).reshape(-1, 6)
+
+    def owner_at(self, x, y, z, tolerance=0.4):
+        """Index of the solid shape whose box holds this point (the smallest if several),
+        or None. The game merges a scene's houses and fences into one pool of shapes
+        with no owner recorded (found 2026-10-10), so names come from the scene object
+        standing inside each box (scanner.name_boxes)."""
+        b = self.boxes
+        if not len(b):
+            return None
+        p = np.array([x, y, z])
+        inside = np.all((b[:, :3] - tolerance <= p) & (p <= b[:, 3:] + tolerance), axis=1)
+        found = np.nonzero(inside)[0]
+        if not len(found):
+            return None
+        sizes = np.prod(b[found, 3:] - b[found, :3] + 0.01, axis=1)
+        return int(found[np.argmin(sizes)])
 
     def counts(self):
         return len(self.quads), len(self.capsules), len(self.spheres)

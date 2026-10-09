@@ -12,7 +12,7 @@ Items here are ordinary form.Item objects with a "virtual" name, so the
 reader speaks and moves through them like any other screen.
 """
 from .form import Item
-from .settings import ITEM_DETAILS, TURN_SPEEDS
+from .settings import INTERACT_MODES, ITEM_DETAILS, TURN_SPEEDS
 
 TAB = "Accessibility"
 
@@ -37,12 +37,16 @@ class AccessPage:
                           value=s.get("item_details"), virtual="item_details"))
         found.append(Item("dropdown", "Turn speed with the arrow keys, on foot", 0, 0,
                           value="%d degrees a second" % s.get("turn_speed"), virtual="turn_speed"))
+        found.append(checkbox("Say what's in front of you when you come close",
+                              s.get("name_ahead"), "name_ahead"))
+        found.append(Item("dropdown", "Use cue plays when", 0, 0,
+                          value=s.get("interact_mode"), virtual="interact_mode"))
         return found
 
     def act(self, item, key):
         """Change a setting. The reader notices the new value and speaks it."""
         s, name = self.settings, item.virtual
-        if name == "speak_messages" and key == "activate":
+        if name in ("speak_messages", "name_ahead") and key == "activate":
             s.set(name, not s.get(name))
         elif name.startswith("category:") and key == "activate":
             s.toggle_category(name.split(":", 1)[1])
@@ -53,6 +57,11 @@ class AccessPage:
             else:
                 n = max(0, min(len(ITEM_DETAILS) - 1, n + (1 if key == "right" else -1)))
             s.set(name, ITEM_DETAILS[n])
+        elif name == "interact_mode" and key in ("activate", "left", "right"):
+            modes = INTERACT_MODES
+            n = modes.index(s.get(name)) if s.get(name) in modes else 0
+            n = (n + 1) % len(modes) if key == "activate" else                 max(0, min(len(modes) - 1, n + (1 if key == "right" else -1)))
+            s.set(name, modes[n])
         elif name == "turn_speed" and key in ("activate", "left", "right"):
             speeds = TURN_SPEEDS
             n = speeds.index(s.get(name)) if s.get(name) in speeds else speeds.index(90)
