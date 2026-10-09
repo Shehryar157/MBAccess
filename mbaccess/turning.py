@@ -22,6 +22,8 @@ SCAN_A, SCAN_D = 0x1E, 0x20        # DirectInput games read scan codes, not key 
 TOLERANCE = 2.0         # degrees
 MAX_NUDGE = 300         # mouse steps in one move
 HORSE_TIMEOUT = 4.0     # seconds holding A or D before giving up
+SPIN_SPEED = 90.0       # degrees a second while Left or Right arrow is held (on foot)
+SPIN_TICK = 0.01
 COMPASS = ("east", "north-east", "north", "north-west",
            "west", "south-west", "south", "south-east")
 
@@ -39,12 +41,44 @@ def compass(facing_radians):
 class Turner:
     def __init__(self, game, say):
         self.r = Reader(game)       # our own: turning runs on its own thread
+        self.game = game
         self.profile = game.profile
         self.say = say
-        self.steps_per_degree = 5.0     # a first guess; learned while turning
+        self.steps_per_degree = 15.0    # measured 2026-10-10 (14.8); still learned while turning
         self.sign = 1                   # flips if moving the mouse right turns us left
         self.busy = False
         self.horse_overshoot = 15.0     # degrees the horse swings on after letting go (learned)
+
+    def start_spinning(self, held, active, left_key, right_key):
+        """Left / Right arrow held on foot: turn on the spot, as a sighted player does by moving the
+        mouse. held(vk) says if a key is down; active() if we're walking in a scene."""
+        def run():
+            r = Reader(self.game)       # the spin thread's own reader
+            spinning, mounted, checked = False, False, 0.0
+            while True:
+                time.sleep(SPIN_TICK)
+                try:
+                    if not active() or self.busy:
+                        spinning = False
+                        continue
+                    left, right = held(left_key), held(right_key)
+                    if left == right:
+                        if spinning:
+                            spinning = False
+                            self.say(self.facing_words())
+                        continue
+                    now = time.perf_counter()
+                    if now - checked > 0.25:        # mounted? (horses turn with A/D)
+                        p = walls.find_player(r, walls.mission_address(r, self.profile))
+                        mounted, checked = bool(p and p[4]), now
+                    if mounted:
+                        continue
+                    spinning = True
+                    steps = SPIN_SPEED * SPIN_TICK * self.steps_per_degree * self.sign
+                    _user32.mouse_event(MOUSEEVENTF_MOVE, int(round(-steps if left else steps)), 0, 0, 0)
+                except (ReadError, OSError, TypeError):
+                    spinning = False
+        threading.Thread(target=run, daemon=True, name="spin").start()
 
     def _player(self):
         return walls.find_player(self.r, walls.mission_address(self.r, self.profile))

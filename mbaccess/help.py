@@ -71,6 +71,8 @@ GROUPS = [
         ("Shift J: track the thing you last heard, or stop tracking. A ping plays from "
          "where it is, lower when it's behind you, quicker as you get close.", None),
         ("Apostrophe: compass, the way you're facing.", None),
+        ("On foot, hold Left or Right arrow: turn on the spot, as moving the mouse "
+         "does. Let go and the compass direction is read.", None),
         ("The game's prompts are read when they appear: Talk to someone, Mount a horse. "
          "Press F to do it, as usual.", None),
         ("F on horseback, looking at nothing: dismount. The mod looks down at the horse "

@@ -55,6 +55,9 @@ class KeyWatcher:
     def wait(self, seconds):
         time.sleep(seconds)     # polling can't be woken by a key
 
+    def is_held(self, vk):
+        return is_down(vk)
+
     def pressed(self):
         """Keys that went down since the last call (empty if game not in front)."""
         hwnd = self.hwnd_getter()
@@ -177,6 +180,11 @@ class HookKeyWatcher:
     def _game(self):
         return self.game_hwnd
 
+    def is_held(self, vk):
+        """Is the key down now? Works for keys we hide from the game, which Windows'
+        own key state never sees."""
+        return vk in self.held
+
     def wait(self, seconds):
         """Sleep until a key arrives or the time is up, whichever is first."""
         self.arrived.wait(seconds)
@@ -212,10 +220,18 @@ OWN, OWN_SHIFTED = 1, 2
 class _SharedHook(HookKeyWatcher):
     """The hook as it runs inside the hook process."""
 
-    def __init__(self, flags, hwnd, events):
-        self.flags, self.hwnd = flags, hwnd
+    def __init__(self, flags, hwnd, events, held):
+        self.flags, self.hwnd, self.held_flags = flags, hwnd, held
         super().__init__(None)
         self.events = events
+
+    def _on_key(self, code, wparam, lparam):
+        if code == 0:
+            info = ctypes.cast(lparam, ctypes.POINTER(KBDLLHOOKSTRUCT)).contents
+            vk = SIDES.get(info.vkCode, info.vkCode)
+            if vk < len(self.held_flags) and not info.flags & LLKHF_INJECTED:
+                self.held_flags[vk] = 1 if wparam in (WM_KEYDOWN, WM_SYSKEYDOWN) else 0
+        return super()._on_key(code, wparam, lparam)
 
     def _owns(self, vk):
         bits = self.flags[vk] if vk < len(self.flags) else 0
@@ -225,9 +241,9 @@ class _SharedHook(HookKeyWatcher):
         return self.hwnd.value
 
 
-def _hook_process(flags, hwnd, events, ready):
+def _hook_process(flags, hwnd, events, held, ready):
     import multiprocessing
-    hook = _SharedHook(flags, hwnd, events)
+    hook = _SharedHook(flags, hwnd, events, held)
     ready.put(hook.ok)
     parent = multiprocessing.parent_process()
     # Leave with the mod: a hook nobody reads would keep swallowing keys.
@@ -245,10 +261,11 @@ class ProcessKeyWatcher:
         self.flags = ctx.Array("B", 0x200, lock=False)
         self.hwnd = ctx.Value("q", 0, lock=False)
         self.events = ctx.Queue()
+        self.held = ctx.Array("B", 0x200, lock=False)     # 1 while a key is down
         self.early = []         # events wait() took off the queue: pressed() returns them
         self._swallow, self._shifted = frozenset(), frozenset()
         ready = ctx.Queue()
-        self.process = ctx.Process(target=_hook_process, args=(self.flags, self.hwnd, self.events, ready),
+        self.process = ctx.Process(target=_hook_process, args=(self.flags, self.hwnd, self.events, self.held, ready),
                                    daemon=True, name="MB Access keys")
         self.process.start()
         try:
@@ -285,6 +302,9 @@ class ProcessKeyWatcher:
         if keys != self._shifted:
             self._set(self._shifted, keys, OWN_SHIFTED)
             self._shifted = keys
+
+    def is_held(self, vk):
+        return bool(self.held[vk]) if vk < len(self.held) else False
 
     def wait(self, seconds):
         """Sleep until a key arrives or the time is up."""
