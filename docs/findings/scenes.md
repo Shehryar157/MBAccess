@@ -32,7 +32,14 @@
 - Keep upright quads (|normal z| < 0.7), capsules, spheres; skip terrain and no-collision.
 - Slice at knee (0.5 m) and chest (1.3 m) above the feet: quads become 2D segments,
   capsules rows of circles, spheres circles. One height alone flickered on slopes.
-- 32 rays, nearest hit per quarter (front/right/behind/left), reach 15 m.
+- ~~32 rays, nearest hit per quarter~~ (2026-10-10: replaced). The user heard front AND left
+  beeps when pressing A toward a wall on the left: a 90-degree wedge includes its diagonal
+  rays, which reach a side wall at 1.4x its distance, so one wall counted in two zones.
+- Now: each zone is a CORRIDOR as wide as the body (5 parallel rays; half width 0.3 m on foot;
+  on horseback 0.5 m ahead/behind, 1.2 m sideways). The distance = how far that movement
+  key can take you before touching something. Verified on a fake scene; untested in game.
+- Open: on foot, does the stored angle follow the camera or turn toward the strafe
+  direction? Only verified on horseback. Test: tools/wall_probe.py while the user strafes.
 
 ## Open
 

@@ -152,31 +152,33 @@ class SceneWalls:
         self._slices[key] = result
         return result
 
-    def cast(self, x, y, height, angles, reach=15.0):
-        """Distance along each angle (radians, world frame) to the first wall; reach if none."""
+    def cast(self, origins, height, angles, reach=15.0):
+        """Distance from each origin (R,2) along its angle (radians, world frame) to the
+        first wall; reach if none. One origin (2,) is shared by every ray."""
         segments, circles = self.slice(height)
         d = np.stack([np.cos(angles), np.sin(angles)], axis=1)       # (R,2) ray directions
         best = np.full(len(angles), reach)
-        o = np.array([x, y])
+        o = np.broadcast_to(np.asarray(origins, dtype=np.float64), d.shape)
         if len(segments):
+            centre = o.mean(axis=0)
             a, e = segments[:, 0], segments[:, 1] - segments[:, 0]
-            near = np.minimum(np.abs(a - o).max(axis=1), np.abs(segments[:, 1] - o).max(axis=1)) < reach + 20
+            near = np.minimum(np.abs(a - centre).max(axis=1), np.abs(segments[:, 1] - centre).max(axis=1)) < reach + 20
             a, e = a[near], e[near]
-            ao = a - o                                               # (M,2)
+            ao = a[None, :, :] - o[:, None, :]                       # (R,M,2)
             cross = lambda u, v: u[..., 0] * v[..., 1] - u[..., 1] * v[..., 0]
             denom = cross(d[:, None, :], e[None, :, :])              # (R,M)
             safe = np.where(np.abs(denom) < 1e-9, np.nan, denom)
-            t = cross(ao[None, :, :], e[None, :, :]) / safe
-            s = cross(ao[None, :, :], d[:, None, :]) / safe
+            t = cross(ao, e[None, :, :]) / safe
+            s = cross(ao, d[:, None, :]) / safe
             hit = (t >= 0) & (s >= 0) & (s <= 1)
             best = np.minimum(best, np.where(hit, t, reach).min(axis=1, initial=reach))
         if len(circles):
-            f = o - circles[:, :2]                                   # (K,2)
-            b = d @ f.T                                              # (R,K)
-            c = (f * f).sum(axis=1) - circles[:, 2] ** 2
-            disc = b * b - c[None, :]
+            f = o[:, None, :] - circles[None, :, :2]                 # (R,K,2)
+            b = (d[:, None, :] * f).sum(axis=2)                      # (R,K)
+            c = (f * f).sum(axis=2) - circles[None, :, 2] ** 2
+            disc = b * b - c
             t = -b - np.sqrt(np.maximum(disc, 0))
-            t = np.where(c[None, :] < 0, 0, t)                       # standing inside
+            t = np.where(c < 0, 0, t)                                # standing inside
             hit = (disc >= 0) & (t >= 0)
             best = np.minimum(best, np.where(hit, t, reach).min(axis=1, initial=reach))
         return best
@@ -185,15 +187,26 @@ class SceneWalls:
 ZONES = ("front", "right", "behind", "left")
 
 
-def zone_distances(walls, player, rays=32, reach=15.0):
-    """Nearest wall in each quarter around the player: {zone: metres}."""
-    x, y, z, stored, _ = player
-    rel = np.arange(rays) * (2 * math.pi / rays)       # 0 = straight ahead, clockwise
-    angles = stored + FORWARD - rel     # world angles: anticlockwise, so clockwise = minus
-    dist = np.minimum.reduce([walls.cast(x, y, z + h, angles, reach) for h in HEIGHTS])
-    out = {}
-    for i, name in enumerate(ZONES):
-        centre = i * math.pi / 2
-        diff = np.abs((rel - centre + math.pi) % (2 * math.pi) - math.pi)
-        out[name] = float(dist[diff <= math.pi / 4 + 1e-9].min())
-    return out
+# Half the body's width for each zone's corridor: (front/behind, left/right), metres.
+# On horseback the sideways corridor is the horse's half length.
+HALF_WIDTH = {False: (0.3, 0.3), True: (0.5, 1.2)}
+LANES = 5                           # parallel rays across each corridor
+
+
+def zone_distances(walls, player, reach=15.0):
+    """How far the body can go straight in each direction before touching a wall:
+    {zone: metres}. Each zone is a corridor as wide as the body, not a 90-degree
+    wedge, so a wall beside you doesn't also count as ahead of you (a wedge's
+    diagonal rays reached it, so strafing toward it beeped front AND side)."""
+    x, y, z, stored, on_horse = player
+    origins, angles = [], []
+    for i in range(len(ZONES)):
+        a = stored + FORWARD - i * math.pi / 2     # world angles anticlockwise: clockwise = minus
+        half = HALF_WIDTH[on_horse][i % 2]
+        side = np.array([-math.sin(a), math.cos(a)])
+        for k in np.linspace(-half, half, LANES):
+            origins.append((x, y) + k * side)
+            angles.append(a)
+    origins, angles = np.array(origins), np.array(angles)
+    dist = np.minimum.reduce([walls.cast(origins, z + h, angles, reach) for h in HEIGHTS])
+    return {name: float(dist[i * LANES:(i + 1) * LANES].min()) for i, name in enumerate(ZONES)}
