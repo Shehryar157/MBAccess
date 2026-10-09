@@ -72,38 +72,64 @@ NAME_REACH = {False: 1.5, True: 2.5}    # metres: name the thing ahead when this
 NAME_CLEAR = 0.6                        # metres further before the same thing is new again
 
 
-def _hammer_on():
-    """The "you can use this" cue: a classical (nylon string) guitar hammer-on, D4 then
-    up a major third to F#4 on the same ringing string.
+def _string(history, period, count, decay, brightness):
+    """Continue a plucked string for `count` samples (Karplus-Strong): each new sample is
+    the average of the two samples one period back, a little quieter. Worked a period at
+    a time with numpy, since a block only depends on the block before it."""
+    h = len(history)
+    y = np.empty(h + count + period + 1)
+    y[:h] = history
+    n = h
+    while n < h + count:
+        prev = y[n - period - 1:n]
+        y[n:n + period] = decay * (brightness * prev[1:] + (1 - brightness) * prev[:-1])
+        n += period
+    return y[h:h + count]
 
-    Karplus-Strong plucked string: a short burst of soft noise (the finger's pluck)
-    circulates in a loop one period long; each pass averages neighbouring samples, so
-    the bright overtones die first, as on a real string. The hammer-on shortens the
-    loop mid-note without a new pluck: the same vibration, now at the higher pitch."""
-    rng = np.random.default_rng(7)          # the same pluck every time
-    first, second, switch, length = 293.66, 369.99, 0.075, 0.6
-    n1 = int(round(RATE / first))
-    pluck = rng.uniform(-1, 1, n1)
-    for _ in range(3):                      # soften the burst: a fingertip, not a pick
-        pluck = 0.5 * (pluck + np.roll(pluck, 1))
-    loop, out, decay = list(pluck), [], 0.996
-    total, at = int(RATE * length), int(RATE * switch)
-    i = 0
-    while len(out) < total:
-        if len(out) == at:                  # hammer on: same string, shorter loop
-            n2 = int(round(RATE / second))
-            old = np.array(loop[i:] + loop[:i])
-            loop = list(np.interp(np.linspace(0, len(old) - 1, n2), np.arange(len(old)), old))
-            i = 0
-        n = len(loop)
-        value = decay * 0.5 * (loop[i] + loop[(i + 1) % n])
-        out.append(loop[i])
-        loop[i] = value
-        i = (i + 1) % n
-    out = np.array(out)
-    body = np.convolve(out, np.ones(6) / 6, mode="same")     # a little wooden warmth
-    out = 0.7 * out + 0.3 * body
-    out *= np.minimum(1, (len(out) - np.arange(len(out))) / (RATE * 0.05))   # gentle end
+
+def _guitar_body(length=0.35):
+    """A classical guitar body's ring: a few wooden resonances (air cavity ~100 Hz, top
+    plate ~200 Hz, higher plate modes), each a decaying sine. Convolving the string with
+    this is what makes it sound like it's coming out of a guitar, not a wire."""
+    t = np.arange(int(RATE * length)) / RATE
+    modes = ((102, 0.12, 1.0), (196, 0.10, 0.9), (285, 0.07, 0.45), (403, 0.05, 0.5),
+             (550, 0.04, 0.3), (720, 0.03, 0.2), (1050, 0.02, 0.12))
+    ir = sum(g * np.exp(-t / tau) * np.sin(2 * math.pi * f * t) for f, tau, g in modes)
+    return ir / np.sum(np.abs(ir))
+
+
+def _hammer_on():
+    """The "you can use this" cue: a classical (nylon string) guitar hammer-on, G3 then up
+    a major third to B3 on the same ringing string.
+
+    Plucked string: a soft burst of noise (the fingertip) circulates in a loop one
+    period long, losing its bright overtones first, as a real string does. Plucking a
+    fifth of the way along the string (a comb filter on the burst) gives the round
+    nylon tone. The hammer-on shortens the loop mid-note with no new pluck, and the
+    guitar body's resonances (_guitar_body) give it warmth."""
+    rng = np.random.default_rng(11)         # the same pluck every time
+    first, second, switch, length = 196.0, 246.94, 0.11, 1.1
+    n1, n2 = int(round(RATE / first)), int(round(RATE / second))
+    burst = rng.uniform(-1, 1, n1 + 1)
+    for _ in range(4):                      # a fingertip, not a pick: soften the burst
+        burst = 0.5 * (burst + np.roll(burst, 1))
+    at = int(n1 * 0.2)                      # plucked a fifth along the string
+    burst = burst - np.roll(burst, at)
+    burst -= burst.mean()
+    head = _string(burst, n1, int(RATE * switch), 0.9985, 0.45)
+    hist = np.concatenate([burst, head])
+    tail = _string(hist[-(n2 + 1):], n2, int(RATE * (length - switch)), 0.9982, 0.42)
+    string = np.concatenate([head, tail])
+    # the hammered finger adds a faint tap of its own
+    tap = np.zeros_like(string)
+    k = int(RATE * switch)
+    tap[k:k + 200] = 0.15 * np.hanning(200) * rng.uniform(-1, 1, 200)
+    ir = _guitar_body()
+    size = 1 << (len(string) + len(ir)).bit_length()        # convolve via FFT: fast
+    body = np.fft.irfft(np.fft.rfft(string + tap, size) * np.fft.rfft(ir, size), size)[:len(string)]
+    out = 0.45 * string / np.max(np.abs(string)) + 0.55 * body / np.max(np.abs(body))
+    t = np.arange(len(out)) / RATE
+    out *= np.minimum(1, t / 0.002) * np.minimum(1, (length - t) / 0.15)
     return out / np.max(np.abs(out))
 
 
