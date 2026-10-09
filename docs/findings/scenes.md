@@ -48,6 +48,10 @@
   Pure sines place badly in HRTF, so diagonals have overtones: front ones bright single
   blip, back ones hollow (odd harmonics) double blip. DIAGONAL_ANGLE (45) in
   wall_beeps.py moves them; tools/beep_demo.py [angle] plays all eight. Untested by user.
+- 2026-10-10 "keeps moving after I let go" (tools/move_probe.py, on horseback): the mod's hook
+  passes releases in 5-25 ms (worst 157 ms), so NOT the mod. The horse coasts: up to 18 s
+  and 11 m after letting go of A. Game behaviour: W speeds up, S brakes, A/D steer.
+  On foot not measured yet. Idea offered: a cue when the horse comes to a halt / speed level.
 - Open: on foot, does the stored angle follow the camera or turn toward the strafe
   direction? Only verified on horseback. Test: tools/wall_probe.py while the user strafes.
 
