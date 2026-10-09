@@ -117,7 +117,8 @@
   "Dismount" appears. prompts.on_action_key does that for the player.
 - Horse agent +0x29c = horse item (143 "Saddle Horse") VERIFIED. Rider links: rider
   +0x114 = horse no, horse +0x118 = rider no. Horse speed float at agent +0x2c0.
-- A standing horse doesn't turn with A/D; turning.py walks it on with W. Horse swings
+- A standing horse DOES turn with A/D (user, 2026-10-10; my 'doesn't turn' test was
+  flawed: angle never logged). turning.py only holds A/D. Horse swings
   ~15-20 degrees on after A/D release; turning learns it (turns land 47-51 for 45).
 - On-foot mouse turning VERIFIED: ~15 mouse steps per degree, sign +1 (right = right).
 - Controls (Options > Controls, read live): Action F, Kick E, Game Log Window L (the

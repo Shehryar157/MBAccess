@@ -76,7 +76,7 @@ GROUPS = [
         ("F on horseback, looking at nothing: dismount. The mod looks down at the horse "
          "for you, as the game needs, and looks ahead again.", None),
         ("Shift A and Shift D: turn 45 degrees left or right. On horseback the mod "
-         "steers the horse with A or D for you, walking it on if it stands still.", None),
+         "steers the horse with A or D for you.", None),
     ]),
     ("World map", [
         ("To reach the map: in a town or village scene, press Tab to leave it; "
