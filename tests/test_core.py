@@ -1,4 +1,4 @@
-"""Tests against a fake game in memory, so they run without the real game."""
+﻿"""Tests against a fake game in memory, so they run without the real game."""
 import os
 import struct
 
@@ -381,11 +381,11 @@ def test_inventory_cells_named_from_memory():
     w.config = {"layout": {"section_names": {"inv": "Equipment", "int": "Inventory"}}}
     w.settings = {"item_details": "Name only"}
     w.name_cell()
-    assert said[-1] == "Rusty Sword, Weapon 3" and w.tip_wait is None  # no waiting at all
+    assert said[-1] == "Rusty Sword, Weapon 3, 1 of 1" and w.tip_wait is None  # no waiting at all
     w.options = [cell(0xA1, "Inventory 2", "int")]
     w.settings = {"item_details": "Name and price"}
     w.name_cell()
-    assert said[-1] == "Smoked Fish, price 44, 2"                       # trading: price from the window
+    assert said[-1] == "Smoked Fish, price 44, 2, 1 of 1"                       # trading: price from the window
     assert w.options[0].action("quick")[0] == "ctrl click"               # Ctrl+Enter
 
 

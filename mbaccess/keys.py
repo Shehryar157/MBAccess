@@ -97,6 +97,8 @@ class HookKeyWatcher:
         self.held = set()               # to skip the auto-repeat of a held key
         self.arrived = threading.Event()   # set by the hook: wakes wait() at once
         self.swallow = frozenset()      # keys to hide from the game (set by run.py)
+        self.hidden_down = set()        # keys whose press we hid: hide their release too
+        self.passed_down = set()        # keys whose press the game got: so will the release
         self.game_hwnd = None           # remembered here: the hook must not search for it
         self._proc = HOOKPROC(self._on_key)   # keep a reference, or it's freed
         ready = threading.Event()
@@ -138,9 +140,24 @@ class HookKeyWatcher:
                 self.held.discard(vk)
             # Keys the mod owns on this screen never reach the game. Not with
             # Alt held (WM_SYSKEY...), so Alt+Tab still switches programs.
-            if vk in self.swallow and wparam in (WM_KEYDOWN, WM_KEYUP) \
-                    and front and front == self.game_hwnd:
-                return 1
+            # A release follows its press: if the game got the press it must get
+            # the release, even if the screen (and so self.swallow) changed in
+            # between, or the game thinks the key is still held (a horse kept
+            # turning after D was let go, 2026-10-10).
+            # Decided on the first press; auto-repeats and the release follow it.
+            if wparam == WM_KEYDOWN:
+                if vk in self.hidden_down:
+                    return 1
+                if vk not in self.passed_down:
+                    if vk in self.swallow and front and front == self.game_hwnd:
+                        self.hidden_down.add(vk)
+                        return 1
+                    self.passed_down.add(vk)
+            elif wparam in (WM_KEYUP, WM_SYSKEYUP):
+                self.passed_down.discard(vk)
+                if vk in self.hidden_down:
+                    self.hidden_down.discard(vk)
+                    return 1
         return _user32.CallNextHookEx(None, code, wparam, lparam)
 
     def wait(self, seconds):

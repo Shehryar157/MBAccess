@@ -10,7 +10,7 @@ import sys
 import time
 
 from mbaccess import (access_page, click, help, keys, launcher, messages, party_skills, world_map,
-                      process, session, settings, speech)
+                      process, session, settings, speech, wall_beeps)
 from mbaccess.mem import Reader
 from mbaccess.menu_watch import MenuWatcher
 
@@ -70,6 +70,14 @@ def play_session(game):
     watcher = MenuWatcher(Reader(game), None, game.profile.game_offsets, [], speech.say,
                           screen=game.profile.screen, mouse=click.Mouse(game_window),
                           page=page, settings=prefs, party_skills=team, world_map=atlas)
+    # Wall beeps run on their own thread at a steady rhythm; this loop only tells
+    # them when the player is walking (scene window on top, game in front).
+    in_scene = {"now": False}
+    try:
+        beeper = wall_beeps.WallBeeper(game, lambda: in_scene["now"])
+    except Exception as e:      # no sound device, or pygame missing
+        print("wall beeps off:", e)
+        beeper = None
     next_launcher = 0
     while game.is_running():
         # Looking for the launcher costs a little; while it's open, follow it
@@ -109,6 +117,13 @@ def play_session(game):
             if not watcher.typing():
                 news.handle_keys(pressed)    # the menu reader ignores these keys
         watcher.poll(pressed)
+        if beeper:
+            try:
+                hwnd = game_window()
+                in_scene["now"] = bool(hwnd) and ctypes.windll.user32.GetForegroundWindow() == hwnd \
+                    and watcher.top_window() == wall_beeps.SCENE_WINDOW
+            except Exception:
+                in_scene["now"] = False
         # Keys the mod uses on this screen never reach the game: Tab where
         # there are sections, Escape where it presses the screen's way back,
         # letters where they type-search. Everywhere else they're the game's

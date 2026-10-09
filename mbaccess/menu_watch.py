@@ -1,4 +1,4 @@
-"""Speaking the game's screens and using them by keyboard.
+﻿"""Speaking the game's screens and using them by keyboard.
 
 That covers the main menu, the game menus (town, village and event menus)
 and form screens like Options. We poll: every tick we check which screen is
@@ -884,10 +884,10 @@ class MenuWatcher:
         if price is not None:
             # Trading: the window's own price table answers, no tooltip needed.
             self.tip_wait = None
-            self.say(f"{self.lead()}{known}, price {price}, {self.cell_name(item)}")
+            self.say(f"{self.lead()}{known}, price {price}, {self.cell_name(item)}{self.position_text()}")
             self.hover()
             return
-        self.say(f"{self.lead()}{known or 'empty'}, {self.cell_name(item)}")
+        self.say(f"{self.lead()}{known or 'empty slot'}, {self.cell_name(item)}{self.position_text()}")
         if known and self.detail_level() != "Name only":
             self.ask_tooltip(known)
         else:
@@ -956,9 +956,9 @@ class MenuWatcher:
             return
         self.tip_wait = None
         lines = self.detail(lines)
-        words = ". ".join(lines) if lines else "empty"
+        words = ". ".join(lines) if lines else "empty slot"
         # The item first (that's what you're looking for), then which cell.
-        self.say(f"{self.lead()}{words}, {self.cell_name(item)}")
+        self.say(f"{self.lead()}{words}, {self.cell_name(item)}{self.position_text()}")
 
     def detail_level(self):
         return self.settings.get("item_details") if self.settings else "Full"
