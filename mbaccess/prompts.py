@@ -3,7 +3,8 @@ and F on horseback made to dismount the way a sighted player does it.
 
 The prompt isn't text in memory: the game draws it each frame from three numbers in the
 scene window (WSE tactical_window order, found 2026-10-10, docs/findings/scenes.md):
-- +0x408 use_object_type: -1 nothing, 2 an agent (horse: "Mount"; person: "Talk",
+- +0x408 use_object_type: -1 nothing, 1 a mission object (ANY prop aimed at: a fence and
+  a feeding trough showed it, in range at ~1.9 m), 2 an agent (horse: "Mount"; person: "Talk",
   assumed), 3 Dismount (only while looking down at your own horse). Others not seen yet.
 - +0x40c use_object_no: the agent or mission object's number.
 - +0x414 use_object_in_range: 1 when close enough to press F.
@@ -23,7 +24,7 @@ from . import walls
 from .mem import Reader, ReadError
 
 USE = 0x408
-NOTHING, AGENT, DISMOUNT = -1, 2, 3
+NOTHING, OBJECT, AGENT, DISMOUNT = -1, 1, 2, 3
 SCENE_WINDOW = 10
 
 _user32 = ctypes.WinDLL("user32")
@@ -33,7 +34,9 @@ SCAN_F = 0x21
 LOOK_STEP, LOOK_LIMIT = 60, 1500     # mouse steps per nudge; give up past this
 
 
-REACH = 2.0             # metres: "close enough" to use something (game's range not measured)
+# Metres from you to a thing's centre where the game lets you use it (tools/reach_test.py,
+# 2026-10-10): a horse 1.3, a scene object about 1.9. People not measured: as a horse.
+REACH = {"People": 1.3, "Animals": 1.3, "Items": 1.9, "Exits": 1.9}
 NEARBY_EVERY = 0.25     # seconds between "what's close enough" checks
 
 
@@ -66,11 +69,14 @@ class Prompts:
                 return None
             name, horse = who
             return "Mount: " + name if horse else "Talk to " + name
-        # Not seen yet (doors, items, chests): name it from the scanner and log the
-        # number, so the next session can learn its verb.
-        print("prompt type", kind, "number", no)
-        name = self.scanner.object_name(no)
-        return name or "something to use"
+        if kind == OBJECT:
+            # The game aims at any prop (fences too), so speak only the usable kinds.
+            known = self.scanner.object_names.get(no)
+            if not known or known[1] not in ("Items", "Exits"):
+                return None
+            return ("Pick up " if known[1] == "Items" else "") + known[0]
+        print("prompt type", kind, "number", no)     # unseen kinds: learn from the log
+        return None
 
     def poll(self):
         """Each main-loop tick while walking in a scene: speak a new prompt."""

@@ -73,16 +73,37 @@ NAME_CLEAR = 0.6                        # metres further before the same thing i
 
 
 def _hammer_on():
-    """The "you can use this" cue: a plucked note that rises a major third without a new
-    attack, like a guitarist's hammer-on. Phase-continuous, one decaying envelope."""
-    length = 0.28
-    t = np.arange(int(RATE * length)) / RATE
-    freq = np.where(t < 0.07, 523.25, 659.25)              # C5, then E5 at 70 ms
-    phase = 2 * math.pi * np.cumsum(freq) / RATE
-    tone = sum(v * np.sin(k * phase) * np.exp(-t * (6 + 5 * k)) for k, v in
-               ((1, 1.0), (2, 0.5), (3, 0.25), (4, 0.12)))
-    envelope = np.minimum(1, t / 0.004) * np.minimum(1, (length - t) / 0.02)
-    out = tone * envelope
+    """The "you can use this" cue: a classical (nylon string) guitar hammer-on, D4 then
+    up a major third to F#4 on the same ringing string.
+
+    Karplus-Strong plucked string: a short burst of soft noise (the finger's pluck)
+    circulates in a loop one period long; each pass averages neighbouring samples, so
+    the bright overtones die first, as on a real string. The hammer-on shortens the
+    loop mid-note without a new pluck: the same vibration, now at the higher pitch."""
+    rng = np.random.default_rng(7)          # the same pluck every time
+    first, second, switch, length = 293.66, 369.99, 0.075, 0.6
+    n1 = int(round(RATE / first))
+    pluck = rng.uniform(-1, 1, n1)
+    for _ in range(3):                      # soften the burst: a fingertip, not a pick
+        pluck = 0.5 * (pluck + np.roll(pluck, 1))
+    loop, out, decay = list(pluck), [], 0.996
+    total, at = int(RATE * length), int(RATE * switch)
+    i = 0
+    while len(out) < total:
+        if len(out) == at:                  # hammer on: same string, shorter loop
+            n2 = int(round(RATE / second))
+            old = np.array(loop[i:] + loop[:i])
+            loop = list(np.interp(np.linspace(0, len(old) - 1, n2), np.arange(len(old)), old))
+            i = 0
+        n = len(loop)
+        value = decay * 0.5 * (loop[i] + loop[(i + 1) % n])
+        out.append(loop[i])
+        loop[i] = value
+        i = (i + 1) % n
+    out = np.array(out)
+    body = np.convolve(out, np.ones(6) / 6, mode="same")     # a little wooden warmth
+    out = 0.7 * out + 0.3 * body
+    out *= np.minimum(1, (len(out) - np.arange(len(out))) / (RATE * 0.05))   # gentle end
     return out / np.max(np.abs(out))
 
 

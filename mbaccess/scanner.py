@@ -389,7 +389,8 @@ class Scanner:
             if t["category"] not in ("People", "Animals", "Items", "Exits"):
                 continue
             d, a = relative(player, t["x"], t["y"])
-            if d <= reach and (best is None or d < best[2]):
+            limit = reach[t["category"]] if isinstance(reach, dict) else reach
+            if d <= limit and (best is None or d < best[2]):
                 verb = {"People": "Talk to ", "Animals": "Mount: ", "Items": "Pick up "}.get(t["category"], "")
                 best = (t["key"], verb + t["name"], d, a)
         return best

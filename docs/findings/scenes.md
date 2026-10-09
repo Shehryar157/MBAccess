@@ -135,3 +135,7 @@
 - Use cue (hammer-on, wall_beeps._hammer_on) + prompts.py modes: "Facing it" (game's prompt)
   or "Close enough" (within prompts.REACH = 2 m, unverified vs the game's range; F turns
   you to it on foot, looks down if needed, presses F). Untested in game.
+- REACH measured (tools/reach_test.py, on foot): horse looked-at (type 2) from 2.2 m but
+  only ~0 deg off (9 deg at 2.7 m: no), in_range from 1.28 m (centre to centre). Type 1 =
+  mission object aimed at, ANY prop (crude fence, feeding trough; no use flags), in range
+  ~1.86 m. People not measured (villager walked away).
