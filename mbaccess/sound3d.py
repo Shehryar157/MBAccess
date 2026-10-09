@@ -16,6 +16,7 @@ import numpy as np
 
 ALC_HRTF_SOFT, ALC_HRTF_STATUS_SOFT = 0x1992, 0x1993
 AL_SOURCE_RELATIVE, AL_POSITION, AL_GAIN, AL_BUFFER = 0x202, 0x1004, 0x100A, 0x1009
+AL_PITCH, AL_LOOPING = 0x1003, 0x1007
 AL_FORMAT_MONO16 = 0x1101
 AL_NONE = 0
 # ALC_HRTF_STATUS_SOFT values: 1 enabled, 3 required, 4 headphones detected
@@ -71,3 +72,20 @@ class Sound3D:
         self.al.alSourceStop(source)        # a source must stop before its buffer changes
         self.al.alSourcei(source, AL_BUFFER, buffer)
         self.al.alSourcePlay(source)
+
+    def loop(self, source, buffer):
+        """Play a buffer over and over until stop()."""
+        self.al.alSourceStop(source)
+        self.al.alSourcei(source, AL_BUFFER, buffer)
+        self.al.alSourcei(source, AL_LOOPING, 1)
+        self.al.alSourcePlay(source)
+
+    def stop(self, source):
+        self.al.alSourceStop(source)
+
+    def set(self, source, gain=None, pitch=None):
+        """Change a playing sound smoothly: pitch 1.0 = as recorded, 0.5 = an octave down."""
+        if gain is not None:
+            self.al.alSourcef(source, AL_GAIN, ctypes.c_float(gain))
+        if pitch is not None:
+            self.al.alSourcef(source, AL_PITCH, ctypes.c_float(pitch))

@@ -1,4 +1,4 @@
-"""Wall beeps in scenes: a soft tone when you move closer to a wall.
+﻿"""Wall beeps in scenes: a soft tone when you move closer to a wall.
 
 Eight directions around the player, one per way the movement keys go (W, W+D, D,
 ...). Each remembers its last distance step; when you get a step closer, it beeps
@@ -33,6 +33,20 @@ SCENE_WINDOW = 10
 # raise it to push them toward your ears, lower it to pull them toward front/back.
 DIAGONAL_ANGLE = 45
 DIAGONAL_GAIN = 0.8             # diagonals a little softer than the main four
+
+# Horse drone: a low hum while riding; its pitch falls as the horse slows, silent at a halt.
+DRONE_HZ = 110                  # pitch at full speed (exact cycles in a 1 s loop: no click)
+DRONE_GAIN = 0.12               # quiet: under the beeps and the game
+FULL_SPEED = 10.0               # metres per second treated as a full gallop (a guess)
+HALT_SPEED = 0.3                # below this the horse counts as stopped
+LOWEST_PITCH = 0.5              # an octave down when barely moving
+
+
+def _drone():
+    """One second of a soft low hum: fundamental plus quiet overtones, loops seamlessly."""
+    t = np.arange(RATE) / RATE
+    return 0.8 * (np.sin(2 * math.pi * DRONE_HZ * t) + 0.3 * np.sin(2 * math.pi * 2 * DRONE_HZ * t)
+                  + 0.1 * np.sin(2 * math.pi * 3 * DRONE_HZ * t)) / 1.4
 
 
 def _shape(freq, harmonics, length, blips=1, gap=0.04):
@@ -78,11 +92,38 @@ class WallBeeper:
             for step in range(STEPS):
                 f = BASE * 2 ** (step * 2 / 12)        # each step two semitones up
                 self.sounds[zone, step] = self.audio.buffer(0.8 * _shape(f, harmonics, length, blips))
+        self.drone_source = self.audio.source(0, 0)
+        self.drone_buffer = self.audio.buffer(_drone())
+        self.drone_gain = 0.0           # faded up and down a little each tick: no clicks
+        self.speed = 0.0                # smoothed, metres per second
+        self.last_pos = None            # (x, y, time)
         self.walls = None
         self.scene = None
         self.last_step = {zone: -1 for zone in VOICES}   # -1 = nothing in range
         self.stop = threading.Event()
         threading.Thread(target=self._run, daemon=True, name="wall beeps").start()
+
+    def _horse_drone(self, player):
+        """Follow the horse's speed with the hum's pitch; fade out on foot or at a halt."""
+        now = time.perf_counter()
+        if player and self.last_pos:
+            x0, y0, t0 = self.last_pos
+            v = math.hypot(player[0] - x0, player[1] - y0) / max(now - t0, 1e-3)
+            self.speed += 0.3 * (v - self.speed)        # moving average: steady, not jittery
+        else:
+            self.speed = 0.0
+        self.last_pos = (player[0], player[1], now) if player else None
+        riding = bool(player and player[4] and self.speed > HALT_SPEED)
+        target = DRONE_GAIN if riding else 0.0
+        if target and not self.drone_gain:
+            self.audio.loop(self.drone_source, self.drone_buffer)
+        self.drone_gain += max(-0.02, min(0.02, target - self.drone_gain))    # ~0.3 s fades
+        if self.drone_gain <= 0:
+            self.drone_gain = 0.0
+            self.audio.stop(self.drone_source)
+            return
+        pitch = LOWEST_PITCH + (1 - LOWEST_PITCH) * min(1.0, self.speed / FULL_SPEED)
+        self.audio.set(self.drone_source, gain=self.drone_gain, pitch=pitch)
 
     def _distances(self):
         """({zone: metres}, on_horse), or None outside a scene."""
@@ -93,7 +134,7 @@ class WallBeeper:
         scene = r.u32(mission)
         if scene != self.scene:         # a new scene: read its walls once
             self.walls, self.scene = walls.SceneWalls(r, scene), scene
-        player = walls.find_player(r, mission)
+        player = self.player = walls.find_player(r, mission)
         if player is None:
             return None
         reach = max(REACH.values())
@@ -102,10 +143,12 @@ class WallBeeper:
 
     def _run(self):
         while not self.stop.is_set():
+            self.player = None
             try:
                 result = self._distances() if self.enabled and self.active() else None
             except (ReadError, ValueError, OSError):
                 result, self.scene = None, None     # scene changing or game closing
+            self._horse_drone(self.player if result else None)
             if not result:
                 self.last_step = {zone: -1 for zone in VOICES}
             else:
