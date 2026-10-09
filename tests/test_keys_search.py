@@ -39,3 +39,14 @@ def test_type_search_builds_words_and_repeats(monkeypatch):
     clock[0] += 2
     w.type_search("x")
     assert w.cursor == 1 and said[-1] == "No x"
+
+
+def test_shift_enter_says_when_nothing_happens():
+    import time
+    w, said = watcher("Inventory 1")
+    w.special_check = (time.time(), "Smoked Fish")
+    w.check_special()
+    assert said == []                       # still waiting for a question to open
+    w.special_check = (time.time() - 1, "Smoked Fish")
+    w.check_special()
+    assert said == ["nothing to do with Smoked Fish"] and w.special_check is None

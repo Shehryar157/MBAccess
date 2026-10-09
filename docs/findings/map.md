@@ -151,3 +151,12 @@
   y 0.23 engine coordinates: the camera centres on the player's party). Fallback if ever needed.
 - game+0x14224 flips to 1 on any map click (not "menu open"); +0x140fc / +0x14108 writes alone
   did nothing while the map was paused.
+
+## Right-click context menu on the map (found 2026-10-10, session 17, from the Module System; not tried live)
+- Right-clicking a party on the world map opens a small menu the module script fills
+  (module_scripts.py "game_context_menu_get_buttons", party number as argument):
+  "Move here" (any party but the player's), "View notes" (towns/castles/villages, or a party led
+  by a companion/lord: opens the notes screen), "Accompany" (follow: parties of the player's own
+  kingdom or caravans, not places). The click goes to "game_event_context_menu_button_clicked".
+- Useful later: map list keys for "Accompany" and "View notes" (a sighted player has them by
+  right click). Where the menu lives in memory (a window number?) is unknown.

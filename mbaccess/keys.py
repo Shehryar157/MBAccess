@@ -108,6 +108,7 @@ class HookKeyWatcher:
         self.swallow_shifted = frozenset()  # hidden only while Shift is held
         self.hidden_down = set()        # keys whose press we hid: hide their release too
         self.passed_down = set()        # keys whose press the game got: so will the release
+        self.quiet_repeats = False      # set by run.py while walking in a scene
         self.game_hwnd = None           # remembered here: the hook must not search for it
         self._proc = HOOKPROC(self._on_key)   # keep a reference, or it's freed
         ready = threading.Event()
@@ -161,6 +162,14 @@ class HookKeyWatcher:
             if wparam == WM_KEYDOWN:
                 if vk in self.hidden_down:
                     return 1
+                if vk in self.passed_down and self._quiet_repeats() and front and front == self._game():
+                    # An auto-repeat of a key the game already holds (walking with W).
+                    # NVDA stops speaking on every key down, repeats too, so "crude
+                    # fence" was cut off while walking. The game only checks whether
+                    # the key is down, which it still is, so it loses nothing. We sit
+                    # before NVDA in the hook chain (installed later), so it never
+                    # sees the repeat either.
+                    return 1
                 if vk not in self.passed_down:
                     if self._owns(vk) and front and front == self._game():
                         self.hidden_down.add(vk)
@@ -179,6 +188,10 @@ class HookKeyWatcher:
 
     def _game(self):
         return self.game_hwnd
+
+    def _quiet_repeats(self):
+        """Hide auto-repeats from the game and NVDA right now? (Walking in a scene.)"""
+        return self.quiet_repeats
 
     def is_held(self, vk):
         """Is the key down now? Works for keys we hide from the game, which Windows'
@@ -220,8 +233,8 @@ OWN, OWN_SHIFTED = 1, 2
 class _SharedHook(HookKeyWatcher):
     """The hook as it runs inside the hook process."""
 
-    def __init__(self, flags, hwnd, events, held):
-        self.flags, self.hwnd, self.held_flags = flags, hwnd, held
+    def __init__(self, flags, hwnd, events, held, quiet):
+        self.flags, self.hwnd, self.held_flags, self.quiet = flags, hwnd, held, quiet
         super().__init__(None)
         self.events = events
 
@@ -240,10 +253,13 @@ class _SharedHook(HookKeyWatcher):
     def _game(self):
         return self.hwnd.value
 
+    def _quiet_repeats(self):
+        return bool(self.quiet.value)
 
-def _hook_process(flags, hwnd, events, held, ready):
+
+def _hook_process(flags, hwnd, events, held, quiet, ready):
     import multiprocessing
-    hook = _SharedHook(flags, hwnd, events, held)
+    hook = _SharedHook(flags, hwnd, events, held, quiet)
     ready.put(hook.ok)
     parent = multiprocessing.parent_process()
     # Leave with the mod: a hook nobody reads would keep swallowing keys.
@@ -262,10 +278,12 @@ class ProcessKeyWatcher:
         self.hwnd = ctx.Value("q", 0, lock=False)
         self.events = ctx.Queue()
         self.held = ctx.Array("B", 0x200, lock=False)     # 1 while a key is down
+        self.quiet = ctx.Value("b", 0, lock=False)        # 1: hide auto-repeats (walking)
         self.early = []         # events wait() took off the queue: pressed() returns them
         self._swallow, self._shifted = frozenset(), frozenset()
         ready = ctx.Queue()
-        self.process = ctx.Process(target=_hook_process, args=(self.flags, self.hwnd, self.events, self.held, ready),
+        self.process = ctx.Process(target=_hook_process,
+                                   args=(self.flags, self.hwnd, self.events, self.held, self.quiet, ready),
                                    daemon=True, name="MB Access keys")
         self.process.start()
         try:
@@ -302,6 +320,15 @@ class ProcessKeyWatcher:
         if keys != self._shifted:
             self._set(self._shifted, keys, OWN_SHIFTED)
             self._shifted = keys
+
+    @property
+    def quiet_repeats(self):
+        return bool(self.quiet.value)
+
+    @quiet_repeats.setter
+    def quiet_repeats(self, on):
+        if bool(self.quiet.value) != bool(on):
+            self.quiet.value = 1 if on else 0
 
     def is_held(self, vk):
         return bool(self.held[vk]) if vk < len(self.held) else False

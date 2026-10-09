@@ -1,4 +1,4 @@
-"""Reading any screen by walking its widget tree (found 2026-10-05).
+﻿"""Reading any screen by walking its widget tree (found 2026-10-05).
 
 Every screen (the engine calls them game windows) is a tree of widgets, like
 nested Python lists: a container widget has a name (an rgl::string at
@@ -89,7 +89,7 @@ class Item:
         if key == "activate" and self.kind in ("option", "button", "tab", "checkbox", "edit", "slot"):
             return ("click", self.x + self.click[0], y)
         if key == "special" and self.kind == "slot":
-            # The item's one special action: read a book, slaughter livestock.
+            # The item's one special action: slaughter an animal (the game asks first).
             return ("right click", self.x + self.click[0], y)
         if key == "quick" and self.kind == "slot":
             # Ctrl+click: buy or sell (or take or drop) at once, no carrying.

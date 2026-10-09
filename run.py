@@ -195,6 +195,8 @@ def play_session(game):
         # Shift+A / Shift+D turn; plain A and D still walk.
         key_watch.swallow_shifted = frozenset((keys.KEY_A, keys.KEY_D)) if in_scene["now"] else frozenset()
         key_watch.swallow = frozenset(mine)
+        # Walking: a held W's auto-repeats would make NVDA cut off "crude fence".
+        key_watch.quiet_repeats = in_scene["now"]
         key_watch.wait(POLL_SECONDS)     # wakes at once when a key arrives
 
 

@@ -15,7 +15,7 @@ says how to read each window number:
 
 The game is mouse-only, so we keep our own cursor: Up/Down/Home/End move it,
 Enter or Space presses, Left/Right change spinners and sliders, Shift+Enter
-right-clicks (an item's special action, like reading a book), and we move
+right-clicks (an item's special action: slaughtering a horse), and we move
 the real mouse to do it. Rows scrolled out of view are still readable (the
 memory has them); before pressing one, we turn the mouse wheel until it's
 in view.
@@ -46,6 +46,7 @@ PICK_WAIT = 0.3       # seconds for a drop-down list to open
 TIP_LINES, TIP_STRIDE = 12, 0x90   # tooltip: rgl::string lines
 HOLD_WAIT = 0.4       # seconds for a click on a cell to pick up or put down
 TIP_WAIT = 0.4        # seconds to wait for a tooltip before calling a cell empty
+SPECIAL_WAIT = 0.6    # seconds for a right click's question (slaughter) to open
 # Conversation manager (reference/wse/WarbandLib/conversation.h, verified on
 # 1.174): current sentence, number of replies, then two tables of 1024
 # options (156 bytes each), a bool, and the partner's line.
@@ -93,6 +94,7 @@ class MenuWatcher:
         self.config = {}
         self.hold_check = None       # (since, item held before): after clicking a cell
         self.move_check = None       # (since, cell widget, its item before): after Ctrl+Enter
+        self.special_check = None    # (since, the cell's item): after Shift+Enter
         self.tip_nudged = False      # moved the mouse again for a slow tooltip
         self.carried = []            # keys from a tick whose read failed
         self.settling = None         # a new screen seen once, waiting for a second read
@@ -377,6 +379,7 @@ class MenuWatcher:
                 self.settling, self.carried = look, pressed[-3:]
                 return
             self.settling, self.aim_check, self.trial = None, None, None
+            self.special_check = None     # a question opened (slaughter): it's read out
             self.last, self.pending = state, None
             self.announce, self.section_memory = "", {}
             self.options, self.cursor = items, min(config.get("start", 0), len(items) - 1)
@@ -409,6 +412,8 @@ class MenuWatcher:
             self.check_held()
         if self.move_check:
             self.check_moved()
+        if self.special_check:
+            self.check_special()
         if self.pending:
             key, tries = self.pending
             self.pending = None
@@ -795,6 +800,18 @@ class MenuWatcher:
         else:
             self.say(f"{before} moved")
 
+    def check_special(self):
+        """After a right click: the game asks a question (a new screen, read out as
+        usual) or does nothing, which we say once the wait is over."""
+        started, before = self.special_check
+        if time.time() - started < SPECIAL_WAIT:
+            return
+        self.special_check = None
+        if before is None:
+            self.say("nothing happens")
+        else:
+            self.say(f"nothing to do with {before}" if before else "nothing there")
+
     # --- what's in a cell, straight from memory --------------------------
     # The inventory window keeps, per side (0 = you, 1 = the other side), a
     # table of cell widgets in slot order: 96 bag cells, then 10 equipment
@@ -1015,6 +1032,9 @@ class MenuWatcher:
             self.mouse.click(row_x, row_y)
             return
         if action[0] == "right click":
+            # Only animals have one ("Slaughter this Saddle Horse and eat it?").
+            # If no question opens, say so rather than leave the player guessing.
+            self.special_check = (time.time(), self.cell_contents(item))
             self.mouse.click(*action[1:], right=True)
             return
         if action[0] == "ctrl click":

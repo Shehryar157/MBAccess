@@ -1,4 +1,4 @@
-"""F9: every key the mod adds, as a list read line by line, grouped by screen.
+﻿"""F9: every key the mod adds, as a list read line by line, grouped by screen.
 
 Like FFC Access's help: the cursor starts on the group for the screen you're
 on, Up/Down read a line at a time, Control Up/Down jump between groups, and
@@ -54,7 +54,8 @@ GROUPS = [
         ("Enter: pick up the item, then Enter on another cell to put it down. "
          "This equips, unequips, discards, loots, buys and sells.", None),
         ("Shift Enter: the item's special action, if it has one: "
-         "read a book, or slaughter livestock for food.", None),
+         "slaughter a horse or other animal for food (the game asks first). "
+         "Books are read from the Camp menu instead.", None),
         ("Control Enter: move the item to the other side at once, without carrying it: "
          "quick buy or sell when trading, quick take when looting.", None),
     ]),
