@@ -12,7 +12,7 @@ Items here are ordinary form.Item objects with a "virtual" name, so the
 reader speaks and moves through them like any other screen.
 """
 from .form import Item
-from .settings import ITEM_DETAILS
+from .settings import ITEM_DETAILS, TURN_SPEEDS
 
 TAB = "Accessibility"
 
@@ -35,6 +35,8 @@ class AccessPage:
                                   name not in s.get("muted_categories"), "category:" + name))
         found.append(Item("dropdown", "Item details in the inventory", 0, 0,
                           value=s.get("item_details"), virtual="item_details"))
+        found.append(Item("dropdown", "Turn speed with the arrow keys, on foot", 0, 0,
+                          value="%d degrees a second" % s.get("turn_speed"), virtual="turn_speed"))
         return found
 
     def act(self, item, key):
@@ -51,6 +53,14 @@ class AccessPage:
             else:
                 n = max(0, min(len(ITEM_DETAILS) - 1, n + (1 if key == "right" else -1)))
             s.set(name, ITEM_DETAILS[n])
+        elif name == "turn_speed" and key in ("activate", "left", "right"):
+            speeds = TURN_SPEEDS
+            n = speeds.index(s.get(name)) if s.get(name) in speeds else speeds.index(90)
+            if key == "activate":
+                n = (n + 1) % len(speeds)
+            else:
+                n = max(0, min(len(speeds) - 1, n + (1 if key == "right" else -1)))
+            s.set(name, speeds[n])
 
 
 def checkbox(label, ticked, virtual):

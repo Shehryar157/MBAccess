@@ -49,9 +49,10 @@ class Turner:
         self.busy = False
         self.horse_overshoot = 15.0     # degrees the horse swings on after letting go (learned)
 
-    def start_spinning(self, held, active, left_key, right_key):
+    def start_spinning(self, held, active, left_key, right_key, speed=lambda: SPIN_SPEED):
         """Left / Right arrow held on foot: turn on the spot, as a sighted player does by moving the
-        mouse. held(vk) says if a key is down; active() if we're walking in a scene."""
+        mouse. held(vk) says if a key is down; active() if we're walking in a scene;
+        speed() the degrees a second (the Accessibility tab's Turn speed)."""
         def run():
             r = Reader(self.game)       # the spin thread's own reader
             spinning, mounted, checked = False, False, 0.0
@@ -74,7 +75,7 @@ class Turner:
                     if mounted:
                         continue
                     spinning = True
-                    steps = SPIN_SPEED * SPIN_TICK * self.steps_per_degree * self.sign
+                    steps = speed() * SPIN_TICK * self.steps_per_degree * self.sign
                     _user32.mouse_event(MOUSEEVENTF_MOVE, int(round(-steps if left else steps)), 0, 0, 0)
                 except (ReadError, OSError, TypeError):
                     spinning = False

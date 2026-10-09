@@ -12,10 +12,12 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PATH = os.path.join(ROOT, "settings.json")
 
 ITEM_DETAILS = ("Full", "Name and price", "Name only")
+TURN_SPEEDS = (30, 45, 60, 90, 120, 180, 240)    # degrees a second, arrow keys on foot
 DEFAULTS = {
     "speak_messages": True,
     "muted_categories": [],      # message categories not spoken (still kept in the buffers)
     "item_details": "Full",      # how much of an inventory item's tooltip to read
+    "turn_speed": 90,            # degrees a second while an arrow key turns you on foot
 }
 
 

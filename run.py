@@ -108,7 +108,8 @@ def play_session(game):
     scan = scanner.Scanner(Reader(game), game.profile, speech.say,
                            item_name=lambda kind: watcher.item_name(kind),
                            passage_name=passage_name, turner=turning.Turner(game, speech.say))
-    scan.turner.start_spinning(key_watch.is_held, lambda: in_scene["now"], keys.LEFT, keys.RIGHT)
+    scan.turner.start_spinning(key_watch.is_held, lambda: in_scene["now"], keys.LEFT, keys.RIGHT,
+                               speed=lambda: prefs.get("turn_speed"))
     if beeper:
         beeper.scanner = scan           # the tracking ping follows the scanner's choice
     prompt = prompts.Prompts(game, Reader(game), speech.say, scan)
