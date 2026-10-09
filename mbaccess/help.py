@@ -59,9 +59,11 @@ GROUPS = [
          "quick buy or sell when trading, quick take when looting.", None),
     ]),
     ("Walking in scenes", [
-        ("The scanner lists what's around you, nearest first. O: things ahead. "
-         "K: to the left. Semicolon: to the right. L: behind. Press the same key again "
-         "for the next one. Ahead means within 45 degrees of straight ahead.", None),
+        ("The scanner lays things around you on two lines through you. O and L: the "
+         "ahead and behind line; O steps further ahead, L further back. K and semicolon: "
+         "the left and right line; K steps further left, semicolon further right. "
+         "The first press gives the nearest thing on that side. Ahead means within "
+         "45 degrees of straight ahead.", None),
         ("Shift K and Shift L: previous or next category: All, People, Exits, "
          "Items, Objects, Animals.", None),
         ("J: where the thing you last heard is now: distance, direction, "

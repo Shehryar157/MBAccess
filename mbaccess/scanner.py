@@ -1,7 +1,8 @@
 """Scene scanner: what's around the player, by direction, while walking in a scene.
 
-K, L, semicolon, O: things to the left, behind, right and ahead, nearest first; the same
-key again steps to the next one. Shift+K / Shift+L: previous / next category.
+Two lines through the player: O / L step along the ahead-behind line (further ahead /
+further back), K / semicolon along the left-right line (further left / further right).
+Starting with a key gives the nearest thing on that side. Shift+K / Shift+L: previous / next category.
 J: where the current thing is now (it may have moved, and so may you).
 Shift+J: track it: a ping plays from where it is (wall_beeps.py plays it).
 Apostrophe: compass. Shift+A / Shift+D: turn 45 degrees left / right (turning.py).
@@ -43,6 +44,8 @@ DOOR_WORDS = ("door", "gate", "passage", "stairs", "ladder")
 
 DIRECTIONS = {keys.KEY_O: "ahead", keys.KEY_K: "to the left",
               keys.SEMICOLON: "to the right", keys.KEY_L: "behind"}
+SIDE_WORDS = {("ahead", 1): "ahead", ("ahead", -1): "behind",
+              ("side", 1): "right", ("side", -1): "left"}
 
 
 def prop_name(ident):
@@ -110,8 +113,6 @@ class Scanner:
         self.passage_name = passage_name or (lambda number: None)
         self.category = 0
         self.direction = None
-        self.snapshot = []          # (key, name) for the current direction, nearest first
-        self.index = -1
         self.current = None         # key of the thing last spoken: ("agent", no) / ("object", no)
         self.troop_names = {}       # troop number -> name: they never change
         self.object_names = {}      # object number -> (name, category or None to skip)
@@ -248,30 +249,42 @@ class Scanner:
         return player, found
 
     def step(self, key):
-        if key != self.direction:
-            player, found = self._read()
-            if player is None:
-                return
-            rows = []
-            for t in found:
-                d, a = relative(player, t["x"], t["y"])
-                if quarter(a) == key:
-                    rows.append((d, t["key"], t["name"]))
-            rows.sort()
-            self.snapshot = [(k, n, d) for d, k, n in rows]
-            self.direction, self.index = key, -1
-        if not self.snapshot:
-            self.say("nothing %s" % DIRECTIONS[key] if self.category == 0
-                     else "no %s %s" % (CATEGORIES[self.category].lower(), DIRECTIONS[key]))
-            self.direction = None       # look again next press: things move
+        """Walk one of two lines through the player: ahead/behind (O further ahead,
+        L further back) or left/right (K further left, semicolon further right).
+        Read fresh every press, stepping from the thing we're on."""
+        axis = "ahead" if key in (keys.KEY_O, keys.KEY_L) else "side"
+        sign = 1 if key in (keys.KEY_O, keys.SEMICOLON) else -1
+        player, found = self._read()
+        if player is None:
             return
-        self.index += 1
-        wrapped = self.index >= len(self.snapshot)
-        if wrapped:
-            self.index = 0
-        key_, name, distance = self.snapshot[self.index]
-        self.current = (key_, name)
-        self.say(("top. " if wrapped else "") + "%s, %s" % (name, describe_distance(distance)))
+        rows = []
+        for t in found:
+            d, a = relative(player, t["x"], t["y"])
+            q = quarter(a)
+            if axis == "ahead" and q in (keys.KEY_O, keys.KEY_L):
+                rows.append((d if q == keys.KEY_O else -d, t["key"], t["name"]))
+            elif axis == "side" and q in (keys.SEMICOLON, keys.KEY_K):
+                rows.append((d if q == keys.SEMICOLON else -d, t["key"], t["name"]))
+        rows.sort()
+        keys_ = [k for _, k, _ in rows]
+        here = self.current[0] if self.current and self.direction == axis else None
+        if here in keys_:
+            i = keys_.index(here) + sign
+        elif sign > 0:      # start at the nearest on the side pressed
+            i = next((n for n, r in enumerate(rows) if r[0] >= 0), len(rows))
+        else:
+            i = max((n for n, r in enumerate(rows) if r[0] < 0), default=-1)
+        side = SIDE_WORDS[axis, sign]
+        if not 0 <= i < len(rows):
+            further = "further " if here in keys_ else ""
+            what = "" if self.category == 0 else CATEGORIES[self.category].lower() + " "
+            self.say("no %s%s%s" % (what, further, side) if what else "nothing %s%s" % (further, side))
+            return
+        signed, thing, name = rows[i]
+        self.direction, self.current = axis, (thing, name)
+        where = SIDE_WORDS[axis, 1 if signed >= 0 else -1]
+        self.say("%s, %s %s" % (name, describe_distance(abs(signed)), where)
+                 if abs(signed) >= 1.5 else "%s, right here" % name)
 
     def _where_words(self, thing_key, name, short=False):
         player, found = self._read_all()
