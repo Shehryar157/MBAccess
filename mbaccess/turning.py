@@ -83,8 +83,7 @@ class Turner:
             # Facing grows anticlockwise (left); moving the mouse right turns right.
             nudge = int(max(-MAX_NUDGE, min(MAX_NUDGE, -error * self.steps_per_degree * self.sign)))
             _user32.mouse_event(MOUSEEVENTF_MOVE, nudge or (1 if error < 0 else -1), 0, 0, 0)
-            time.sleep(0.04)
-            moved = wrap(math.degrees(self._player()[3]) - before)
+            moved = self._settle(before)
             if abs(moved) < 0.3:
                 stuck += 1
                 if stuck >= 6:
@@ -99,6 +98,21 @@ class Turner:
             self.steps_per_degree = 0.5 * self.steps_per_degree + 0.5 * measured
         return False
 
+    def _settle(self, before):
+        """Degrees turned since `before`, once the game has applied our nudge: watch
+        every 5 ms and go on as soon as the facing stops changing (at most 80 ms)."""
+        last, still, start = before, 0, time.perf_counter()
+        while time.perf_counter() - start < 0.08:
+            time.sleep(0.005)
+            now = math.degrees(self._player()[3])
+            if now != last:
+                last, still = now, 0
+            elif last != before:
+                still += 1
+                if still >= 2:      # changed, then held for two looks: settled
+                    break
+        return wrap(last - before)
+
     def _steer_horse(self, target, left):
         scan = SCAN_A if left else SCAN_D
         _user32.keybd_event(0, scan, KEYEVENTF_SCANCODE, 0)
@@ -109,7 +123,7 @@ class Turner:
                 # stop a little early: the horse keeps turning briefly after release
                 if abs(error) <= TOLERANCE * 2 or (error > 0) != left:
                     return True
-                time.sleep(0.02)
+                time.sleep(0.005)
         finally:
             _user32.keybd_event(0, scan, KEYEVENTF_SCANCODE | KEYEVENTF_KEYUP, 0)
         self.say("the horse didn't turn")

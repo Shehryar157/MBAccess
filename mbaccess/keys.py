@@ -159,8 +159,7 @@ class HookKeyWatcher:
                 if vk in self.hidden_down:
                     return 1
                 if vk not in self.passed_down:
-                    ours = vk in self.swallow or (vk in self.swallow_shifted and SHIFT in self.held)
-                    if ours and front and front == self.game_hwnd:
+                    if self._owns(vk) and front and front == self._game():
                         self.hidden_down.add(vk)
                         return 1
                     self.passed_down.add(vk)
@@ -170,6 +169,13 @@ class HookKeyWatcher:
                     self.hidden_down.discard(vk)
                     return 1
         return _user32.CallNextHookEx(None, code, wparam, lparam)
+
+    def _owns(self, vk):
+        """Does the mod take this key from the game right now?"""
+        return vk in self.swallow or (vk in self.swallow_shifted and SHIFT in self.held)
+
+    def _game(self):
+        return self.game_hwnd
 
     def wait(self, seconds):
         """Sleep until a key arrives or the time is up, whichever is first."""
@@ -191,7 +197,126 @@ class HookKeyWatcher:
                 new.append(vk)
 
 
+# --- the hook in its own process ----------------------------------------------
+#
+# Windows holds every key press back from the game until our hook function returns.
+# Python runs one thread at a time (the GIL), so a hook in the mod's own process waits
+# whenever the wall beeps, the scanner or speech are running: walking felt sluggish.
+# In its own process the hook has Python to itself and answers in microseconds.
+# The two processes share a table of which keys the mod owns (bit 1: always,
+# bit 2: only with Shift held) and the game's window; presses come back on a queue.
+
+OWN, OWN_SHIFTED = 1, 2
+
+
+class _SharedHook(HookKeyWatcher):
+    """The hook as it runs inside the hook process."""
+
+    def __init__(self, flags, hwnd, events):
+        self.flags, self.hwnd = flags, hwnd
+        super().__init__(None)
+        self.events = events
+
+    def _owns(self, vk):
+        bits = self.flags[vk] if vk < len(self.flags) else 0
+        return bool(bits & OWN or (bits & OWN_SHIFTED and SHIFT in self.held))
+
+    def _game(self):
+        return self.hwnd.value
+
+
+def _hook_process(flags, hwnd, events, ready):
+    import multiprocessing
+    hook = _SharedHook(flags, hwnd, events)
+    ready.put(hook.ok)
+    parent = multiprocessing.parent_process()
+    # Leave with the mod: a hook nobody reads would keep swallowing keys.
+    while parent is None or parent.is_alive():
+        time.sleep(0.5)
+
+
+class ProcessKeyWatcher:
+    """Same methods as HookKeyWatcher; the hook itself runs in a child process."""
+
+    def __init__(self, hwnd_getter):
+        import multiprocessing
+        ctx = multiprocessing.get_context("spawn")
+        self.hwnd_getter = hwnd_getter
+        self.flags = ctx.Array("B", 0x200, lock=False)
+        self.hwnd = ctx.Value("q", 0, lock=False)
+        self.events = ctx.Queue()
+        self.early = []         # events wait() took off the queue: pressed() returns them
+        self._swallow, self._shifted = frozenset(), frozenset()
+        ready = ctx.Queue()
+        self.process = ctx.Process(target=_hook_process, args=(self.flags, self.hwnd, self.events, ready),
+                                   daemon=True, name="MB Access keys")
+        self.process.start()
+        try:
+            self.ok = ready.get(timeout=10)
+        except queue.Empty:
+            self.ok = False
+        if not self.ok:
+            self.process.terminate()
+
+    def _set(self, old, new, bit):
+        for vk in old - new:
+            self.flags[vk] &= ~bit
+        for vk in new - old:
+            self.flags[vk] |= bit
+
+    @property
+    def swallow(self):
+        return self._swallow
+
+    @swallow.setter
+    def swallow(self, keys):
+        keys = frozenset(keys)
+        if keys != self._swallow:
+            self._set(self._swallow, keys, OWN)
+            self._swallow = keys
+
+    @property
+    def swallow_shifted(self):
+        return self._shifted
+
+    @swallow_shifted.setter
+    def swallow_shifted(self, keys):
+        keys = frozenset(keys)
+        if keys != self._shifted:
+            self._set(self._shifted, keys, OWN_SHIFTED)
+            self._shifted = keys
+
+    def wait(self, seconds):
+        """Sleep until a key arrives or the time is up."""
+        if not self.early:
+            try:
+                self.early.append(self.events.get(timeout=seconds))
+            except queue.Empty:
+                pass
+
+    def pressed(self):
+        hwnd = self.hwnd_getter() or 0
+        self.hwnd.value = hwnd
+        got, self.early = self.early, []
+        while True:
+            try:
+                got.append(self.events.get_nowait())
+            except queue.Empty:
+                break
+        new = []
+        for vk, front, repeat in got:
+            if hwnd and front == hwnd and not (repeat and vk in new):
+                new.append(vk)
+        return new
+
+
 def watcher(hwnd_getter):
-    """The hook if Windows lets us set one, else the polling watcher."""
+    """The hook in its own process if possible, else in ours, else polling."""
+    try:
+        separate = ProcessKeyWatcher(hwnd_getter)
+        if separate.ok:
+            return separate
+    except Exception as e:
+        print("key hook process failed:", e)
     hooked = HookKeyWatcher(hwnd_getter)
     return hooked if hooked.ok else KeyWatcher(hwnd_getter)

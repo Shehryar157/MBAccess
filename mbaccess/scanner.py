@@ -113,6 +113,9 @@ class Scanner:
         self.snapshot = []          # (key, name) for the current direction, nearest first
         self.index = -1
         self.current = None         # key of the thing last spoken: ("agent", no) / ("object", no)
+        self.troop_names = {}       # troop number -> name: they never change
+        self.object_names = {}      # object number -> (name, category or None to skip)
+        self.names_scene = None     # the scene object_names belong to
 
     # --- reading the scene -------------------------------------------------------
 
@@ -149,10 +152,12 @@ class Scanner:
                     horses.append((no, x, y, z, struct.unpack_from("<i", h, AGENT_HORSE_ITEM)[0]))
                     continue
                 troop = struct.unpack_from("<i", h, AGENT_TROOP)[0]
-                try:
-                    name = self._troop_name(troop)
-                except (ReadError, KeyError, TypeError):
-                    name = "someone"
+                name = self.troop_names.get(troop)
+                if name is None:
+                    try:
+                        name = self.troop_names[troop] = self._troop_name(troop)
+                    except (ReadError, KeyError, TypeError):
+                        name = "someone"
                 people.append(dict(key=("agent", no), name=name, category="People", x=x, y=y, z=z))
         found += people
         player = walls.find_player(self.r, mission)
@@ -163,6 +168,9 @@ class Scanner:
                 continue
             found.append(dict(key=("agent", no), name=self.item_name(item) or "horse",
                               category="Animals", x=x, y=y, z=z))
+        scene = self.r.u32(mission)
+        if scene != self.names_scene:       # names are read once per scene
+            self.object_names, self.names_scene = {}, scene
         for chunk in self._chunks(mission + OBJECTS + 0x1c):
             try:
                 block = self.r.read(chunk, 16 * OBJECT_SIZE)
@@ -178,21 +186,29 @@ class Scanner:
                     continue
                 no = struct.unpack_from("<i", block, o + 8)[0]
                 x, y, z = struct.unpack_from("<3f", block, o + OBJ_POS)
-                if category == "Items":
-                    name = self.item_name(kind)
-                else:
-                    ident = self.r.rgl_string(chunk + o + OBJ_ID)
-                    bare = ident[4:] if ident.startswith("spr_") else ident
-                    if meta != PASSAGE and any(bare.startswith(w) or ("_" + w) in bare for w in INVISIBLE):
-                        continue
-                    name = prop_name(ident)
-                    if meta == PASSAGE:
-                        variation = struct.unpack_from("<i", block, o + OBJ_VARIATION)[0]
-                        name = self.passage_name(variation) or "passage"
-                    elif any(w in bare for w in DOOR_WORDS):
-                        category = "Exits"
-                found.append(dict(key=("object", no), name=name, category=category, x=x, y=y, z=z))
+                known = self.object_names.get(no)
+                if known is None:
+                    known = self.object_names[no] = self._object_name(chunk + o, block, o, meta, kind, category)
+                name, category = known
+                if category is not None:
+                    found.append(dict(key=("object", no), name=name, category=category, x=x, y=y, z=z))
         return player, found
+
+    def _object_name(self, address, block, o, meta, kind, category):
+        """(name, category), or (None, None) for things a sighted player never sees."""
+        if category == "Items":
+            return self.item_name(kind), category
+        ident = self.r.rgl_string(address + OBJ_ID)
+        bare = ident[4:] if ident.startswith("spr_") else ident
+        if meta != PASSAGE and any(bare.startswith(w) or ("_" + w) in bare for w in INVISIBLE):
+            return None, None
+        name = prop_name(ident)
+        if meta == PASSAGE:
+            variation = struct.unpack_from("<i", block, o + OBJ_VARIATION)[0]
+            name = self.passage_name(variation) or "passage"
+        elif any(w in bare for w in DOOR_WORDS):
+            category = "Exits"
+        return name, category
 
     # --- keys --------------------------------------------------------------------
 
@@ -242,7 +258,7 @@ class Scanner:
                 if quarter(a) == key:
                     rows.append((d, t["key"], t["name"]))
             rows.sort()
-            self.snapshot = [(k, n) for _, k, n in rows]
+            self.snapshot = [(k, n, d) for d, k, n in rows]
             self.direction, self.index = key, -1
         if not self.snapshot:
             self.say("nothing %s" % DIRECTIONS[key] if self.category == 0
@@ -253,10 +269,9 @@ class Scanner:
         wrapped = self.index >= len(self.snapshot)
         if wrapped:
             self.index = 0
-        key_, name = self.snapshot[self.index]
+        key_, name, distance = self.snapshot[self.index]
         self.current = (key_, name)
-        spoken = self._where_words(key_, name, short=True)
-        self.say(("top. " if wrapped else "") + spoken)
+        self.say(("top. " if wrapped else "") + "%s, %s" % (name, describe_distance(distance)))
 
     def _where_words(self, thing_key, name, short=False):
         player, found = self._read_all()

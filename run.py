@@ -166,6 +166,9 @@ def play_session(game):
 
 
 def main():
+    # Let threads take turns every 2 ms instead of 5: speech, the wall beeps and the
+    # main loop answer sooner when they share Python.
+    sys.setswitchinterval(0.002)
     if not only_instance():
         return  # quietly: the running copy owns the speech
     with_game = "--with-game" in sys.argv
