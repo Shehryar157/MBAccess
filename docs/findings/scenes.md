@@ -139,3 +139,43 @@
   only ~0 deg off (9 deg at 2.7 m: no), in_range from 1.28 m (centre to centre). Type 1 =
   mission object aimed at, ANY prop (crude fence, feeding trough; no use flags), in range
   ~1.86 m. People not measured (villager walked away).
+
+## Session 16 summary (2026-10-10): what the player has in a scene now
+Keys (scene window on top, game in front):
+- Scanner: two lines through the player. O / L walk the ahead-behind line (further ahead /
+  further back), K / ; the left-right line. First press = nearest on that side; "nothing
+  further X" at the ends; re-read every press, stepping from the current thing.
+  Shift+K / Shift+L: previous / next category (All, People, Exits, Items, Objects, Animals).
+  J: where (distance, direction words, up/down). Shift+J: track with the 3D beacon.
+- Apostrophe: compass (+y = north, as on the map). Shift+A / Shift+D: turn 45 degrees
+  (mouse feedback loop on foot; on horseback hold A/D, letting go early by the learned swing,
+  ~15-20 degrees; a standing horse DOES turn). Left / Right arrows held on foot: turn on the
+  spot at the Accessibility "Turn speed" (30-240, default 90 deg/s; measured ~110 at 90
+  because steps-per-degree is approximate). Arrows are not swallowed.
+- F on horseback looking at nothing: the mod looks down until use type 3 (Dismount), presses
+  F, looks back up. VERIFIED.
+Sounds (wall_beeps.py, OpenAL HRTF):
+- Tracking beacon: mellow 620 Hz "bwip" (sine + a little octave, 4% upward glide, 130 ms),
+  lower pitch behind, faster when close. The user rejected a bright ting and a sonar ping.
+- Use cue: classical guitar hammer-on G3 -> B3 (Karplus-Strong string computed a period at a
+  time, plucked a fifth along, soft burst; body = 7 decaying wooden modes ~100-1050 Hz,
+  convolved by FFT: 0.27 s to build). The user found the first thin version lame; this
+  fuller one was played to them, verdict pending. Fallback idea: a real recorded sample
+  (needs the user's OK to download).
+- Obstacle naming: "crude fence" spoken once when the front corridor is within 1.5 m on foot
+  (2.5 m mounted); setting "Say what's in front of you when you come close".
+- Accessibility settings added: Turn speed, Say what's in front, "Use cue plays when":
+  Facing it (game prompt; type 1 only for Items/Exits) / Close enough (prompts.REACH by
+  category; F turns you to it on foot, looks down if needed, presses F). Close enough and
+  the obstacle naming are UNTESTED in game.
+Next / open:
+- Reach for people (a villager kept walking; try a merchant or elder standing still).
+- Prompt types for doors, items on the ground, chests (only types 1, 2, 3 seen).
+- Town passages: names via the place's menu option at the variation index (untested).
+- Horseback aiming in Close enough mode needs the CAMERA yaw (mouse moves the camera, not the
+  horse): candidate float at scene window +0x3cc (2.404) with a previous copy at +0x3dc.
+- Ambient Soundtrack Warband (nexusmods.com/mountandblade/mods/2381, 171.8 MB, v1.0 2010)
+  chosen by the user; Nexus needs a login, so waiting on the user to sign in or download.
+  The original Ambient Anti-Soundtrack (mods/1085) has no files left. Install plan: check the
+  archive, back up the Music folder, copy in; user's music volume is 7% (raise it).
+- User ideas queued: own mount/dismount sounds and per-place ambience through sound3d.

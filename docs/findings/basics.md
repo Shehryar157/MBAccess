@@ -54,6 +54,21 @@
 - Keys come from a low-level keyboard hook (keys.HookKeyWatcher): no lost presses, the loop
   wakes the moment a key arrives, arrows auto-repeat, and repeats that pile up while busy count
   once.
+- 2026-10-10 (session 16): the hook runs in ITS OWN PROCESS (keys.ProcessKeyWatcher, spawned
+  with multiprocessing "spawn"; run.py must keep its __main__ guard). Reason: Windows holds
+  every key back from the game until the hook returns, and in the mod's process the hook
+  waited for the GIL (wall beeps, speech, scanner): walking felt sluggish. Shared tables:
+  flags[vk] (bit 1 = mod owns the key, bit 2 = owns it only with Shift held), the game hwnd,
+  held[vk] (1 while down: GetAsyncKeyState can't see keys we swallow). Presses come back on a
+  multiprocessing Queue. Injected keys (LLKHF_INJECTED) pass straight through and aren't
+  reported, so the mod's own F / A / D presses reach the game. The child exits within 0.5 s of
+  the mod dying. tools/hook_check.py tests start-up (~1-2.5 s). sys.setswitchinterval(0.002).
+- KEY RULE (user, 2026-10-10): never take over the game's own keys. Game keys (Options >
+  Controls, read live): W S A D move, F Action, Space jump, E kick, X weapon mode, G drop
+  weapon, backslash sheath, Tab leave, left Shift zoom, ~ view outfit, R first person,
+  Backspace view orders, F1-F6 orders, 0-9 = - group select, T Y chat, C character, I
+  inventory, P party, Q quests, L game log, F12 quick save. Free in scenes: arrows, B H J K M
+  N O U V Z ; ' / [ ] , . Known clash left by the user's choice: scanner L vs Game Log.
 - Clicks: menu options use a quick click (0.06 s); other screens a held one (0.18 s), because
   Custom Battle missed quick clicks. Profile "quick_click": true switches a screen to the quick
   one. Verified: Esc menu (window 5). Character screen: a quick click on Statistics closed the

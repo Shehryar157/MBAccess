@@ -7,3 +7,4 @@ loader/*.lib
 loader/*.pdb
 settings.json
 learned.json
+out/
