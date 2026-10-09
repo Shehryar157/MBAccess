@@ -16,6 +16,7 @@ from mbaccess.mem import Reader
 from mbaccess.menu_watch import MenuWatcher
 
 ACTION_KEY = 0x46   # F: the game's Action key (Options > Controls)
+MESSAGE_GRACE = 1.5    # seconds a fresh game message is protected from menu speech
 POLL_SECONDS = 0.05  # check the game 20 times a second
 STARTUP_WAIT = 120   # --with-game: give up if the game hasn't appeared by then
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -55,7 +56,22 @@ def play_session(game):
     helper = help.Help(speech.say)
     prefs = settings.Settings()
     log_address = game.profile.screen.get("message_log")
-    news = messages.MessageWatcher(Reader(game), log_address, speech.say,
+    # A game message just spoken ("Infantry, hear me!" after pressing 1) shouldn't be
+    # cut off by the menu that opens a moment later (the order menu): until the next
+    # key press, menu speech queues after it instead of interrupting.
+    just_said = {"at": 0.0}
+
+    def message_say(text, interrupt=True):
+        if not interrupt:               # a new game message, not a key's answer
+            just_said["at"] = time.time()
+        speech.say(text, interrupt)
+
+    def menu_say(text, interrupt=True):
+        if interrupt and time.time() - just_said["at"] < MESSAGE_GRACE:
+            interrupt = False
+        speech.say(text, interrupt)
+
+    news = messages.MessageWatcher(Reader(game), log_address, message_say,
                                    settings=prefs) if log_address else None
     # The Accessibility tab lists one "Speak ... messages" box per buffer category.
     categories = [b.name for b in news.buffers[1:]] if news else []
@@ -69,7 +85,7 @@ def play_session(game):
     click.use_config(game.profile.config_file)   # where the picture sits in the window
     # The main menu needs no campaign, so the watcher starts without one;
     # set_game hands it the campaign object once there is one.
-    watcher = MenuWatcher(Reader(game), None, game.profile.game_offsets, [], speech.say,
+    watcher = MenuWatcher(Reader(game), None, game.profile.game_offsets, [], menu_say,
                           screen=game.profile.screen, mouse=click.Mouse(game_window),
                           page=page, settings=prefs, party_skills=team, world_map=atlas)
     # Wall beeps run on their own thread at a steady rhythm; this loop only tells
@@ -121,6 +137,8 @@ def play_session(game):
                     speech.say("Menu reading isn't set up for this game version yet. "
                                "Run the discovery tool once.")
         pressed = key_watch.pressed()
+        if pressed:
+            just_said["at"] = 0.0       # the player moved on: speech answers them at once
         if keys.CONTROL in pressed:
             # Stop talking, as NVDA does on Ctrl. NVDA and JAWS already do it
             # themselves; this covers the Windows voice (SAPI) fallback.
