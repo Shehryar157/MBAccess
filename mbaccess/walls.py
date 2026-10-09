@@ -184,25 +184,32 @@ class SceneWalls:
         return best
 
 
-ZONES = ("front", "right", "behind", "left")
+# The eight ways the movement keys go (W, W+D, D, ...), clockwise from ahead, 45 degrees apart.
+ZONES = ("front", "front right", "right", "behind right",
+         "behind", "behind left", "left", "front left")
+DIAGONALS = ZONES[1::2]
 
-
-# Half the body's width for each zone's corridor: (front/behind, left/right), metres.
+# Half the body's width for each corridor, metres: (ahead/behind, diagonal, sideways).
 # On horseback the sideways corridor is the horse's half length.
-HALF_WIDTH = {False: (0.3, 0.3), True: (0.5, 1.2)}
+HALF_WIDTH = {False: (0.3, 0.3, 0.3), True: (0.5, 0.85, 1.2)}
 LANES = 5                           # parallel rays across each corridor
+# A diagonal must be this much shorter than its neighbours' wall would make it to count.
+CORNER_MARGIN = 0.3
+
+
+def _half_width(i, on_horse):
+    return HALF_WIDTH[on_horse][(0, 1, 2, 1)[i % 4]]
 
 
 def zone_distances(walls, player, reach=15.0):
-    """How far the body can go straight in each direction before touching a wall:
-    {zone: metres}. Each zone is a corridor as wide as the body, not a 90-degree
-    wedge, so a wall beside you doesn't also count as ahead of you (a wedge's
-    diagonal rays reached it, so strafing toward it beeped front AND side)."""
+    """How far the body can go straight in each of the eight directions before
+    touching a wall: {zone: metres}. Each zone is a corridor as wide as the body,
+    not a wedge, so a wall beside you doesn't also count as ahead of you."""
     x, y, z, stored, on_horse = player
     origins, angles = [], []
     for i in range(len(ZONES)):
-        a = stored + FORWARD - i * math.pi / 2     # world angles anticlockwise: clockwise = minus
-        half = HALF_WIDTH[on_horse][i % 2]
+        a = stored + FORWARD - i * math.pi / 4     # world angles anticlockwise: clockwise = minus
+        half = _half_width(i, on_horse)
         side = np.array([-math.sin(a), math.cos(a)])
         for k in np.linspace(-half, half, LANES):
             origins.append((x, y) + k * side)
@@ -210,3 +217,20 @@ def zone_distances(walls, player, reach=15.0):
     origins, angles = np.array(origins), np.array(angles)
     dist = np.minimum.reduce([walls.cast(origins, z + h, angles, reach) for h in HEIGHTS])
     return {name: float(dist[i * LANES:(i + 1) * LANES].min()) for i, name in enumerate(ZONES)}
+
+
+def corners_only(dist, on_horse, reach):
+    """Hear each wall once. A flat wall on your left also blocks the front-left and
+    behind-left diagonals, about 1.4 times farther away. Those diagonals would beep
+    alongside "left" for the same wall, so they're set to `reach` (nothing). A
+    diagonal keeps its distance only when it's clearly shorter than its two neighbours'
+    walls explain: a corner, a post, a door frame sitting in that diagonal."""
+    out = dict(dist)
+    for i, name in enumerate(ZONES):
+        if name not in DIAGONALS:
+            continue
+        nearest = min(dist[ZONES[i - 1]], dist[ZONES[(i + 1) % 8]])
+        explained = math.sqrt(2) * nearest - _half_width(i, on_horse) - CORNER_MARGIN
+        if dist[name] >= explained:
+            out[name] = reach
+    return out

@@ -38,6 +38,16 @@
 - Now: each zone is a CORRIDOR as wide as the body (5 parallel rays; half width 0.3 m on foot;
   on horseback 0.5 m ahead/behind, 1.2 m sideways). The distance = how far that movement
   key can take you before touching something. Verified on a fake scene; untested in game.
+- 2026-10-10 later: EIGHT corridors (the eight movement-key directions). walls.corners_only()
+  hears each wall once: a diagonal is dropped when its two neighbours' walls explain it
+  (sqrt2 x nearest neighbour - half width - 0.3 m), so a flat wall beeps only as left, a
+  post or corner in the diagonal beeps as that diagonal. Verified on fake scenes.
+- Sound: OpenAL Soft 1.18.2 from the PyOpenAL wheel (pip install PyOpenAL; its
+  soft_oal_64.dll), via ctypes in mbaccess/sound3d.py. HRTF status 4 = on because
+  headphones detected; built-in HRTF only. Sources are listener-relative at fixed angles.
+  Pure sines place badly in HRTF, so diagonals have overtones: front ones bright single
+  blip, back ones hollow (odd harmonics) double blip. DIAGONAL_ANGLE (45) in
+  wall_beeps.py moves them; tools/beep_demo.py [angle] plays all eight. Untested by user.
 - Open: on foot, does the stored angle follow the camera or turn toward the strafe
   direction? Only verified on horseback. Test: tools/wall_probe.py while the user strafes.
 
