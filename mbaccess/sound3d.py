@@ -68,6 +68,12 @@ class Sound3D:
         self.al.alSourcef(src, AL_GAIN, ctypes.c_float(gain))
         return src.value
 
+    def place(self, source, angle_degrees):
+        """Move a source around the head (same angles as source())."""
+        a = math.radians(angle_degrees)
+        self.al.alSource3f(source, AL_POSITION, ctypes.c_float(math.sin(a)), ctypes.c_float(0),
+                           ctypes.c_float(-math.cos(a)))
+
     def play(self, source, buffer):
         self.al.alSourceStop(source)        # a source must stop before its buffer changes
         self.al.alSourcei(source, AL_BUFFER, buffer)

@@ -3,6 +3,8 @@
 K, L, semicolon, O: things to the left, behind, right and ahead, nearest first; the same
 key again steps to the next one. Shift+K / Shift+L: previous / next category.
 J: where the current thing is now (it may have moved, and so may you).
+Shift+J: track it: a ping plays from where it is (wall_beeps.py plays it).
+Apostrophe: compass. Shift+A / Shift+D: turn 45 degrees left / right (turning.py).
 
 Directions are relative to the way the player faces: a thing counts as ahead when it's
 within 45 degrees of straight ahead, so "mostly ahead, a bit left" is under O.
@@ -100,8 +102,10 @@ def describe_distance(d):
 
 
 class Scanner:
-    def __init__(self, reader, profile, say, item_name=None, passage_name=None):
+    def __init__(self, reader, profile, say, item_name=None, passage_name=None, turner=None):
         self.r, self.profile, self.say = reader, profile, say
+        self.turner = turner
+        self.tracked = None         # (key, name) the ping follows, or None
         self.item_name = item_name or (lambda kind: "item")
         self.passage_name = passage_name or (lambda number: None)
         self.category = 0
@@ -197,8 +201,14 @@ class Scanner:
         mine = False
         shift = keys.is_down(keys.SHIFT)
         for key in pressed:
-            if key == keys.KEY_J:
+            if key == keys.KEY_J and shift:
+                self.toggle_tracking()
+            elif key == keys.KEY_J:
                 self.where()
+            elif key == keys.QUOTE and self.turner:
+                self.say(self.turner.facing_words())
+            elif key in (keys.KEY_A, keys.KEY_D) and shift and self.turner:
+                self.turner.turn(45 if key == keys.KEY_A else -45)
             elif key in (keys.KEY_K, keys.KEY_L) and shift:
                 self.category = (self.category + (1 if key == keys.KEY_L else -1)) % len(CATEGORIES)
                 self.direction = None
@@ -267,6 +277,42 @@ class Scanner:
     def _read_all(self):
         with self.r.cached():
             return self.things()
+
+    def toggle_tracking(self):
+        if self.current is None:
+            self.say("nothing chosen. Use K, L, semicolon or O first")
+        elif self.tracked and self.tracked[0] == self.current[0]:
+            self.tracked = None
+            self.say("tracking off")
+        else:
+            self.tracked = self.current
+            self.say("tracking " + self.current[1])
+
+    def lost(self):
+        """Called by the ping's thread when the tracked thing is gone."""
+        if self.tracked:
+            name, self.tracked = self.tracked[1], None
+            self.say("%s is gone. Tracking off" % name)
+
+    def position(self, reader, thing_key):
+        """(x, y, z) of one thing, read on its own (cheap enough for 20 times a second),
+        or None if it's gone. A thing's number is its slot: chunk no // 16, place no % 16."""
+        kind, no = thing_key
+        mission = walls.mission_address(reader, self.profile)
+        if kind == "agent":
+            header, size, pos = mission + 0x20, walls.AGENT_SIZE, walls.AGENT_POS
+        else:
+            header, size, pos = mission + OBJECTS + 0x1c, OBJECT_SIZE, OBJ_POS
+        begin, end = struct.unpack("<II", reader.read(header, 8))
+        if not begin or no // 16 >= (end - begin) // 4:
+            return None
+        thing = reader.u32(begin + no // 16 * 4) + no % 16 * size
+        valid, number = struct.unpack("<ii", reader.read(thing + 4, 8))
+        if valid != 1 or number != no:
+            return None
+        if kind == "agent" and struct.unpack("<i", reader.read(thing + walls.AGENT_STATUS, 4))[0] != 1:
+            return None
+        return struct.unpack("<3f", reader.read(thing + pos, 12))
 
     def where(self):
         if self.current is None:

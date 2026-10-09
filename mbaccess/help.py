@@ -66,6 +66,11 @@ GROUPS = [
          "Items, Objects, Animals.", None),
         ("J: where the thing you last heard is now: distance, direction, "
          "and how far up or down.", None),
+        ("Shift J: track the thing you last heard, or stop tracking. A ping plays from "
+         "where it is, lower when it's behind you, quicker as you get close.", None),
+        ("Apostrophe: compass, the way you're facing.", None),
+        ("Shift A and Shift D: turn 45 degrees left or right. On horseback the mod "
+         "steers the horse with A or D for you.", None),
     ]),
     ("World map", [
         ("To reach the map: in a town or village scene, press Tab to leave it; "

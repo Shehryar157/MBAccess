@@ -430,3 +430,16 @@ def test_scanner_names_and_directions():
     assert scanner.quarter(scanner.relative(player, 0, -5)[1]) == keys.KEY_L
     assert scanner.describe_angle(20) == "ahead, slightly left"
     assert scanner.describe_angle(-90) == "right"
+
+
+def test_turning_compass_and_ping():
+    import math
+    from mbaccess import turning, wall_beeps
+    # stored angle 0 faces +y, which is north; a quarter turn left faces west
+    assert turning.compass(0.0) == "north"
+    assert turning.compass(math.pi / 2) == "west"
+    assert turning.wrap(350) == -10
+    assert wall_beeps.ping_pitch(30) == 1.0
+    assert abs(wall_beeps.ping_pitch(180) - wall_beeps.PING_BEHIND_PITCH) < 1e-9
+    assert wall_beeps.ping_interval(1) == wall_beeps.PING_FAST
+    assert abs(wall_beeps.ping_interval(100) - wall_beeps.PING_SLOW) < 1e-9

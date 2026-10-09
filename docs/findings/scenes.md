@@ -94,3 +94,13 @@
   variation index (guess, untested: needs a town). Door/stairs/gate props count as Exits.
 - mbaccess/scanner.py: K/L/;/O by quarter around the facing (45 degree split), Shift+K/L categories,
   J where. Left = positive angle, same handedness assumption as the walls.
+- 2026-10-10 later: a thing's number IS its slot in both stable_vectors (chunk no // 16,
+  place no % 16; checked: 0 mismatches for agents and objects), so scanner.position()
+  reads one thing cheaply for the tracking ping (Shift+J; played in the wall-beep thread).
+- Compass (apostrophe): +y = north as on the world map; that a scene's north matches the
+  map's is NOT verified, only consistent within a scene.
+- Turning (mbaccess/turning.py, Shift+A/D 45 degrees), UNTESTED in game: on foot, relative
+  mouse_event moves with a feedback loop on the stored angle (learns steps per degree, flips
+  sign if wrong; gives up after 6 nudges with no change, which happens if the stored angle
+  doesn't follow the camera while standing: unknown). On horseback, holds A/D by scan code
+  until turned. The hook now ignores injected keys (LLKHF_INJECTED) so ours reach the game.

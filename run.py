@@ -10,7 +10,7 @@ import sys
 import time
 
 from mbaccess import (access_page, click, help, keys, launcher, messages, party_skills, world_map,
-                      process, scanner, session, settings, speech, wall_beeps)
+                      process, scanner, session, settings, speech, turning, wall_beeps)
 from mbaccess import text as text_mod
 from mbaccess.mem import Reader
 from mbaccess.menu_watch import MenuWatcher
@@ -90,7 +90,9 @@ def play_session(game):
         return text_mod.clean(text).rstrip(".")
     scan = scanner.Scanner(Reader(game), game.profile, speech.say,
                            item_name=lambda kind: watcher.item_name(kind),
-                           passage_name=passage_name)
+                           passage_name=passage_name, turner=turning.Turner(game, speech.say))
+    if beeper:
+        beeper.scanner = scan           # the tracking ping follows the scanner's choice
     next_launcher = 0
     while game.is_running():
         # Looking for the launcher costs a little; while it's open, follow it
@@ -156,7 +158,9 @@ def play_session(game):
         if watcher.searching():
             mine.update(keys.LETTERS)
         if in_scene["now"]:
-            mine.update((keys.KEY_J, keys.KEY_K, keys.KEY_L, keys.KEY_O, keys.SEMICOLON))
+            mine.update((keys.KEY_J, keys.KEY_K, keys.KEY_L, keys.KEY_O, keys.SEMICOLON, keys.QUOTE))
+        # Shift+A / Shift+D turn; plain A and D still walk.
+        key_watch.swallow_shifted = frozenset((keys.KEY_A, keys.KEY_D)) if in_scene["now"] else frozenset()
         key_watch.swallow = frozenset(mine)
         key_watch.wait(POLL_SECONDS)     # wakes at once when a key arrives
 

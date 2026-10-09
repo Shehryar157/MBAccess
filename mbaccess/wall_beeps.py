@@ -1,4 +1,4 @@
-﻿"""Wall beeps in scenes: a soft tone when you move closer to a wall.
+"""Wall beeps in scenes: a soft tone when you move closer to a wall.
 
 Eight directions around the player, one per way the movement keys go (W, W+D, D,
 ...). Each remembers its last distance step; when you get a step closer, it beeps
@@ -43,6 +43,25 @@ DRONE_GAIN = 0.12               # quiet: under the beeps and the game
 HALT_SPEED = 0.3                # below this the horse counts as stopped
 LOWEST_PITCH = 0.35             # about an octave and a half down at the halt
 FORWARD_KEY = 0x57              # W: holding it keeps the horse going, so no hum
+
+
+# Tracking ping (Shift+J in the scanner): a bright "ting", different from the wall beeps.
+PING_HZ = 1320
+PING_GAIN = 0.5
+PING_BEHIND_PITCH = 0.6     # straight behind: this much of the pitch (ahead half: full)
+PING_SLOW, PING_FAST = 0.9, 0.3     # seconds between pings: far away, close up
+PING_FAR, PING_NEAR = 30.0, 3.0     # metres where the rate stops changing
+
+
+def ping_interval(distance):
+    share = min(1.0, max(0.0, (distance - PING_NEAR) / (PING_FAR - PING_NEAR)))
+    return PING_FAST + (PING_SLOW - PING_FAST) * share
+
+
+def ping_pitch(angle):
+    """angle: degrees from straight ahead, either side. Lower the further behind."""
+    behind = max(0.0, abs(angle) - 90) / 90
+    return 1.0 - (1.0 - PING_BEHIND_PITCH) * behind
 
 
 def _drone():
@@ -104,6 +123,10 @@ class WallBeeper:
         self.pitch = 1.0                # only ever goes down during a slide
         self.walls = None
         self.scene = None
+        self.scanner = None             # set by run.py: what to track, and where it is
+        self.ping_source = self.audio.source(0, PING_GAIN * volume / 0.35)
+        self.ping_buffer = self.audio.buffer(0.8 * _shape(PING_HZ, BRIGHT, 0.07))
+        self.next_ping = 0.0
         self.last_step = {zone: -1 for zone in VOICES}   # -1 = nothing in range
         self.stop = threading.Event()
         threading.Thread(target=self._run, daemon=True, name="wall beeps").start()
@@ -143,6 +166,23 @@ class WallBeeper:
             return                      # only holding W again (which resets it) does
         self.audio.set(self.drone_source, gain=self.drone_gain, pitch=self.pitch)
 
+    def _ping(self, player):
+        """Play the tracking ping from where the tracked thing is, around the head."""
+        tracked = self.scanner and self.scanner.tracked
+        if not tracked or time.perf_counter() < self.next_ping:
+            return
+        where = self.scanner.position(self.reader, tracked[0])
+        if where is None:
+            self.scanner.lost()
+            return
+        from .scanner import relative
+        distance, angle = relative(player, where[0], where[1])
+        # scanner angles grow to the left; sound angles grow clockwise (to the right)
+        self.audio.place(self.ping_source, -angle)
+        self.audio.set(self.ping_source, pitch=ping_pitch(angle))
+        self.audio.play(self.ping_source, self.ping_buffer)
+        self.next_ping = time.perf_counter() + ping_interval(distance)
+
     def _distances(self):
         """({zone: metres}, on_horse), or None outside a scene."""
         r = self.reader
@@ -167,6 +207,8 @@ class WallBeeper:
             except (ReadError, ValueError, OSError):
                 result, self.scene = None, None     # scene changing or game closing
             self._horse_drone(self.player if result else None)
+            if result:
+                self._ping(self.player)
             if not result:
                 self.last_step = {zone: -1 for zone in VOICES}
             else:

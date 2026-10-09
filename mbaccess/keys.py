@@ -33,6 +33,7 @@ ALT = 0x12
 # Type search: a letter or digit's key code is its capital character (VK_A = "A").
 LETTERS = tuple(range(0x30, 0x3A)) + tuple(range(0x41, 0x5B))
 KEY_J, KEY_K, KEY_L, KEY_O = 0x4A, 0x4B, 0x4C, 0x4F   # the scene scanner
+KEY_A, KEY_D = 0x41, 0x44         # Shift+A / Shift+D: turn in a scene
 ALL = (UP, DOWN, RETURN, HOME, END, LEFT, RIGHT, SPACE, F9, ESCAPE,
        LEFT_BRACKET, RIGHT_BRACKET, SEMICOLON, QUOTE, COMMA, PERIOD, CONTROL, TAB) + LETTERS
 
@@ -49,6 +50,7 @@ class KeyWatcher:
         self.keys = keys
         self.down = set()
         self.swallow, self.game_hwnd = frozenset(), None    # polling can't hide keys
+        self.swallow_shifted = frozenset()
 
     def wait(self, seconds):
         time.sleep(seconds)     # polling can't be woken by a key
@@ -69,6 +71,7 @@ class KeyWatcher:
 
 WH_KEYBOARD_LL = 13
 WM_KEYDOWN, WM_KEYUP, WM_SYSKEYDOWN, WM_SYSKEYUP = 0x100, 0x101, 0x104, 0x105
+LLKHF_INJECTED = 0x10
 # The hook sees which side's Shift or Ctrl it was; we only care that it was one.
 SIDES = {0xA0: SHIFT, 0xA1: SHIFT, 0xA2: CONTROL, 0xA3: CONTROL}
 # Held down, these repeat at the Windows keyboard repeat rate, as in any list.
@@ -99,6 +102,7 @@ class HookKeyWatcher:
         self.held = set()               # to skip the auto-repeat of a held key
         self.arrived = threading.Event()   # set by the hook: wakes wait() at once
         self.swallow = frozenset()      # keys to hide from the game (set by run.py)
+        self.swallow_shifted = frozenset()  # hidden only while Shift is held
         self.hidden_down = set()        # keys whose press we hid: hide their release too
         self.passed_down = set()        # keys whose press the game got: so will the release
         self.game_hwnd = None           # remembered here: the hook must not search for it
@@ -126,6 +130,10 @@ class HookKeyWatcher:
         # Keep this quick: every key press on the computer waits for it.
         if code == 0:
             info = ctypes.cast(lparam, ctypes.POINTER(KBDLLHOOKSTRUCT)).contents
+            if info.flags & LLKHF_INJECTED:
+                # Our own simulated keys (holding D to turn the horse) go straight
+                # to the game: never swallowed, never reported back to us.
+                return _user32.CallNextHookEx(None, code, wparam, lparam)
             vk = SIDES.get(info.vkCode, info.vkCode)
             front = _user32.GetForegroundWindow()
             if wparam in (WM_KEYDOWN, WM_SYSKEYDOWN):
@@ -151,7 +159,8 @@ class HookKeyWatcher:
                 if vk in self.hidden_down:
                     return 1
                 if vk not in self.passed_down:
-                    if vk in self.swallow and front and front == self.game_hwnd:
+                    ours = vk in self.swallow or (vk in self.swallow_shifted and SHIFT in self.held)
+                    if ours and front and front == self.game_hwnd:
                         self.hidden_down.add(vk)
                         return 1
                     self.passed_down.add(vk)
