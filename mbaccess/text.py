@@ -3,13 +3,17 @@ import functools
 import re
 
 PLACEHOLDER = re.compile(r"\{[!]?[a-z]+\d*\}|\{reg\d+\}", re.IGNORECASE)
+# Link tags around names in messages: <p=158>Ibdeles</> (place), <trp=314>Count Trimbau</>
+# (troop). The game makes them clickable; we keep the name and drop the tags.
+LINK_TAG = re.compile(r"<[a-z]+=\d+>|</>", re.IGNORECASE)
 
 
 @functools.lru_cache(maxsize=4096)   # the same labels come back every tick
 def clean(text):
-    """'^' is the engine's line break; unfilled {s1}-style slots are dropped."""
+    """'^' is the engine's line break; unfilled {s1}-style slots and link tags are dropped."""
     text = text.replace("^", "\n")
     text = PLACEHOLDER.sub("", text)
+    text = LINK_TAG.sub("", text)
     lines = (" ".join(line.split()) for line in text.split("\n"))
     return "\n".join(line for line in lines if line)
 

@@ -18,7 +18,7 @@ import time
 
 import numpy as np
 
-from . import walls
+from . import keys, walls
 from .mem import Reader, ReadError
 from .sound3d import Sound3D
 
@@ -34,16 +34,15 @@ SCENE_WINDOW = 10
 DIAGONAL_ANGLE = 45
 DIAGONAL_GAIN = 0.8             # diagonals a little softer than the main four
 
-# Horse drone: a low hum only while the horse slows down. It slides from DRONE_HZ (the
-# speed when slowing began) down to LOWEST_PITCH times that at a halt, whatever the
-# starting speed, so every slowdown is a full, clear slide. User asked: only when
-# slowing, and "more slopy" (2026-10-10; following absolute speed sounded constant).
+# Horse drone: a low hum from the moment W is let go on a moving horse until it halts.
+# It slides from DRONE_HZ (the speed at the let-go) down to LOWEST_PITCH times that at
+# the halt, whatever the starting speed, and only ever downward: one clean slide.
+# User asked (2026-10-10): start at the key release, only while slowing, a clean slope.
 DRONE_HZ = 220                  # starting pitch (exact cycles in a 1 s loop: no click)
 DRONE_GAIN = 0.12               # quiet: under the beeps and the game
 HALT_SPEED = 0.3                # below this the horse counts as stopped
 LOWEST_PITCH = 0.35             # about an octave and a half down at the halt
-SLOWING = 0.6                   # m/s the quick speed must fall below the slow one
-SLOW_HOLD = 0.3                 # seconds the hum lingers after slowing pauses (no flicker)
+FORWARD_KEY = 0x57              # W: holding it keeps the horse going, so no hum
 
 
 def _drone():
@@ -100,10 +99,9 @@ class WallBeeper:
         self.drone_buffer = self.audio.buffer(_drone())
         self.drone_gain = 0.0           # faded up and down a little each tick: no clicks
         self.speed = 0.0                # smoothed, metres per second
-        self.trend = 0.0                # smoothed much more: lags behind the speed
         self.last_pos = None            # (x, y, time)
-        self.slow_from = None           # speed when the current slowdown began
-        self.slowing_at = 0.0           # last time the speed was seen falling
+        self.slow_from = None           # speed when W was let go: the top of the slide
+        self.pitch = 1.0                # only ever goes down during a slide
         self.walls = None
         self.scene = None
         self.last_step = {zone: -1 for zone in VOICES}   # -1 = nothing in range
@@ -111,38 +109,39 @@ class WallBeeper:
         threading.Thread(target=self._run, daemon=True, name="wall beeps").start()
 
     def _horse_drone(self, player):
-        """While the horse slows, hum and slide the pitch down toward the halt."""
+        """From letting go of W until the horse halts: hum, sliding steadily down."""
         now = time.perf_counter()
-        before = self.speed
         if player and self.last_pos:
             x0, y0, t0 = self.last_pos
-            dt = max(now - t0, 1e-3)
-            v = math.hypot(player[0] - x0, player[1] - y0) / dt
+            v = math.hypot(player[0] - x0, player[1] - y0) / max(now - t0, 1e-3)
             self.speed += 0.3 * (v - self.speed)        # moving average: steady, not jittery
-            self.trend += 0.08 * (self.speed - self.trend)
-            # slowing = the quick average clearly below the lagging one (jitter cancels out)
-            if self.trend - self.speed > SLOWING:
-                if self.slow_from is None:
-                    self.slow_from = self.trend         # the top of the slide
-                self.slowing_at = now
         else:
-            self.speed = self.trend = 0.0
+            self.speed = 0.0
         self.last_pos = (player[0], player[1], now) if player else None
-        slowing = bool(player and player[4] and self.slow_from
-                       and now - self.slowing_at < SLOW_HOLD and self.speed > HALT_SPEED)
-        if not slowing and self.drone_gain <= 0:
-            self.slow_from = None                       # next slowdown starts a new slide
-        target = DRONE_GAIN if slowing else 0.0
+        riding = bool(player and player[4])
+        if not riding or keys.is_down(FORWARD_KEY):
+            self.slow_from = None                       # W held (or on foot): no slide
+        elif self.slow_from is None and self.speed > HALT_SPEED and self.drone_gain <= 0:
+            self.slow_from, self.pitch = self.speed, 1.0    # just let go: start at the top
+        coasting = bool(self.slow_from) and self.speed > HALT_SPEED
+        if self.slow_from and not coasting:
+            self.pitch = max(LOWEST_PITCH, self.pitch - 0.05)   # halted: finish the slide
+        elif coasting:
+            share = min(1.0, self.speed / self.slow_from)
+            # a ratchet: the pitch never climbs back up, so the slide stays clean
+            self.pitch = min(self.pitch, LOWEST_PITCH + (1 - LOWEST_PITCH) * share)
+        target = DRONE_GAIN if coasting else 0.0
         if target and not self.drone_gain:
             self.audio.loop(self.drone_source, self.drone_buffer)
-        self.drone_gain += max(-0.02, min(0.02, target - self.drone_gain))    # ~0.3 s fades
+        step = 0.04 if target > self.drone_gain else 0.02   # in fast (~0.15 s), out ~0.3 s
+        self.drone_gain += max(-step, min(step, target - self.drone_gain))
         if self.drone_gain <= 0:
             self.drone_gain = 0.0
             self.audio.stop(self.drone_source)
-            return
-        share = min(1.0, self.speed / self.slow_from) if self.slow_from else 0.0
-        pitch = LOWEST_PITCH + (1 - LOWEST_PITCH) * share
-        self.audio.set(self.drone_source, gain=self.drone_gain, pitch=pitch)
+            if self.slow_from is not None and not coasting:
+                self.slow_from = 0.0    # slide over: backing up with S won't restart it;
+            return                      # only holding W again (which resets it) does
+        self.audio.set(self.drone_source, gain=self.drone_gain, pitch=self.pitch)
 
     def _distances(self):
         """({zone: metres}, on_horse), or None outside a scene."""

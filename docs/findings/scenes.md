@@ -52,6 +52,18 @@
   passes releases in 5-25 ms (worst 157 ms), so NOT the mod. The horse coasts: up to 18 s
   and 11 m after letting go of A. Game behaviour: W speeds up, S brakes, A/D steer.
   On foot not measured yet. Idea offered: a cue when the horse comes to a halt / speed level.
+- Horse drone (wall_beeps.py): starts when W is let go on a moving horse; pitch slides only
+  downward (ratchet) from the let-go speed to 0.35x at the halt; S backing up after a halt is
+  silent. Simulated; untested by the user.
+- CAUTION: the mission pointer and player agent stay readable after leaving a scene (they
+  read "on horse" in the village menu). Always check the top window is 10 before testing:
+  on 2026-10-10 my F and W test presses landed on the village menu ("No w" type-search).
+- Action prompts: tactical_window (WSE header) has use_object_type / use_object_no /
+  use_object_in_range after the camera fields; camera_agent_no = player agent no found at
+  window 10 +0x3e8 (+0x3ec prev). +0x400 is a ticking timer. Use fields NOT confirmed yet
+  (no changes seen; the user was likely not facing anything). tools/use_probe.py ready.
+- Open: dismounting with F (the only Action key; no separate dismount control) not yet
+  tried in a scene by me.
 - Open: on foot, does the stored angle follow the camera or turn toward the strafe
   direction? Only verified on horseback. Test: tools/wall_probe.py while the user strafes.
 
