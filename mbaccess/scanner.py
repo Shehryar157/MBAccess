@@ -1,8 +1,8 @@
 """Scene scanner: what's around the player, by direction, while walking in a scene.
 
 K, L, semicolon, O: things to the left, behind, right and ahead, nearest first; the same
-key again steps to the next one. Shift+L / Shift+semicolon: previous / next category.
-J or Shift+K: where the current thing is now (it may have moved, and so may you).
+key again steps to the next one. Shift+K / Shift+L: previous / next category.
+J: where the current thing is now (it may have moved, and so may you).
 
 Directions are relative to the way the player faces: a thing counts as ahead when it's
 within 45 degrees of straight ahead, so "mostly ahead, a bit left" is under O.
@@ -197,10 +197,10 @@ class Scanner:
         mine = False
         shift = keys.is_down(keys.SHIFT)
         for key in pressed:
-            if key == keys.KEY_J or (key == keys.KEY_K and shift):
+            if key == keys.KEY_J:
                 self.where()
-            elif key in (keys.KEY_L, keys.SEMICOLON) and shift:
-                self.category = (self.category + (1 if key == keys.SEMICOLON else -1)) % len(CATEGORIES)
+            elif key in (keys.KEY_K, keys.KEY_L) and shift:
+                self.category = (self.category + (1 if key == keys.KEY_L else -1)) % len(CATEGORIES)
                 self.direction = None
                 self.say(CATEGORIES[self.category])
             elif key in DIRECTIONS:

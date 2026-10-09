@@ -92,5 +92,5 @@
 - Troop name = rgl::string at troop+4 (party_skills offsets).
 - Passages (meta 5): none in a village; name = the current game menu's option at the
   variation index (guess, untested: needs a town). Door/stairs/gate props count as Exits.
-- mbaccess/scanner.py: K/L/;/O by quarter around the facing (45 degree split), J or Shift+K
-  where. Left = positive angle, same handedness assumption as the walls.
+- mbaccess/scanner.py: K/L/;/O by quarter around the facing (45 degree split), Shift+K/L categories,
+  J where. Left = positive angle, same handedness assumption as the walls.

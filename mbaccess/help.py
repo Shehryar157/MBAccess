@@ -62,9 +62,9 @@ GROUPS = [
         ("The scanner lists what's around you, nearest first. O: things ahead. "
          "K: to the left. Semicolon: to the right. L: behind. Press the same key again "
          "for the next one. Ahead means within 45 degrees of straight ahead.", None),
-        ("Shift L and Shift semicolon: previous or next category: All, People, Exits, "
+        ("Shift K and Shift L: previous or next category: All, People, Exits, "
          "Items, Objects, Animals.", None),
-        ("J, or Shift K: where the thing you last heard is now: distance, direction, "
+        ("J: where the thing you last heard is now: distance, direction, "
          "and how far up or down.", None),
     ]),
     ("World map", [
