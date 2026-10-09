@@ -10,11 +10,12 @@ import sys
 import time
 
 from mbaccess import (access_page, click, help, keys, launcher, messages, party_skills, world_map,
-                      process, scanner, session, settings, speech, turning, wall_beeps)
+                      process, prompts, scanner, session, settings, speech, turning, wall_beeps)
 from mbaccess import text as text_mod
 from mbaccess.mem import Reader
 from mbaccess.menu_watch import MenuWatcher
 
+ACTION_KEY = 0x46   # F: the game's Action key (Options > Controls)
 POLL_SECONDS = 0.05  # check the game 20 times a second
 STARTUP_WAIT = 120   # --with-game: give up if the game hasn't appeared by then
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -93,6 +94,7 @@ def play_session(game):
                            passage_name=passage_name, turner=turning.Turner(game, speech.say))
     if beeper:
         beeper.scanner = scan           # the tracking ping follows the scanner's choice
+    prompt = prompts.Prompts(game, Reader(game), speech.say, scan)
     next_launcher = 0
     while game.is_running():
         # Looking for the launcher costs a little; while it's open, follow it
@@ -132,11 +134,15 @@ def play_session(game):
             news.poll()
             if not watcher.typing():
                 news.handle_keys(pressed)    # the menu reader ignores these keys
-        if in_scene["now"] and pressed:
+        if in_scene["now"]:
             try:
-                scan.handle_keys(pressed)
+                if pressed:
+                    scan.handle_keys(pressed)
+                if ACTION_KEY in pressed:
+                    prompt.on_action_key()      # F on horseback: dismount
+                prompt.poll()                   # "Talk to Villager", "Mount: Saddle Horse"
             except Exception as e:      # a scene half loaded or just closed
-                print("scanner:", e)
+                print("scene keys:", e)
         watcher.poll(pressed)
         # Walking in a scene: the scene window on top and the game in front.
         # The wall beeps and the scanner keys both follow this.

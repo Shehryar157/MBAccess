@@ -45,31 +45,26 @@ LOWEST_PITCH = 0.35             # about an octave and a half down at the halt
 FORWARD_KEY = 0x57              # W: holding it keeps the horse going, so no hum
 
 
-# Tracking ping (Shift+J in the scanner): a sonar "pwing", unlike the wall beeps.
-PING_HZ = 1100
+# Tracking ping (Shift+J in the scanner): a mellow "bwip", unlike the wall beeps.
+PING_HZ = 620
 PING_GAIN = 0.5
 PING_BEHIND_PITCH = 0.6     # straight behind: this much of the pitch (ahead half: full)
 PING_SLOW, PING_FAST = 0.9, 0.3     # seconds between pings: far away, close up
 PING_FAR, PING_NEAR = 30.0, 3.0     # metres where the rate stops changing
 
 
-def _sonar_ping():
-    """The tracking beacon: a sonar-style "pwing". Bell partials (not whole multiples:
-    that's what makes bells and glass sound metallic), a quick downward pitch dip at the
-    start, a long soft decay, and one quiet echo a little later."""
-    length = 0.45
+def _beacon():
+    """The tracking beep: mellow, not bright. A round sine with a touch of its octave,
+    a soft 8 ms start, a smooth fade, and a slight upward glide that makes it a "bwip"."""
+    length = 0.13
     t = np.arange(int(RATE * length)) / RATE
-    bend = 1 + 0.06 * np.exp(-t / 0.015)            # starts 6% sharp, settles in ~30 ms
-    phase = 2 * math.pi * PING_HZ * np.cumsum(bend) / RATE
-    tone = (np.sin(phase) + 0.45 * np.sin(2.76 * phase) * np.exp(-t / 0.05)
-            + 0.2 * np.sin(5.40 * phase) * np.exp(-t / 0.025))
-    decay = np.exp(-t / 0.09) * np.minimum(1, t / 0.003)  # 3 ms attack: crisp, no click
-    one = tone * decay
-    echo_at = int(RATE * 0.13)
-    out = one.copy()
-    out[echo_at:] += 0.3 * one[:len(one) - echo_at]
-    fade = np.minimum(1, (len(out) - np.arange(len(out))) / (RATE * 0.02))
-    return out * fade / np.max(np.abs(out))
+    glide = 1 + 0.04 * np.minimum(1, t / length)        # rises 4% over the beep
+    phase = 2 * math.pi * PING_HZ * np.cumsum(glide) / RATE
+    tone = np.sin(phase) + 0.15 * np.sin(2 * phase)
+    envelope = np.minimum(1, t / 0.008) * np.exp(-t / 0.06)
+    end = np.minimum(1, (length - t) / 0.015)
+    out = tone * envelope * end
+    return out / np.max(np.abs(out))
 
 
 def ping_interval(distance):
@@ -144,7 +139,7 @@ class WallBeeper:
         self.scene = None
         self.scanner = None             # set by run.py: what to track, and where it is
         self.ping_source = self.audio.source(0, PING_GAIN * volume / 0.35)
-        self.ping_buffer = self.audio.buffer(0.8 * _sonar_ping())
+        self.ping_buffer = self.audio.buffer(0.8 * _beacon())
         self.next_ping = 0.0
         self.last_step = {zone: -1 for zone in VOICES}   # -1 = nothing in range
         self.stop = threading.Event()

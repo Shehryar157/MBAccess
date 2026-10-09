@@ -17,7 +17,7 @@ from .mem import Reader, ReadError
 _user32 = ctypes.WinDLL("user32")
 MOUSEEVENTF_MOVE = 0x1
 KEYEVENTF_SCANCODE, KEYEVENTF_KEYUP = 0x8, 0x2
-SCAN_A, SCAN_D = 0x1E, 0x20        # DirectInput games read scan codes, not key codes
+SCAN_A, SCAN_D, SCAN_W = 0x1E, 0x20, 0x11        # DirectInput games read scan codes, not key codes
 
 TOLERANCE = 2.0         # degrees
 MAX_NUDGE = 300         # mouse steps in one move
@@ -44,6 +44,7 @@ class Turner:
         self.steps_per_degree = 5.0     # a first guess; learned while turning
         self.sign = 1                   # flips if moving the mouse right turns us left
         self.busy = False
+        self.horse_overshoot = 15.0     # degrees the horse swings on after letting go (learned)
 
     def _player(self):
         return walls.find_player(self.r, walls.mission_address(self.r, self.profile))
@@ -114,17 +115,35 @@ class Turner:
         return wrap(last - before)
 
     def _steer_horse(self, target, left):
+        """Hold A or D until the horse has turned. A standing horse doesn't turn
+        (approach test 2026-10-10), so if nothing happens at first, walk it on with W
+        while turning: a small arc, as a sighted rider does. The horse swings on after
+        the key is let go, so let go early by the swing learned last time."""
         scan = SCAN_A if left else SCAN_D
+        start_angle = math.degrees(self._player()[3])
         _user32.keybd_event(0, scan, KEYEVENTF_SCANCODE, 0)
+        walking = turned = False
         try:
             start = time.time()
             while time.time() - start < HORSE_TIMEOUT:
-                error = wrap(target - math.degrees(self._player()[3]))
-                # stop a little early: the horse keeps turning briefly after release
-                if abs(error) <= TOLERANCE * 2 or (error > 0) != left:
-                    return True
+                facing = math.degrees(self._player()[3])
+                error = wrap(target - facing)
+                if abs(error) <= self.horse_overshoot or (error > 0) != left:
+                    turned = True
+                    break
+                if not walking and time.time() - start > 0.3 and abs(wrap(facing - start_angle)) < 2:
+                    _user32.keybd_event(0, SCAN_W, KEYEVENTF_SCANCODE, 0)
+                    walking = True
                 time.sleep(0.005)
         finally:
             _user32.keybd_event(0, scan, KEYEVENTF_SCANCODE | KEYEVENTF_KEYUP, 0)
-        self.say("the horse didn't turn")
-        return False
+            if walking:
+                _user32.keybd_event(0, SCAN_W, KEYEVENTF_SCANCODE | KEYEVENTF_KEYUP, 0)
+        if not turned:
+            self.say("the horse didn't turn")
+            return False
+        released = math.degrees(self._player()[3])
+        time.sleep(0.6)
+        swing = abs(wrap(math.degrees(self._player()[3]) - released))
+        self.horse_overshoot = max(2.0, min(40.0, 0.5 * self.horse_overshoot + 0.5 * swing))
+        return True

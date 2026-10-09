@@ -104,3 +104,21 @@
   sign if wrong; gives up after 6 nudges with no change, which happens if the stored angle
   doesn't follow the camera while standing: unknown). On horseback, holds A/D by scan code
   until turned. The hook now ignores injected keys (LLKHF_INJECTED) so ours reach the game.
+
+## Prompts and dismounting (2026-10-10, session 16): VERIFIED live
+- Scene window +0x408 use_object_type, +0x40c use_object_no, +0x414 use_object_in_range
+  (counted from camera_agent_no +0x3e8, WSE order; +0x3f8 use_timer is 16 bytes).
+  -1 = nothing. 2 = agent (own horse no 14, in range 1 -> game shows "Mount"); people
+  assumed 2 too ("Talk"), not seen. 3 = DISMOUNT: appears ONLY when looking straight down
+  at your own horse (~600 mouse steps down from level), in_range 0. Doors/items: unseen
+  (mbaccess/prompts.py logs "prompt type N" to logs/mbaccess.log to learn them).
+- F with the view level does NOTHING mounted (tested: still, moving, held 1 s, open space;
+  keys DO reach the game: an injected W moved the horse). Steam forum: look down until
+  "Dismount" appears. prompts.on_action_key does that for the player.
+- Horse agent +0x29c = horse item (143 "Saddle Horse") VERIFIED. Rider links: rider
+  +0x114 = horse no, horse +0x118 = rider no. Horse speed float at agent +0x2c0.
+- A standing horse doesn't turn with A/D; turning.py walks it on with W. Horse swings
+  ~15-20 degrees on after A/D release; turning learns it (turns land 47-51 for 45).
+- On-foot mouse turning VERIFIED: ~15 mouse steps per degree, sign +1 (right = right).
+- Controls (Options > Controls, read live): Action F, Kick E, Game Log Window L (the
+  scanner takes L in scenes), Toggle First Person R, Leave Location Tab.

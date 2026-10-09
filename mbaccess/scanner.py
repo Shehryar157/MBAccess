@@ -342,6 +342,27 @@ class Scanner:
             return None
         return struct.unpack("<3f", reader.read(thing + pos, 12))
 
+    def agent_name(self, no):
+        """(name, is_horse) for agent number `no`, or None: for the game's prompts."""
+        mission = walls.mission_address(self.r, self.profile)
+        chunks = self._chunks(mission + 0x20)
+        if not 0 <= no // 16 < len(chunks):
+            return None
+        h = self.r.read(chunks[no // 16] + no % 16 * walls.AGENT_SIZE, AGENT_HEAD)
+        if struct.unpack_from("<i", h, 4)[0] != 1:
+            return None
+        if struct.unpack_from("<i", h, walls.AGENT_TYPE)[0] == 1:
+            return self.item_name(struct.unpack_from("<i", h, AGENT_HORSE_ITEM)[0]) or "horse", True
+        troop = struct.unpack_from("<i", h, AGENT_TROOP)[0]
+        if troop not in self.troop_names:
+            self.troop_names[troop] = self._troop_name(troop)
+        return self.troop_names[troop], False
+
+    def object_name(self, no):
+        """The name the scanner gave mission object `no`, if it has read it."""
+        known = self.object_names.get(no)
+        return known[0] if known else None
+
     def where(self):
         if self.current is None:
             self.say("nothing chosen. Use K, L, semicolon or O first")

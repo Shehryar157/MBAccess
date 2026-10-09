@@ -71,8 +71,12 @@ GROUPS = [
         ("Shift J: track the thing you last heard, or stop tracking. A ping plays from "
          "where it is, lower when it's behind you, quicker as you get close.", None),
         ("Apostrophe: compass, the way you're facing.", None),
+        ("The game's prompts are read when they appear: Talk to someone, Mount a horse. "
+         "Press F to do it, as usual.", None),
+        ("F on horseback, looking at nothing: dismount. The mod looks down at the horse "
+         "for you, as the game needs, and looks ahead again.", None),
         ("Shift A and Shift D: turn 45 degrees left or right. On horseback the mod "
-         "steers the horse with A or D for you.", None),
+         "steers the horse with A or D for you, walking it on if it stands still.", None),
     ]),
     ("World map", [
         ("To reach the map: in a town or village scene, press Tab to leave it; "
