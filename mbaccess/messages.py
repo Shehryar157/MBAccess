@@ -99,8 +99,8 @@ class MessageWatcher:
                 self.current = (self.current + step) % len(self.buffers)
                 self.buffers[self.current].cursor = -1
                 self.read(announce=True)
-            elif key in (keys.SEMICOLON, keys.QUOTE):
-                self.move(key == keys.QUOTE, keys.is_down(keys.SHIFT))
+            elif key in (keys.COMMA, keys.PERIOD):
+                self.move(key == keys.PERIOD, keys.is_down(keys.SHIFT))
 
     def move(self, newer, to_end):
         b = self.buffers[self.current]

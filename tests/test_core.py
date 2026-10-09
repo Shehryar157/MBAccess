@@ -273,7 +273,7 @@ def test_messages_spoken_sorted_and_reviewed(monkeypatch):
     assert said == ["You got 30 denars.", "Something odd."]
     monkeypatch.setattr(keys, "is_down", lambda vk: False)
     said.clear()
-    watch.handle_keys([keys.SEMICOLON, keys.SEMICOLON, keys.SEMICOLON, keys.RIGHT_BRACKET])
+    watch.handle_keys([keys.COMMA, keys.COMMA, keys.COMMA, keys.RIGHT_BRACKET])
     assert said == ["You got 30 denars.", "Received 7 damage.", "No older messages.",
                     "Combat: Received 7 damage., 1 of 1"]
     said.clear()
@@ -413,3 +413,20 @@ def test_aim_check_learns_a_letterboxed_screen(tmp_path):
     w.check_aim()
     assert w.learned == {"5": True} and w.trial is None
     assert "True" in open(w.learned_path).read() or "true" in open(w.learned_path).read()
+
+
+def test_scanner_names_and_directions():
+    import math
+    from mbaccess import scanner
+    assert scanner.prop_name("spr_village_house_e") == "village house"
+    assert scanner.prop_name("spr_castle_f_stairs_a") == "castle stairs"
+    assert scanner.prop_name("spr_torch_night") == "torch"
+    # Facing: forward is the stored angle plus a quarter turn, so stored 0 faces +y.
+    player = (0.0, 0.0, 0.0, 0.0, False)
+    d, a = scanner.relative(player, 0.5, 10)       # mostly ahead, a little right
+    assert scanner.quarter(a) == keys.KEY_O and a < 0
+    assert scanner.quarter(scanner.relative(player, -5, 1)[1]) == keys.KEY_K
+    assert scanner.quarter(scanner.relative(player, 5, 1)[1]) == keys.SEMICOLON
+    assert scanner.quarter(scanner.relative(player, 0, -5)[1]) == keys.KEY_L
+    assert scanner.describe_angle(20) == "ahead, slightly left"
+    assert scanner.describe_angle(-90) == "right"

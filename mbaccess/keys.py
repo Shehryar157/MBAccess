@@ -25,14 +25,16 @@ SHIFT, CONTROL = 0x10, 0x11   # either side's key
 # The message keys, by where they are on a US keyboard ("OEM" keys move
 # about on other layouts).
 LEFT_BRACKET, RIGHT_BRACKET, SEMICOLON, QUOTE = 0xDB, 0xDD, 0xBA, 0xDE
+COMMA, PERIOD = 0xBC, 0xBE
 TAB = 0x09
 # Not real key codes: the hook reports these key combinations as their own.
 SHIFT_TAB, CTRL_LEFT, CTRL_RIGHT = 0x109, 0x125, 0x127
 ALT = 0x12
 # Type search: a letter or digit's key code is its capital character (VK_A = "A").
 LETTERS = tuple(range(0x30, 0x3A)) + tuple(range(0x41, 0x5B))
+KEY_J, KEY_K, KEY_L, KEY_O = 0x4A, 0x4B, 0x4C, 0x4F   # the scene scanner
 ALL = (UP, DOWN, RETURN, HOME, END, LEFT, RIGHT, SPACE, F9, ESCAPE,
-       LEFT_BRACKET, RIGHT_BRACKET, SEMICOLON, QUOTE, CONTROL, TAB) + LETTERS
+       LEFT_BRACKET, RIGHT_BRACKET, SEMICOLON, QUOTE, COMMA, PERIOD, CONTROL, TAB) + LETTERS
 
 
 def is_down(vk):

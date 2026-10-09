@@ -10,7 +10,8 @@ import sys
 import time
 
 from mbaccess import (access_page, click, help, keys, launcher, messages, party_skills, world_map,
-                      process, session, settings, speech, wall_beeps)
+                      process, scanner, session, settings, speech, wall_beeps)
+from mbaccess import text as text_mod
 from mbaccess.mem import Reader
 from mbaccess.menu_watch import MenuWatcher
 
@@ -78,6 +79,18 @@ def play_session(game):
     except Exception as e:      # no sound device, or pygame missing
         print("wall beeps off:", e)
         beeper = None
+    def passage_name(variation):
+        # A passage (a door to another scene) runs that option of the place's menu,
+        # which stays current while walking: "Go to the tavern." (untested in a town)
+        try:
+            number = watcher.read_state()[0]
+            text = watcher.menus[number].items[variation].text
+        except Exception:
+            return None
+        return text_mod.clean(text).rstrip(".")
+    scan = scanner.Scanner(Reader(game), game.profile, speech.say,
+                           item_name=lambda kind: watcher.item_name(kind),
+                           passage_name=passage_name)
     next_launcher = 0
     while game.is_running():
         # Looking for the launcher costs a little; while it's open, follow it
@@ -110,20 +123,27 @@ def play_session(game):
         if helper.handle_keys(pressed):
             pressed = ()             # the help has the keys while it's open
         elif keys.F9 in pressed:
-            helper.show("Inventory" if watcher.on_inventory() else "Menus and screens")
+            helper.show("Inventory" if watcher.on_inventory() else
+                        "Walking in scenes" if in_scene["now"] else "Menus and screens")
             pressed = ()
         if news:
             news.poll()
             if not watcher.typing():
                 news.handle_keys(pressed)    # the menu reader ignores these keys
-        watcher.poll(pressed)
-        if beeper:
+        if in_scene["now"] and pressed:
             try:
-                hwnd = game_window()
-                in_scene["now"] = bool(hwnd) and ctypes.windll.user32.GetForegroundWindow() == hwnd \
-                    and watcher.top_window() == wall_beeps.SCENE_WINDOW
-            except Exception:
-                in_scene["now"] = False
+                scan.handle_keys(pressed)
+            except Exception as e:      # a scene half loaded or just closed
+                print("scanner:", e)
+        watcher.poll(pressed)
+        # Walking in a scene: the scene window on top and the game in front.
+        # The wall beeps and the scanner keys both follow this.
+        try:
+            hwnd = game_window()
+            in_scene["now"] = bool(hwnd) and ctypes.windll.user32.GetForegroundWindow() == hwnd \
+                and watcher.top_window() == wall_beeps.SCENE_WINDOW
+        except Exception:
+            in_scene["now"] = False
         # Keys the mod uses on this screen never reach the game: Tab where
         # there are sections, Escape where it presses the screen's way back,
         # letters where they type-search. Everywhere else they're the game's
@@ -135,6 +155,8 @@ def play_session(game):
             mine.add(keys.ESCAPE)
         if watcher.searching():
             mine.update(keys.LETTERS)
+        if in_scene["now"]:
+            mine.update((keys.KEY_J, keys.KEY_K, keys.KEY_L, keys.KEY_O, keys.SEMICOLON))
         key_watch.swallow = frozenset(mine)
         key_watch.wait(POLL_SECONDS)     # wakes at once when a key arrives
 

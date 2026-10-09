@@ -22,8 +22,8 @@ GROUPS = [
         ("New messages are read as they appear, each waiting for the one before to finish.", None),
         ("Left and right brackets: previous or next message buffer: All, "
          "then one per category, such as Combat or Money and trade.", None),
-        ("Semicolon and apostrophe: previous or next message in the buffer.", None),
-        ("Shift with semicolon or apostrophe: oldest or newest message.", None),
+        ("Comma and period: previous or next message in the buffer.", None),
+        ("Shift with comma or period: oldest or newest message.", None),
     ]),
     ("Menus and screens", [
         ("Up and Down arrows: previous or next item. Home and End: first or last. "
@@ -57,6 +57,15 @@ GROUPS = [
          "read a book, or slaughter livestock for food.", None),
         ("Control Enter: move the item to the other side at once, without carrying it: "
          "quick buy or sell when trading, quick take when looting.", None),
+    ]),
+    ("Walking in scenes", [
+        ("The scanner lists what's around you, nearest first. O: things ahead. "
+         "K: to the left. Semicolon: to the right. L: behind. Press the same key again "
+         "for the next one. Ahead means within 45 degrees of straight ahead.", None),
+        ("Shift L and Shift semicolon: previous or next category: All, People, Exits, "
+         "Items, Objects, Animals.", None),
+        ("J, or Shift K: where the thing you last heard is now: distance, direction, "
+         "and how far up or down.", None),
     ]),
     ("World map", [
         ("To reach the map: in a town or village scene, press Tab to leave it; "

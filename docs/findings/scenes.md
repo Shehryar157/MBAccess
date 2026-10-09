@@ -73,3 +73,24 @@
 - Other agents as obstacles; doors (moveable flag), ladders. Sounds: user will supply some.
 - Sounds: four zones with distinct sounds (agreed direction, user to confirm), pitch steps
   rising when closer, start ~4 m on foot, further on horseback.
+
+## Scanner (2026-10-10, session 16): objects and people by name. VERIFIED read-only in a village
+
+- mission+0xc75c: mission_objects, an rgl::stable_vector shaped like the agents (num_items,
+  num_ids, ids vector (a free list, NOT one per item), chunk vector at +0x1c). Found by shape
+  with tools/probe_objects.py (it lists every stable_vector in the mission; the agents show
+  as +0x4, stride 0x6200). Object size 0x298, 16 per chunk.
+- Object fields: vtable 0x8108d4, valid +4, no +8, position matrix +0x18 (s, f, u, origin;
+  origin x y z at +0x48), meta type +0x1ac (0 prop, 1 entry point, 2 scene item, 4 plant,
+  5 passage...; +0x1a8 is always 4), sub kind +0x1b0 (prop or item number), id rgl::string
+  +0x1b4 (buffer pointer +0x1b8, length +0x1c0, inline text +0x1c4: "spr_village_house_e",
+  plants "big_bush", items "itm_quest_wine"), variation +0x244 (assumed from WSE order).
+- Village count: 418 objects = 339 plants, 18 entry points, 5 scene items, the rest props
+  (incl. invisible spr_light_night, spr_barrier_16m: skipped by a name list, hard-coded).
+- Agent troop number +0x298 (found: player 0, villagers all "Villager"); horse item +0x29c
+  assumed from WSE (troop_no then horse_item) and NOT verified.
+- Troop name = rgl::string at troop+4 (party_skills offsets).
+- Passages (meta 5): none in a village; name = the current game menu's option at the
+  variation index (guess, untested: needs a town). Door/stairs/gate props count as Exits.
+- mbaccess/scanner.py: K/L/;/O by quarter around the facing (45 degree split), J or Shift+K
+  where. Left = positive angle, same handedness assumption as the walls.
