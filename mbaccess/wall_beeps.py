@@ -241,6 +241,16 @@ def _creak(length=0.42):
     return 0.5 * buzz / np.abs(buzz).max() * grain * envelope
 
 
+AIM_GAIN = 0.45
+LOCK_HZ, LOCK_EVERY = 1245, 0.16    # in reach: quick high blips, like a lock-on tone
+CLOSER_HZ = 830                     # facing him, too far: the same voice lower and slower
+
+
+def closer_interval(distance, reach):
+    """Seconds between "get closer" blips: slow far off, quickening as the gap closes."""
+    return 0.35 + 0.65 * max(0.0, min(1.0, (distance - reach) / (battle.AIM_FAR - reach + 0.01)))
+
+
 SINE = [(1, 1.0)]
 BRIGHT =[(1, 1.0), (2, 0.5), (3, 0.3), (4, 0.15)]         # all overtones: clear, bright
 HOLLOW = [(1, 1.0), (3, 0.45), (5, 0.25), (7, 0.12)]        # odd ones only: reedy, clarinet-like
@@ -278,6 +288,8 @@ LESSONS = (
     ("swing", "an enemy near you raises his weapon: block now. It comes from where he "
               "stands, and is higher the closer he is"),
     ("aim", "an archer or thrower aims at you"),
+    ("lock", "you face an enemy and your weapon reaches him: attack now"),
+    ("closer", "you face an enemy but he is too far: quicker as you close in"),
 )
 
 
@@ -330,6 +342,11 @@ class WallBeeper:
         self.swing_sources = [self.audio.source(0, SWING_GAIN * volume / 0.35) for _ in range(SWING_VOICES)]
         self.swing_turn = 0
         self.zip, self.creak = self.audio.buffer(0.8 * _zip()), self.audio.buffer(0.8 * _creak())
+        self.lock_on = lambda: True     # set by run.py: the Accessibility setting
+        self.aim_source = self.audio.source(0, AIM_GAIN * volume / 0.35)
+        self.lock = self.audio.buffer(0.8 * _shape(LOCK_HZ, HOLLOW, 0.05))
+        self.closer = self.audio.buffer(0.8 * _shape(CLOSER_HZ, HOLLOW, 0.05))
+        self.next_aim = 0.0
         self.demo_source = self.audio.source(0, 0)     # Learn sounds: its own, so the
         self.demo_turn = 0                              # beep thread never cuts it off
         self.stop = threading.Event()
@@ -418,6 +435,14 @@ class WallBeeper:
                     return
         elif lesson == "aim":
             play(self.creak, -40, SWING_GAIN * v / 0.35)
+        elif lesson == "lock":
+            for _ in range(8):
+                if not play(self.lock, 0, AIM_GAIN * v / 0.35) or not wait(LOCK_EVERY):
+                    return
+        elif lesson == "closer":
+            for distance in (20, 14, 9, 5, 3):
+                if not play(self.closer, 0, AIM_GAIN * v / 0.35) or not wait(closer_interval(distance, 2.0)):
+                    return
         elif lesson == "drone":
             a.place(src, 0)
             a.set(src, gain=DRONE_GAIN, pitch=1.0)
@@ -490,6 +515,22 @@ class WallBeeper:
             self.audio.place(source, -angle)        # ours grow to the left, the sound's to the right
             self.audio.set(source, pitch=swing_pitch(distance) if kind == "melee" else 1.0)
             self.audio.play(source, self.zip if kind == "melee" else self.creak)
+
+    def _aim(self, player):
+        """The lock-on blips: quick and high while your weapon reaches the enemy you
+        face, lower and slower while you face one who is still too far."""
+        now = time.perf_counter()
+        if not self.lock_on() or now < self.next_aim:
+            return
+        mission = walls.mission_address(self.reader, self.profile)
+        with self.reader.cached():
+            found = battle.aim(self.reader, mission, player, self.profile.screen)
+        if found is None:
+            return
+        state, distance, angle, reach = found
+        self.audio.place(self.aim_source, -angle)
+        self.audio.play(self.aim_source, self.lock if state == "hit" else self.closer)
+        self.next_aim = now + (LOCK_EVERY if state == "hit" else closer_interval(distance, reach))
 
     def cue(self, angle=0.0):
         """The hammer-on "you can use this" sound, from `angle` (scanner angles:
@@ -567,6 +608,7 @@ class WallBeeper:
                 self._climb(self.player)
                 try:
                     self._swings(self.player)
+                    self._aim(self.player)
                 except (ReadError, ValueError, OSError, struct.error):
                     pass
             if not result:

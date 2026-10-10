@@ -111,6 +111,64 @@ AGENT_ITEMS, ITEM_STRIDE, ITEM_SLOTS = 0x7d4, 8, 4
 AGENT_HANDS = 0x830
 
 
+# An item kind's facts (found live, 2026-10-10, by matching known items: Throwing Daggers'
+# 13 at max_ammo, a Wooden Shield's 360 hit points 36 bytes before it; Quarter Staff 140,
+# Practice Sword 90). The order after hit_points is WarbandLib's item_kind.h.
+ITEM_PROPERTIES = 0xbd0     # low byte = the type: 2 one-handed, 3 two-handed, 4 polearm...
+ITEM_LENGTH = 0xc10         # weapon_length in centimetres
+RANGED_TYPES = (8, 9, 10, 16, 17)   # bow, crossbow, thrown, pistol, musket
+BODY_REACH = 0.6        # metres added to the weapon's length: arm and the other man's body (a guess)
+FIST_REACH = 0.9
+AIM_MELEE = 20.0        # degrees either side that count as "facing him"
+AIM_RANGED = 4.0
+AIM_FAR = 20.0          # metres: beyond this nobody is worth a "get closer" blip
+SHOT_FAR = 40.0
+
+
+def weapon_reach(reader, screen, item):
+    """(metres you can hit at, ranged?) with the right hand's item (kind, flags) or None."""
+    if item is None:
+        return FIST_REACH, False
+    kind = reader.ptr(screen["item_kinds"]) + item[0] * screen["item_kind_size"]
+    if reader.u32(kind + ITEM_PROPERTIES) & 0xff in RANGED_TYPES:
+        return SHOT_FAR, True
+    return max(FIST_REACH, reader.i32(kind + ITEM_LENGTH) / 100.0 + BODY_REACH), False
+
+
+def aim(reader, mission, player, screen):
+    """The enemy the player is facing: ("hit", distance, angle, reach) when their weapon
+    reaches him, ("closer", ...) when they face him but he's too far, or None. The nearest
+    one inside the cone; angle in degrees, positive to the left; reach = the weapon's."""
+    mine, me, enemies = NO_TEAM, None, []
+    for _no, address, data in agents(reader, mission, AGENT_HANDS + 8):
+        kind, _, status, flags = struct.unpack_from("<iiiI", data, walls.AGENT_TYPE)
+        if kind != HUMAN or status != ALIVE:
+            continue
+        if flags & 1:
+            mine, me = struct.unpack_from("<i", data, AGENT_TEAM)[0], address
+        else:
+            enemies.append(data)
+    if me is None or mine == NO_TEAM:
+        return None
+    reach, ranged = weapon_reach(reader, screen, held(reader, me)[0])
+    cone = AIM_RANGED if ranged else AIM_MELEE
+    px, py, facing = player[0], player[1], player[3]
+    best = None
+    for data in enemies:
+        if side(mine, struct.unpack_from("<i", data, AGENT_TEAM)[0]) != "Enemies":
+            continue
+        x, y = struct.unpack_from("<2f", data, walls.AGENT_POS)
+        distance = math.hypot(x - px, y - py)
+        angle = (math.degrees(math.atan2(y - py, x - px) - facing - walls.FORWARD) + 180) % 360 - 180
+        if abs(angle) <= cone and distance <= max(reach, AIM_FAR) and (best is None or distance < best[0]):
+            best = (distance, angle)
+    if best is None:
+        return None
+    if best[0] <= reach:
+        return ("hit",) + best + (reach,)
+    return None if ranged else ("closer",) + best + (reach,)
+
+
 def player_agent(reader, mission):
     """Address of the player's living agent, or None."""
     for _no, address, data in agents(reader, mission, 0x38):

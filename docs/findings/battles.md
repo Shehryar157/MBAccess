@@ -36,8 +36,18 @@
   degrees), so a swing at the ally beside us is silent. Same recording now: 13 ranged, 11 melee.
 - VERIFIED from the log: shield strength falls (336 -> 321 on H); the game's own "Received 3
   damage" / "Horse received 14 damage" messages are spoken.
-- OPEN, the user's to decide: how to tell friend from enemy by ear (ideas put to them: a soft
-  marker on the nearest enemy only; N / Ctrl+A/D already exist but need a key press).
+- FRIEND OR ENEMY, the user's own design: LOCK-ON BEEPS (built, mod restarted, unheard by
+  them). battle.aim(): the nearest enemy within 20 degrees of where you face (4 for a ranged
+  weapon). In reach = quick high hollow blips (1245 Hz every 0.16 s); facing him but too far
+  (up to 20 m; melee only) = the same voice at 830 Hz, every 1 s far off down to 0.35 s. Played
+  from his direction. Reach = weapon length + 0.6 m (a GUESS for arm and body; fists 0.9;
+  ranged 40 m). Setting "Lock-on beeps..." (lock_on) and Learn sounds "lock" / "closer".
+  On the battle3 recording: 3 hit frames at 1.8-1.9 m (reach 2.10), 103 closer.
+- ITEM KIND fields (found live by matching known items): properties +0xbd0 (low byte = type:
+  2 one-handed, 4 polearm, 7 shield, 10 thrown), hit points +0xbf0, weapon length in cm
+  +0xc10 (Quarter Staff 140, Practice Sword 90), max ammunition +0xc14, then thrust and swing
+  damage. To check: is the reach right (a lock but the swing misses, or hits with no lock)?
+  Mounted reach and the height difference are ignored.
 - The recorder needs ~40 s to compress and save after logs/stop: wait for the process to end.
 
 ## Start (2026-10-10, session 21): nothing verified yet

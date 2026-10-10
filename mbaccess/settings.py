@@ -20,6 +20,7 @@ DEFAULTS = {
     "item_details": "Full",      # how much of an inventory item's tooltip to read
     "turn_speed": 90,            # degrees a second while an arrow key turns you on foot
     "name_ahead": True,          # say what's in front when you come close: "crude fence"
+    "lock_on": True,             # battle: blips while you face an enemy (in reach / too far)
     "interact_mode": "Facing it",   # Facing it: the game's own rule; Close enough: nearby
 }
 

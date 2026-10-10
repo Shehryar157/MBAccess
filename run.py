@@ -126,6 +126,7 @@ def play_session(game):
                              turner=scan.turner)
     if beeper:
         beeper.name_ahead = lambda: prefs.get("name_ahead")
+        beeper.lock_on = lambda: prefs.get("lock_on")
         page.sounds = beeper            # Learn sounds on the Accessibility tab
     next_launcher = 0
     while game.is_running():
