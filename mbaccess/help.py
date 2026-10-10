@@ -104,6 +104,9 @@ GROUPS = [
         ("The map opens on Places: towns, castles and villages, and moving parties "
          "while you can see them, nearest first, with distance and direction.", None),
         ("Enter on a place: travel there, as clicking it would. The mod says when you arrive.", None),
+        ("Shift+Enter on a place: its right-click menu: Move here, View notes (the notes "
+         "page on that place, or on the lord leading that party) and, for a friendly party "
+         "or a caravan, Accompany. Up and Down choose, Enter presses, Escape closes.", None),
         ("Tab: the map's buttons: Camp, Reports, Notes, Inventory, Character and Party.", None),
         ("Letters search the places, so the game's letter shortcuts (I, P, C) don't work "
          "here: use the map buttons instead.", None),

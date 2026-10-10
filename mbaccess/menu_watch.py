@@ -29,6 +29,7 @@ import time
 from . import face
 from . import keys
 from . import text as text_mod
+from . import world_map
 from .form import Item, TreeReader
 from .mem import ReadError
 
@@ -109,6 +110,7 @@ class MenuWatcher:
         self.hold_check = None       # (since, item held before): after clicking a cell
         self.move_check = None       # (since, cell widget, its item before): after Ctrl+Enter
         self.special_check = None    # (since, the cell's item): after Shift+Enter
+        self.map_menu = None         # [rows, cursor]: a map place's right-click menu is open
         self.tip_nudged = False      # moved the mouse again for a slow tooltip
         self.carried = []            # keys from a tick whose read failed
         self.settling = None         # a new screen seen once, waiting for a second read
@@ -694,6 +696,9 @@ class MenuWatcher:
         if not self.options:
             return
         for key in pressed:
+            if self.map_menu:
+                self.map_menu_key(key)
+                continue
             if key == keys.KEY_F and self.search_key() and not self.search_on:
                 # The map's letters are the game's (P party...): F starts a search.
                 self.search_on, self.search, self.results = True, "", []
@@ -751,6 +756,42 @@ class MenuWatcher:
                 if key == keys.SPACE and self.options[self.cursor].kind == "edit":
                     continue    # a space typed into the box, not a press
                 self.act(ACTION_KEYS[key])
+
+    # --- the map's right-click menu -------------------------------------------
+    # Shift+Enter on a place opens the game's own menu for it (world_map.py);
+    # while it's open the arrows walk its rows, Enter clicks one, Escape closes it.
+
+    def open_map_menu(self, item):
+        if self.mouse is None:
+            return
+        name = item.label.split(",")[0]
+        rows = self.world_map.open_menu(self.game, self.window(world_map.MAP_WINDOW), self.mouse, item)
+        if not rows:
+            self.say(f"no menu for {name}")
+            return
+        self.map_menu = [rows, 0]
+        self.say(f"{name} menu, {rows[0][0]}, 1 of {len(rows)}")
+
+    def map_menu_key(self, key):
+        rows, at = self.map_menu
+        atlas, window = self.world_map, self.window(world_map.MAP_WINDOW)
+        if atlas.menu_party(window) is None:    # the game closed it (the mouse was moved away)
+            self.map_menu = None
+            atlas.close_menu(window, self.mouse)
+            self.say("menu closed")
+        elif key in (keys.UP, keys.DOWN, keys.HOME, keys.END):
+            at = {keys.UP: (at - 1) % len(rows), keys.DOWN: (at + 1) % len(rows),
+                  keys.HOME: 0, keys.END: len(rows) - 1}[key]
+            self.map_menu[1] = at
+            self.say(f"{rows[at][0]}, {at + 1} of {len(rows)}")
+        elif key == keys.RETURN:
+            self.map_menu = None
+            taken = atlas.choose_row(self.game, window, self.mouse, at)
+            self.say(rows[at][0] if taken else f"could not press {rows[at][0]}")
+        elif key == keys.ESCAPE:
+            self.map_menu = None
+            atlas.close_menu(window, self.mouse)
+            self.say("menu closed")
 
     # --- Escape and type search ---------------------------------------------
 
@@ -1170,6 +1211,8 @@ class MenuWatcher:
         if item.virtual == "map":
             if key == "activate":
                 self.world_map.travel(self.game, item)
+            elif key == "special":
+                self.open_map_menu(item)
             return
         if item.virtual == "portrait":
             if key == "activate":

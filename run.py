@@ -190,7 +190,7 @@ def play_session(game):
         mine = set()
         if watcher.has_sections():
             mine.add(keys.TAB)
-        if watcher.back_item() is not None or watcher.search_on:
+        if watcher.back_item() is not None or watcher.search_on or watcher.map_menu:
             mine.add(keys.ESCAPE)
         if watcher.searching():
             mine.update(keys.LETTERS)

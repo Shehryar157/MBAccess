@@ -192,7 +192,27 @@
   depth / (right - left); y = 0.75 * (0.5 + v.up * near / depth / (up - down)), depth =
   -v.backward. camera_origin lands dead centre. Parties have their z at position + 8.
   Jelkala from beside it: x 0.481, y 0.209, like the hand-found "0.52, 0.23" above.
-- Still to find live (context_test.py <place> prints all three): that a right click there
-  fills the rows, which map window field holds the menu's party (window +0x41c was -1, +0x424
-  was 1 with no menu: the 1.153 order would put mode and object near there), and where each
-  row sits under the mouse (slide down, watch the mouseover index: no row height to hard-code).
+
+## Context menu: DONE and verified live (2026-10-10, session 21)
+- Shift+Enter on a map list place (world_map.open_menu, menu_watch.open_map_menu): rows are
+  spoken, Up/Down, Enter clicks the row, Escape closes. Verified: Ibdeles Castle, Jelkala
+  (stood on), Veluca (far away) open; "View notes" opened Notes on Ibdeles Castle.
+  NOT tried: "Accompany" (needs a spotted friendly party or caravan), "Move here" by click.
+- Map window +0x41c = context_menu_mode (-1 = no menu, 0 = open), +0x420 = the party it's for
+  (stays after closing). A right click on our own party answers party 0 with 0 rows.
+- Rows fill on the click: "Move here" = -7 (cmenu_move), "View notes" = 1. game+0x144c0
+  (mouseover index) follows the mouse: row 0 starts ~0.012 below the click, row 1 ~0.024
+  (640x480 window); we slide down until the index matches, no height assumed.
+- The menu closes by itself once the mouse is ~0.25 of the screen away (0.2 right: still
+  open, 0.3: closed); holding still on it keeps it open. (0.5, 0.62) closes it.
+- LESSONS: (1) far places (depth > ~14) can't be hit, so write camera_origin = the place
+  (+1 z): it's then drawn at about x 0.5, y 0.19, depth 5.3. (2) While time runs the game
+  slides the camera back to our party (3.4 units in 0.5 s), so a thread rewrites the origin
+  every 4 ms until the click is answered (camera_held); paused, one write stayed for minutes.
+  (3) The mouse parked at a screen EDGE scrolls the map camera: never park at 0.99, 0.74 on
+  the map. (4) The game needs ~0.2 s after the row click before the mouse leaves. (5) A place
+  we stand on is covered by our own party: aim 0.06 to the side (AIM). Towns sometimes need
+  the second or third aim point (Veluca: 0.06 above; 2.6 s).
+- Camera turning also works by memory: window +0x3f4 horizontal rotation (0 = looking north,
+  pi/2 = east), the matrix follows within a frame. Not needed now.
+- Screenshots (tools/shot.py) of the 3D map come out black; flat screens (Party) are fine.

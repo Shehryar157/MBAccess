@@ -17,15 +17,25 @@ Memory (docs/findings/map.md, profile screen["map"], Warband 1.174):
 
 What we list: places that are always visible (unless disabled), and moving
 parties only while spotted, as a sighted player only sees those.
+
+The right-click menu (Move here, View notes, Accompany) is the game's own:
+the module script fills it, so we open the real one. We put the map camera
+on the place (it then sits mid-screen and close, wherever it is), right-click
+where the camera says it's drawn, and check the game's answer: the party the
+menu is for, in the map window. The rows are in the game object. To choose
+one we slide the mouse down until the game says it's over that row, so no row
+height is assumed. The menu closes by itself when the mouse goes far from it.
 """
+import contextlib
 import math
 import struct
+import threading
 import time
 from dataclasses import dataclass
 
 from . import text as text_mod
 from .form import Item
-from .mem import RGL_STRING_STATIC, ReadError
+from .mem import RGL_STRING_SIZE, RGL_STRING_STATIC, ReadError
 
 DISABLED, ALWAYS_VISIBLE = 0x100, 0x4000
 # The player's click order: behaviour 4 ("attack party" in header_parties.py,
@@ -40,6 +50,21 @@ STACK_SIZE = 32
 KINDS = (("p_town", "town"), ("p_castle", "castle"), ("p_village", "village"))
 COMPASS = ("east", "north-east", "north", "north-west",
            "west", "south-west", "south", "south-east")
+MAP_WINDOW = 6
+NO_MENU = -1            # the map window's menu mode while no right-click menu is open
+MENU_ROWS = 50          # the game object has room for 50 rows
+MOVE_HERE = -7          # a row's value: cmenu_move (the engine's own travel order)
+SCREEN_HEIGHT = 0.75    # engine screen coordinates: x 0-1, y 0-0.75 from the bottom
+# Where to right-click, from the spot the place is drawn at. Dead on first; the rest
+# are for a place our own party stands on and covers (the game then answers "party 0").
+AIM = ((0.0, 0.0), (-0.06, 0.0), (0.06, 0.0), (0.0, 0.06), (-0.035, 0.0), (0.035, 0.0))
+UNDER_US = 0.6          # map units: a place this near is covered by our own party
+ROW_STEP, ROW_REACH = 0.004, 0.25   # sliding down the rows: step, and how far to look
+# Where the mouse goes to close a menu: far from where places are drawn (low, mid-screen),
+# but not at a screen edge, which would scroll the map.
+FAR_AWAY = (0.5, 0.62)
+MENU_WAIT = 0.4         # seconds for the menu to answer a right click
+CAMERA_WAIT = 0.8       # seconds for the camera to arrive over a place
 
 
 @dataclass
@@ -78,6 +103,8 @@ class WorldMap:
         self.spots, self.here, self.when, self.game = [], (0.0, 0.0), 0.0, None
         self.factions = []
         self.target = None      # the Spot we sent the party to
+        self.menu_at = self.menu_spot = None    # the open right-click menu: where we clicked, on what
+        self.home = None        # the camera's place before we moved it onto a menu's party
 
     # --- reading -----------------------------------------------------------
 
@@ -211,3 +238,146 @@ class WorldMap:
         if thing == self.target.number and self.say:
             self.say(f"Arrived at {self.target.name}")
         self.target = None      # arrived, or the player gave another order
+
+    # --- the right-click menu ------------------------------------------------
+
+    def live(self, address, fmt):
+        """Read past the reader's page cache: we're waiting for the game to change it."""
+        return struct.unpack(fmt, self.r._direct(address, struct.calcsize(fmt)))
+
+    def project(self, window, point):
+        """Map position -> where it's drawn (engine screen coordinates), or None behind
+        the camera. The camera matrix's rows are right, up, backward, then its place;
+        after it come the view's left, right, up and down edges and the near distance."""
+        m = self.live(window + self.o["camera"], "<16f")
+        left, right, up, down, near = self.live(window + self.o["camera"] + 64, "<5f")
+        v = [point[n] - m[12 + n] for n in range(3)]
+        side, rise, back = (sum(v[n] * m[row * 4 + n] for n in range(3)) for row in range(3))
+        if -back <= near:
+            return None
+        return (0.5 + side * near / -back / (right - left),
+                SCREEN_HEIGHT * (0.5 + rise * near / -back / (up - down)))
+
+    def menu_rows(self, game):
+        """The open menu's rows as (text, value), and the row under the mouse (-1: none)."""
+        at = game + self.o["context_rows"]
+        count, over = self.live(at, "<ii")
+        if not 0 < count <= MENU_ROWS:      # junk until the first menu of a session
+            return [], -1
+        values = self.live(at + 8 + MENU_ROWS * RGL_STRING_SIZE, f"<{count}i")
+        return [(text_mod.clean(self.r.rgl_string(at + 8 + n * RGL_STRING_SIZE)), values[n])
+                for n in range(count)], over
+
+    def menu_party(self, window):
+        """The party the open right-click menu is for, or None with no menu open."""
+        mode, party = self.live(window + self.o["context_menu"], "<ii")
+        return None if mode == NO_MENU else party
+
+    def open_menu(self, game, window, mouse, item):
+        """Right-click the place as a sighted player would. Returns its rows ([] if the
+        game offers none or we couldn't hit it); the menu is then open under the mouse."""
+        spot = self.spot_at(item.widget)
+        if spot is None or "camera" not in self.o:
+            return []
+        o = self.o
+        self.close_menu(window, mouse)
+        if self.menu_party(window) is not None:
+            self.dismiss(window, mouse)     # one the player opened by hand
+        place = self.live(spot.address + o["position"], "<3f")
+        self.home = self.r._direct(window + o["camera_origin"], 12)
+        # Look at it as the camera looks at our own party: from one unit above the ground.
+        over_it = struct.pack("<3f", place[0], place[1], place[2] + 1.0)
+        with self.camera_held(window, over_it):
+            # The camera matrix follows a frame or two later: wait until the place is
+            # drawn mid-screen, as our own party is when the camera is on it.
+            until = time.monotonic() + CAMERA_WAIT
+            drawn = None
+            while time.monotonic() < until and not (drawn and abs(drawn[0] - 0.5) < 0.01):
+                time.sleep(0.03)
+                drawn = self.project(window, place)
+            if not (drawn and abs(drawn[0] - 0.5) < 0.01):
+                drawn = None
+            covered = math.hypot(spot.x - self.here[0], spot.y - self.here[1]) < UNDER_US
+            for dx, dy in (AIM[1:] if covered else AIM) if drawn else ():
+                x, y = drawn[0] + dx, drawn[1] + dy
+                mouse.hover(x, y)
+                time.sleep(0.15)    # the game picks what's under the mouse as it moves
+                mouse.click(x, y, right=True)
+                until = time.monotonic() + MENU_WAIT
+                while time.monotonic() < until and self.menu_party(window) is None:
+                    time.sleep(0.03)
+                if self.menu_party(window) == spot.number:
+                    self.menu_at, self.menu_spot = (x, y), spot
+                    return self.menu_rows(game)[0]
+                if self.menu_party(window) is not None:
+                    self.dismiss(window, mouse)     # something else's menu
+        self.close_menu(window, mouse)
+        return []
+
+    @contextlib.contextmanager
+    def camera_held(self, window, origin):
+        """Keep the map camera over a point for the length of the block. While time runs
+        the game slides the camera back to our own party, several map units a second,
+        so one write isn't enough: a thread writes it again every few milliseconds."""
+        done = threading.Event()
+
+        def hold():
+            while not done.is_set():
+                try:
+                    self.r.write(window + self.o["camera_origin"], origin)
+                except Exception:
+                    return      # the game closed
+                time.sleep(0.004)
+
+        thread = threading.Thread(target=hold, daemon=True)
+        thread.start()
+        try:
+            yield
+        finally:
+            done.set()
+            thread.join()
+
+    def point_at_row(self, game, mouse, row):
+        """Slide the mouse down from the click until the game says it's over that row.
+        Returns the height it's then at, or None if the row never came under it."""
+        x, y = self.menu_at
+        for step in range(int(ROW_REACH / ROW_STEP)):
+            mouse.hover(x + 0.02, y - step * ROW_STEP)
+            time.sleep(0.03)
+            if self.menu_rows(game)[1] == row:
+                # A little further in, so we aren't on the row's very edge.
+                mouse.hover(x + 0.02, y - (step + 1) * ROW_STEP)
+                time.sleep(0.05)
+                return y - (step + 1) * ROW_STEP if self.menu_rows(game)[1] == row else None
+        return None
+
+    def choose_row(self, game, window, mouse, row):
+        """Click a row of the open menu. True if the game took it."""
+        rows, _over = self.menu_rows(game)
+        y = None
+        if self.menu_party(window) is not None and row < len(rows):
+            y = self.point_at_row(game, mouse, row)
+        if y is None:
+            self.close_menu(window, mouse)
+            return False
+        mouse.click(self.menu_at[0] + 0.02, y, hold=0.05)
+        time.sleep(0.2)     # let the game see the click before the mouse leaves
+        if rows[row][1] == MOVE_HERE:
+            self.target = self.menu_spot    # so we say when we arrive, as after Enter
+        self.close_menu(window, mouse)
+        return True
+
+    def dismiss(self, window, mouse):
+        """Take the mouse away from the menu: the game then closes it."""
+        mouse.hover(*FAR_AWAY)
+        until = time.monotonic() + MENU_WAIT
+        while time.monotonic() < until and self.menu_party(window) is not None:
+            time.sleep(0.03)
+
+    def close_menu(self, window, mouse):
+        """Close our menu, if it's open, and put the camera back where it was."""
+        if self.menu_at is not None:
+            self.dismiss(window, mouse)
+        if self.home is not None:
+            self.r.write(window + self.o["camera_origin"], self.home)
+        self.menu_at = self.menu_spot = self.home = None
