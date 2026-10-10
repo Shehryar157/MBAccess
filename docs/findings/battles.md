@@ -1,5 +1,31 @@
 # Battles
 
+## START HERE (state at the end of session 21, 2026-10-10)
+- BUILT, mod restarted with it, and almost all UNTESTED by the user in a real fight:
+  H = health + what you hold + shield strength + ammunition; B = both sides' numbers and where
+  most of each are (+ the arena's counters); N = nearest enemy; M = the open order list again;
+  scanner categories Enemies and Allies (so Ctrl+A/D turn to an enemy, Shift+J tracks one);
+  the swing cue ("zip" = melee wind-up within 5 m, "creak" = ranged aim at you; Learn sound
+  buttons "swing" and "aim"); the weapon or shield just switched to is spoken with its
+  modifier ("Rusty Sword", "no shield", "weapon put away"); the order list is read whole and
+  can be walked with Up/Down + Enter or answered with the function keys; no menu cursor in
+  scenes; no "Talk to" prompt for anyone in a fight.
+- ASK THE USER FIRST what they heard in their next battle: did the zip play and was it in time
+  to block? Did an order go through (the game's own message confirms it)? Does Up stay quiet
+  while an order list is open, and does a list ever stay open too long (Up/Down = their attack
+  and defend, swallowed meanwhile)? Does the shield strength fall? Are the cue sounds right
+  (they were thinking about what sounds they want)?
+- AGREED with the user: commander role first, then fighting yourself; "Order your troops to
+  attack without you" (encounter menu, needs 4 healthy party members) to be checked first when
+  they meet an enemy; block direction Automatic, damage 1/4; they fight arena and custom
+  battles THEMSELVES: record passively (tools/record_battle.py), never drive a fight.
+- NOT DONE: team relations (a friendly lord's team counts as enemy now); a cue for the swing
+  ending; own hits landing or taken; mounted fighting; sieges (ladders, doors); tournaments;
+  the trade screen complaint (the user never said what was wrong; it read fine at Buvran).
+- The user's game keys (their own choice on the Controls screen): Up attack, Down defend, Page
+  Up next weapon, Page Down next shield. Mod keys in scenes: arrows Left/Right, J K L O ; ' H
+  B N M [ ] , . F9. Free: U V Z /.
+
 ## Start (2026-10-10, session 21): nothing verified yet
 - Plan, in order: (1) per-fighter facts: team, alive, health, current attack/defend action and
   its direction; (2) enemies and allies on the radar; (3) own health and hits; (4) block cues;
@@ -91,6 +117,12 @@
   and 3 unverified. battle.HandWatch speaks the name when a hand changes ("Battle Axe", "no
   shield", "weapon put away") and H adds "holding ...". The user asked for this for next
   weapon / next shield (Page Up / Page Down). The old "+0x544 + n * 0x30" guess was wrong.
+  SEEN LIVE afterwards (read-only, a custom battle): slots (475 Quarter Staff, 0), (17, 0),
+  (-1, 0), (-1, 0), hands (0, -1). The int after the kind is the troop inventory's flags: top
+  byte = modifier (menu_watch.item_name(kind, flags) adds "Rusty"; Warband has no separate
+  condition: the modifier is both), low 24 bits = the item's count (shield hit points: 360 on
+  a fresh Wooden Shield, NOT yet watched going down; daggers counted 0 to 5). HandWatch
+  compares kind + modifier only, so a shield taking hits isn't announced again.
 - Keys the user set on the game's Controls screen: Up attack, Down defend, Page Up next
   weapon, Page Down next shield. Still free in scenes: U V Z /.
 - The user wants to play arena fights THEMSELVES: record passively, never drive them.

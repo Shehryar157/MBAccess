@@ -69,6 +69,16 @@
   Backspace view orders, F1-F6 orders, 0-9 = - group select, T Y chat, C character, I
   inventory, P party, Q quests, L game log, F12 quick save. Free in scenes: arrows, B H J K M
   N O U V Z ; ' / [ ] , . Known clash left by the user's choice: scanner L vs Game Log.
+  Session 21: the mod now also uses H, B, N, M in scenes (battles.md), and the user bound Up =
+  attack, Down = defend, Page Up = next weapon, Page Down = next shield in the game. Free: U V
+  Z /. Insert/Delete/Home/End, right Shift/Ctrl and the number pad are probably free: unchecked.
+- Session 21 lessons: the desktop app's Code tab runs commands on this PC (the Chat tab could
+  only list and copy files). PowerShell eats double quotes passed to python -c and to git
+  commit -m: use single quotes inside, or a script file. Never park the mouse at a screen edge
+  on the world map (it scrolls the camera). Screenshots of 3D views (map, scenes) are black;
+  flat screens capture fine. The user may open another screen mid-test: check the top window
+  before every driving step. To restart only the mod: stop the pythonw running run.py AND its
+  child (the key hook process), then start pythonw run.py --with-game.
 - Clicks: menu options use a quick click (0.06 s); other screens a held one (0.18 s), because
   Custom Battle missed quick clicks. Profile "quick_click": true switches a screen to the quick
   one. Verified: Esc menu (window 5). Character screen: a quick click on Statistics closed the
