@@ -190,3 +190,11 @@ Next / open:
   18 "Leave Area."; "." = none. modfiles.MenuItem.door; run.passage_name prefers it.
   Assumes a passage's variation = option index of the current menu (untested in a town).
 - DROPPED by the user (2026-10-10): custom sounds from the user and the Ambient Soundtrack.
+- VERIFIED live (user playing, 2026-10-10): scanner said "Door to the castle" in a lord's hall:
+  passage variation = option index of the current menu, door names right.
+- Use prompt type 6 = passage (door to another scene): logged "prompt type 6 number 5" while
+  facing "Door to the castle". Assumed number = mission object number (as type 1); now spoken
+  by name (prompts.PASSAGE). Unverified that the number matches.
+- Fixed: name-ahead said "something" for doors (landmarks used the empty id; now door names).
+- reach_test.py takes a name ("People" "Lady Anais"). Talk reach NOT measured: my run fought
+  the user's own keys (they were playing). Never drive while the user plays: ask first.

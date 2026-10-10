@@ -1,8 +1,8 @@
-"""Measure the game's use reach: face a target (default: the nearest horse), back off,
+﻿"""Measure the game's use reach: face a target (default: the nearest horse), back off,
 then walk toward it in short steps, logging distance, use_object fields and in_range.
 Takes the game's keyboard for ~30 s. On foot only.
 
-    python tools/reach_test.py [People|Animals]
+    python tools/reach_test.py [People|Animals] [name start, e.g. "Lady Anais"]
 """
 import ctypes
 import math
@@ -22,6 +22,7 @@ scan = scanner.Scanner(r, game.profile, lambda s: None)
 turner = turning.Turner(game, lambda s: None)
 w10 = r.ptr(game.profile.screen["game_windows"] + 4 * 10)
 want = sys.argv[1] if len(sys.argv) > 1 else "Animals"
+named = sys.argv[2].lower() if len(sys.argv) > 2 else ""
 
 
 def use():
@@ -31,7 +32,7 @@ def use():
 
 def target():
     p, found = scan.things()
-    ts = [t for t in found if t["category"] == want]
+    ts = [t for t in found if t["category"] == want and t["name"].lower().startswith(named)]
     t = min(ts, key=lambda t: math.hypot(t["x"] - p[0], t["y"] - p[1]))
     d, a = scanner.relative(p, t["x"], t["y"])
     return p, t, d, a
@@ -66,7 +67,7 @@ for _ in range(20):                         # back off to ~5 m
     time.sleep(0.15)
 face()
 rows = []
-for _ in range(60):
+for _ in range(160):
     p, t, d, a = target()
     k, n, inr = use()
     rows.append((d, a, k, n, inr))

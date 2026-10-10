@@ -363,7 +363,11 @@ class Scanner:
                 if meta != PASSAGE and any(bare.startswith(w) or ("_" + w) in bare for w in INVISIBLE):
                     continue
                 x, y = struct.unpack_from("<2f", block, o + OBJ_POS)
-                out.append((prop_name(ident), x, y))
+                if meta == PASSAGE:     # no id text: named by its door ("Door to the castle")
+                    variation = struct.unpack_from("<i", block, o + OBJ_VARIATION)[0]
+                    out.append((self.passage_name(variation) or "door", x, y))
+                else:
+                    out.append((prop_name(ident), x, y))
         return out
 
     def name_boxes(self, boxes):

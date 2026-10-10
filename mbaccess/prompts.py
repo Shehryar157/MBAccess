@@ -1,4 +1,4 @@
-"""The game's action prompts in a scene ("Talk", "Mount", "Dismount", "Open"...), spoken,
+﻿"""The game's action prompts in a scene ("Talk", "Mount", "Dismount", "Open"...), spoken,
 and F on horseback made to dismount the way a sighted player does it.
 
 The prompt isn't text in memory: the game draws it each frame from three numbers in the
@@ -25,6 +25,7 @@ from .mem import Reader, ReadError
 
 USE = 0x408
 NOTHING, OBJECT, AGENT, DISMOUNT = -1, 1, 2, 3
+PASSAGE = 6     # a door to another scene (seen 2026-10-10 at "Door to the castle")
 SCENE_WINDOW = 10
 
 _user32 = ctypes.WinDLL("user32")
@@ -75,6 +76,10 @@ class Prompts:
             if not known or known[1] not in ("Items", "Exits"):
                 return None
             return ("Pick up " if known[1] == "Items" else "") + known[0]
+        if kind == PASSAGE:
+            # Assumed: no = the passage's mission object number, as for type 1.
+            known = self.scanner.object_names.get(no)
+            return known[0] if known else "door"
         print("prompt type", kind, "number", no)     # unseen kinds: learn from the log
         return None
 
