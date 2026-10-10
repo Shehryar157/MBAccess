@@ -531,8 +531,8 @@ class MenuWatcher:
 
     def section_title(self, key, members):
         names = (self.config.get("layout") or {}).get("section_names", {})
-        if key[1] in names:
-            return names[key[1]]
+        if str(key[1]) in names:     # JSON keys are strings: column 2 is "2"
+            return names[str(key[1])]
         if key == ("list", "details"):
             return "Details"
         if self.config.get("map"):
