@@ -129,12 +129,15 @@ def click(hwnd, x, y, hold=0.08, right=False, ctrl=False, letterbox=False):
             _user32.keybd_event(0, CTRL_SCAN, KEYEVENTF_SCANCODE | KEYEVENTF_KEYUP, 0)
 
 
-def drag(hwnd, from_x, to_x, y, steps=8, letterbox=False):
+def drag(hwnd, from_x, to_x, y, steps=None, letterbox=False):
     """Hold the button on a slider's handle and slide it sideways.
 
     The game ignores clicks on a slider's track; it only follows the handle
-    while the button is held, so we move there in small steps.
+    while the button is held, so we move there in small steps: about one
+    per 1% of the screen (a 5% nudge on a slider = 2 steps), at most 8.
     """
+    if steps is None:
+        steps = max(2, min(8, round(abs(to_x - from_x) / 0.01)))
     move(hwnd, from_x, y, letterbox)
     time.sleep(0.03)
     _user32.mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)

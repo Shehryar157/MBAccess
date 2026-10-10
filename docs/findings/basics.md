@@ -117,3 +117,12 @@
   it (Turner.center_pointer) and send moves in small bursts (see scenes.md).
 - Tests: run "pytest tests" (tools/reach_test.py runs live code if collected). Two menu tests
   are flaky while someone is pressing real keys.
+
+### Session 20 (2026-10-10): speed (UNTESTED live)
+- Moving the cursor onto an item scrolled out of view now turns the wheel at once (hover(),
+  one turn per SCROLL_GLIDE 0.25 s, then hover when it's in view; poll() finishes it), so a
+  later press acts at once. Before, only a press scrolled (wheel, retry each tick).
+- Slider drags: steps = about one per 0.01 of screen (2 for a 5% nudge, was 8): ~0.1 s.
+  Left/Right on the same slider within SLIDE_HELD 0.35 s of the last drag = held: 10% per drag.
+- Measured: a full face editor read is 1.5 ms (page cache), so screen reading isn't the
+  bottleneck; Windows key repeat here is the fastest (delay 1, speed 31).

@@ -100,7 +100,7 @@ class Item:
         notches = min(60, max(1, int(abs(distance) / step)))
         return notches if distance < 0 else -notches
 
-    def action(self, key):
+    def action(self, key, steps=1):
         """The mouse action for a key name, or None. Actions are tuples:
         ("click", x, y), ("right click", x, y) or ("drag", from_x, to_x, y)."""
         y = self.y + self.click[1]
@@ -127,7 +127,7 @@ class Item:
             return ("pick", self.x + self.click[0], y,
                     self.x + self.click[0], self.y - (row + 0.5) * self.list_row)
         if key in ("left", "right") and self.kind == "slider":
-            step = SLIDER_STEP if key == "right" else -SLIDER_STEP
+            step = SLIDER_STEP * steps if key == "right" else -SLIDER_STEP * steps
             target = min(1.0, max(0.0, self.fraction + step))
             # Grab the handle where it's drawn: at 0% the left edge itself
             # misses it (face editor Age), so allow for its half-width.

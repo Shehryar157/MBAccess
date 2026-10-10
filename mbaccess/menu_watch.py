@@ -48,6 +48,10 @@ PICK_MARGIN = 0.01    # a drop-down row lower than this is off the bottom of the
 PICK_WAIT = 0.3       # seconds for a drop-down list to open
 TIP_LINES, TIP_STRIDE = 12, 0x90   # tooltip: rgl::string lines
 HOLD_WAIT = 0.4       # seconds for a click on a cell to pick up or put down
+SLIDE_HELD = 0.35     # Left/Right this soon after a slider drag = the key is held
+SLIDE_HELD_STEPS = 2  # ... then each drag moves this many 5% steps
+SCROLL_GLIDE = 0.25   # a list takes about this long to glide after a wheel turn
+SCROLL_GIVE_UP = 1.5  # stop trying to bring an item into view after this
 TIP_WAIT = 0.4        # seconds to wait for a tooltip before calling a cell empty
 SPECIAL_WAIT = 0.6    # seconds for a right click's question (slaughter) to open
 # Conversation manager (reference/wse/WarbandLib/conversation.h, verified on
@@ -94,6 +98,8 @@ class MenuWatcher:
         self.options = []
         self.cursor = 0
         self.pending = None          # (key, tries): an action waiting for scrolling
+        self.last_slide = (None, 0, 0.0)   # (key, slider widget, when): the last drag
+        self.hover_wait = None       # (widget, since): hover it once it scrolls into view
         self.link_index = -1         # which link of a Notes line Left/Right chose
         self.search_on = False       # the map: F started a search (letters search until Escape)
         self.results, self.result_at = [], 0   # that search's matches (option indexes)
@@ -482,6 +488,12 @@ class MenuWatcher:
             self.check_moved()
         if self.special_check:
             self.check_special()
+        if self.hover_wait:
+            widget, since = self.hover_wait
+            if self.options[self.cursor].widget != widget or time.monotonic() - since > SCROLL_GIVE_UP:
+                self.hover_wait = None
+            elif self.options[self.cursor].visible() or time.monotonic() - since > SCROLL_GLIDE:
+                self.hover()        # in view: hover it; still not: turn the wheel again
         if self.pending:
             key, tries = self.pending
             self.pending = None
@@ -829,7 +841,23 @@ class MenuWatcher:
         """Put the mouse over the cursor's item, so the game highlights it
         (and plays its hover sound) as it would for a sighted player."""
         item = self.options[self.cursor]
-        if self.mouse is not None and item.kind != "text" and not item.virtual and item.visible():
+        if self.mouse is None or item.virtual:
+            return
+        if not item.visible():
+            # Scrolled out of view: bring the list to it now, as a sighted
+            # player's list follows their eyes, so a press acts at once.
+            # One wheel turn at a time: the list glides, and turning again
+            # mid-glide would overshoot.
+            now = time.monotonic()
+            if self.hover_wait is None or now - self.hover_wait[1] > SCROLL_GLIDE:
+                bottom, top = item.scroll
+                self.mouse.wheel(item.x + item.click[0], (bottom + top) / 2, item.wheel_notches())
+                self.hover_wait = (item.widget, now)
+            else:
+                self.hover_wait = (item.widget, self.hover_wait[1])
+            return
+        self.hover_wait = None
+        if item.kind != "text":
             self.mouse.hover(item.x + item.click[0], item.y + item.click[1])
             if item.kind == "button" and item.widget and not item.disabled:
                 self.aim_check = (time.monotonic(), item.widget, self.trial is not None)
@@ -1166,7 +1194,11 @@ class MenuWatcher:
                 return
         if item.kind == "tab" and self.page and self.page.open and key == "activate":
             self.page.open = False       # back to the game's own tab
-        action = item.action(key)
+        # Left/Right again on the same slider soon after the last drag: the
+        # key is held, so slide further each time (a tap still moves 5%).
+        held = (key, item.widget) == self.last_slide[:2] and \
+            time.monotonic() - self.last_slide[2] < SLIDE_HELD
+        action = item.action(key, SLIDE_HELD_STEPS if held and item.kind == "slider" else 1)
         if action is None or self.mouse is None:
             return
         if not item.visible():
@@ -1214,3 +1246,4 @@ class MenuWatcher:
             self.mouse.click(*action[1:], hold=0 if quick else 0.08)
         else:
             self.mouse.drag(*action[1:])
+            self.last_slide = (key, item.widget, time.monotonic())
