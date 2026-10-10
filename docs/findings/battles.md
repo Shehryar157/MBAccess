@@ -26,6 +26,20 @@
   Up next weapon, Page Down next shield. Mod keys in scenes: arrows Left/Right, J K L O ; ' H
   B N M [ ] , . F9. Free: U V Z /.
 
+## Session 22 (2026-10-10): the user's first full custom battle with the cues (logs/battle3.pkl.gz)
+- The user's verdict: battles are hard because (1) both sides yell, so nothing tells friend
+  from enemy by ear, and (2) "the new sound" is very intrusive. The recording says which:
+  replay_swings gave 152 ranged creaks against 12 melee zips in 160 s (mounted, War Spear then
+  Morningstar, Heavy Round Shield; lost at health 6 of 60).
+- CHANGED (mod restarted, unheard by the user): one aim cue at most every 4 s (the nearest
+  archer), reach 80 -> 40 m; a melee zip only from an enemy turned towards us (within 60
+  degrees), so a swing at the ally beside us is silent. Same recording now: 13 ranged, 11 melee.
+- VERIFIED from the log: shield strength falls (336 -> 321 on H); the game's own "Received 3
+  damage" / "Horse received 14 damage" messages are spoken.
+- OPEN, the user's to decide: how to tell friend from enemy by ear (ideas put to them: a soft
+  marker on the nearest enemy only; N / Ctrl+A/D already exist but need a key press).
+- The recorder needs ~40 s to compress and save after logs/stop: wait for the process to end.
+
 ## Start (2026-10-10, session 21): nothing verified yet
 - Plan, in order: (1) per-fighter facts: team, alive, health, current attack/defend action and
   its direction; (2) enemies and allies on the radar; (3) own health and hits; (4) block cues;

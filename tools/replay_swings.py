@@ -33,7 +33,7 @@ def main():
             battle.agents = lambda reader, mission, size, frame=frame: (
                 (no, 0, data) for no, data in frame.items())
             # Only frames with everyone in them keep "last action" honest; near ones are in all.
-            for kind, distance, angle in watch.check(None, None, (x, y, z, facing, False)):
+            for kind, distance, angle in watch.check(None, None, (x, y, z, facing, False), t):
                 count[kind] += 1
                 if count[kind] <= 12:
                     print(f"{t:6.1f} s: {kind}, {distance:.1f} m, {angle:+.0f} degrees")

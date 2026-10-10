@@ -7,6 +7,7 @@ can't size, so we find them by shape in the live agents instead (docs/findings/b
 """
 import math
 import struct
+import time
 
 from . import walls
 from .mem import ReadError
@@ -30,7 +31,9 @@ NO_TEAM = -1
 AGENT_ACTION = 0x6e4
 SWINGS = ("slash", "thrust", "overswing", "swing", "direct", "uppercut")   # melee "ready_" names
 MELEE_REACH = 5.0       # metres: a raised weapon this near is meant for us
-RANGED_REACH = 80.0
+MELEE_FACING = 60.0     # degrees: he has to be turned towards us, not at the man beside us
+RANGED_REACH = 40.0
+RANGED_EVERY = 4.0      # seconds between aim cues: a line of archers drew 152 times in 160 s
 AIMED = 15.0            # degrees: an archer facing us this squarely is aiming at us
 AIM_WIDTH = 3.0         # metres either side of us that still counts as "at us" from afar
 
@@ -50,10 +53,14 @@ class SwingWatch:
     def __init__(self, action_names):
         self.names = action_names
         self.last = {}          # agent number -> the action it was in
+        self.aimed_at = -RANGED_EVERY
 
-    def check(self, reader, mission, player):
+    def check(self, reader, mission, player, now=None):
         """[(kind, distance, angle)] for attacks that began since the last call: kind
-        "melee" or "ranged", angle in degrees from where the player faces (positive left)."""
+        "melee" or "ranged", angle in degrees from where the player faces (positive left).
+        At most one "ranged" (the nearest) every RANGED_EVERY seconds: "you're being shot
+        at", not every bow in the line."""
+        now = time.time() if now is None else now
         fighters, mine = [], NO_TEAM
         for no, _address, data in agents(reader, mission, AGENT_TEAM + 4):
             kind, _, status, flags = struct.unpack_from("<iiiI", data, walls.AGENT_TYPE)
@@ -75,19 +82,24 @@ class SwingWatch:
                 continue
             x, y = struct.unpack_from("<2f", data, walls.AGENT_POS)
             distance = math.hypot(x - px, y - py)
-            if kind == "melee" and distance > MELEE_REACH:
+            # Is he facing us? His heading against the direction from him to us.
+            heading = struct.unpack_from("<f", data, walls.AGENT_DIRF)[0] + walls.FORWARD
+            off = abs((math.degrees(math.atan2(py - y, px - x) - heading) + 180) % 360 - 180)
+            if kind == "melee" and (distance > MELEE_REACH or off > MELEE_FACING):
                 continue
             if kind == "ranged":
-                # Is he facing us? His heading against the direction from him to us.
-                heading = struct.unpack_from("<f", data, walls.AGENT_DIRF)[0] + walls.FORWARD
-                off = math.degrees(math.atan2(py - y, px - x) - heading)
                 # Far off, "at us" is a narrow line: within AIM_WIDTH metres of where we stand.
                 allowed = min(AIMED, math.degrees(math.atan2(AIM_WIDTH, max(distance, 0.1))))
-                if distance > RANGED_REACH or abs((off + 180) % 360 - 180) > allowed:
+                if distance > RANGED_REACH or off > allowed:
                     continue
             angle = math.degrees(math.atan2(y - py, x - px) - facing - walls.FORWARD)
             started.append((kind, distance, (angle + 180) % 360 - 180))
         self.last = seen
+        aims = sorted(s for s in started if s[0] == "ranged")
+        started = [s for s in started if s[0] == "melee"]
+        if aims and now - self.aimed_at >= RANGED_EVERY:
+            self.aimed_at = now
+            started.append(aims[0])
         return started
 
 
