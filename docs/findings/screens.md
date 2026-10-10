@@ -59,3 +59,17 @@
   one save): it should ask a question box (window 1).
 - Profile window 16 "saves": first, stride, count, day, exists, selected (hard-coded offsets,
   checked by the flag and the tile count).
+
+## Notes screen (window 21) (2026-10-10, session 19; read live, clicking topics UNTESTED)
+- Root "notes". Tabs along the bottom are image buttons (Game Log, Recent Messages, Notes,
+  Game Concepts, Characters, Locations, Factions, Return); Back/Forward/Show On Map at y 0.70.
+  Labels: page title (0.74, 0.71, "Game Concepts") and entry heading (0.03, 0.67, "Morale").
+- Class **0x819984 = multi-line text box** (profile kind "textbox"). Topic list = one box in
+  notes_key_collection(_s): text '<ip=4>Character Backgrounds</>\n...' (link tag per line; the
+  current entry has none). Article = one box in notes_data_collection(_s), paragraphs split by
+  "\n\n". Line height = box height / lines (0.109/6 = 0.018). Box +0x2e4 vector = per link
+  (width, top y relative), +0x304 ints = link ids in order: not used, kept as backup.
+- form.textbox(): link lines = buttons (click 0.02 in, middle of the line), other lines
+  "X, current"; paragraphs spread down the box. Layout "by_group" = Tab sections Buttons /
+  Topics / Page; opens on Page. Box text is hashed into the screen key, so a new page re-announces.
+- Tool: tools/probe_textbox.py <window> dumps these boxes.
