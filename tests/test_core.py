@@ -467,3 +467,23 @@ def test_turning_compass_and_ping():
     assert abs(wall_beeps.ping_pitch(180) - wall_beeps.PING_BEHIND_PITCH) < 1e-9
     assert wall_beeps.ping_interval(1) == wall_beeps.PING_FAST
     assert abs(wall_beeps.ping_interval(100) - wall_beeps.PING_SLOW) < 1e-9
+
+
+def test_map_f_search_cycles_matches_only():
+    """On the map letters are the game's; F starts a search, letters filter by
+    a word in the name, Up/Down cycle the matches, Escape ends it."""
+    from mbaccess import keys
+    from mbaccess.form import Item
+    said = []
+    w = MenuWatcher(None, None, {}, [], said.append)
+    names = ["Jelkala, town, 18 north", "Ibdeles Castle, castle, 12 west", "Ibdeles, village, 3 east",
+             "Culmarr Castle, castle, 40 south", "Veluca, town, 30 east"]
+    w.options = [Item("button", n, 0.1, 0.9 - k * 0.03, widget=k + 1) for k, n in enumerate(names)]
+    w.config = {"type_search": "after_f"}
+    assert not w.searching() and w.search_key()
+    w.handle_keys([keys.KEY_F]);  assert said[-1] == "search" and w.searching()
+    w.handle_keys([0x43, 0x41])   # "ca"
+    assert said[-1].startswith("2 found, Ibdeles Castle") and said[-1].endswith("1 of 2")
+    w.handle_keys([keys.DOWN]);   assert w.options[w.cursor].label.startswith("Culmarr")
+    w.handle_keys([keys.DOWN]);   assert w.options[w.cursor].label.startswith("Ibdeles Castle")
+    w.handle_keys([keys.ESCAPE]); assert said[-1] == "search off" and not w.searching()

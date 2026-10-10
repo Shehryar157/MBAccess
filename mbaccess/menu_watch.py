@@ -91,6 +91,7 @@ class MenuWatcher:
         self.pending = None          # (key, tries): an action waiting for scrolling
         self.link_index = -1         # which link of a Notes line Left/Right chose
         self.search_on = False       # the map: F started a search (letters search until Escape)
+        self.results, self.result_at = [], 0   # that search's matches (option indexes)
         self.root_offsets = {}       # window number -> where its root widget is
         self.tip_wait = None         # (since, tooltip before, widget): waiting to speak a cell
         self.config = {}
@@ -631,12 +632,18 @@ class MenuWatcher:
         for key in pressed:
             if key == keys.KEY_F and self.search_key() and not self.search_on:
                 # The map's letters are the game's (P party...): F starts a search.
-                self.search_on, self.search = True, ""
+                self.search_on, self.search, self.results = True, "", []
                 self.say("search")
                 continue
             if key in keys.LETTERS:
-                if self.searching():
+                if self.search_on:
+                    self.search += chr(key).lower()
+                    self.find_results()
+                elif self.searching():
                     self.type_search(chr(key).lower())
+                continue
+            if self.search_on and key in (keys.UP, keys.DOWN, keys.HOME, keys.END):
+                self.step_results(key)
                 continue
             if key == keys.RETURN and self.search_on:
                 self.search_on = False      # found it: Enter travels, the letters are the game's again
@@ -706,6 +713,36 @@ class MenuWatcher:
     def search_key(self):
         """Does F start a search on this screen (the map)?"""
         return bool(self.options) and self.config.get("type_search") == "after_f"
+
+    def find_results(self):
+        """F search (the map): the items with a word in their name (before the
+        first comma: "Ibdeles Castle, castle, 12 west") starting with what's
+        typed. Goes to the first and says how many."""
+        word = self.search
+        self.results = [n for n, i in enumerate(self.options) if i.kind != "slot" and any(
+            w.startswith(word) for w in i.label.split(",")[0].lower().split())]
+        if not self.results:
+            self.say(f"No {word}")
+            return
+        self.result_at = 0
+        self.say_result(f"{len(self.results)} found, ")
+
+    def step_results(self, key):
+        """Up/Down/Home/End during an F search move through the results only."""
+        if not self.results:
+            self.say(f"No {self.search}" if self.search else "type to search")
+            return
+        n = len(self.results)
+        self.result_at = {keys.UP: (self.result_at - 1) % n, keys.DOWN: (self.result_at + 1) % n,
+                          keys.HOME: 0, keys.END: n - 1}[key]
+        self.say_result()
+
+    def say_result(self, lead=""):
+        self.cursor = self.results[self.result_at]
+        self.link_index = -1
+        self.say(f"{lead}{self.options[self.cursor].spoken()}, "
+                 f"{self.result_at + 1} of {len(self.results)}")
+        self.hover()
 
     def type_search(self, letter):
         """Jump to the next item starting with the letters typed so far.
