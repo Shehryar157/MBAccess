@@ -218,3 +218,6 @@ Next / open:
   must lie in the plane (normal +0xc4) of corner 0 within 5 cm; else corner 3 := corner 2.
   After: dungeon doorway reads front 0.3, sides 0.3/0.9, behind 4+. Villages were probably hit
   too (the user's earlier wall-beep reports may come from this).
+- Open-space cue (user's request, 2026-10-10): a soft noise whoosh (wall_beeps._whoosh, dark
+  to bright, 0.32 s) when a wall ahead/left/right falls out of beep range (last_step drops
+  from >= 0 to -1 past the hysteresis). Not behind, not diagonals. Untested by the user.

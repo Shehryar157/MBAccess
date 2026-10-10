@@ -1,4 +1,4 @@
-"""Wall beeps in scenes: a soft tone when you move closer to a wall.
+﻿"""Wall beeps in scenes: a soft tone when you move closer to a wall.
 
 Eight directions around the player, one per way the movement keys go (W, W+D, D,
 ...). Each remembers its last distance step; when you get a step closer, it beeps
@@ -30,6 +30,11 @@ STEPS = 4                       # distance steps; each closer step beeps a littl
 BASE = 440                      # Hz, the pitch of the farthest step
 HYSTERESIS = 0.3                # metres past a step boundary before it counts as left
 SCENE_WINDOW = 10
+# A wall in these directions that falls out of range (a side street opens on your left)
+# gives a whoosh. Not behind (walking away from a wall says nothing new), not diagonals
+# (corners_only hides them whenever a side wall explains them).
+OPEN_ZONES = ("front", "left", "right")
+OPEN_GAIN = 0.7
 # Where the diagonals sound, degrees from straight ahead. 45 is the true diagonal;
 # raise it to push them toward your ears, lower it to pull them toward front/back.
 DIAGONAL_ANGLE = 45
@@ -163,6 +168,19 @@ def _shape(freq, harmonics, length, blips=1, gap=0.04):
     return np.concatenate(parts)
 
 
+def _whoosh(length=0.32):
+    """The "it's open here" sound: soft noise that brightens as it swells, then fades,
+    like air opening up. Noise, not a tone, so it's never mistaken for a wall beep."""
+    rng = np.random.default_rng(7)          # the same whoosh every time
+    noise = rng.standard_normal(int(RATE * length))
+    smooth = lambda x, n: np.convolve(x, np.ones(n) / n, mode="same")
+    dark, bright = smooth(noise, 24), smooth(noise, 5) - smooth(noise, 60)
+    t = np.linspace(0, 1, len(noise))
+    mix = (1 - t) * dark / np.abs(dark).max() + t * bright / np.abs(bright).max()
+    envelope = np.sin(math.pi * t ** 0.7) ** 2        # swells, peaks early-middle, fades
+    return 0.6 * mix * envelope
+
+
 SINE = [(1, 1.0)]
 BRIGHT = [(1, 1.0), (2, 0.5), (3, 0.3), (4, 0.15)]         # all overtones: clear, bright
 HOLLOW = [(1, 1.0), (3, 0.45), (5, 0.25), (7, 0.12)]        # odd ones only: reedy, clarinet-like
@@ -215,6 +233,8 @@ class WallBeeper:
         self.ping_buffer = self.audio.buffer(0.8 * _beacon())
         self.next_ping = 0.0
         self.last_step = {zone: -1 for zone in VOICES}   # -1 = nothing in range
+        self.open_sources = {zone: self.audio.source(VOICES[zone][0], OPEN_GAIN * volume) for zone in OPEN_ZONES}
+        self.open_buffer = self.audio.buffer(_whoosh())
         self.stop = threading.Event()
         threading.Thread(target=self._run, daemon=True, name="wall beeps").start()
 
@@ -341,5 +361,8 @@ class WallBeeper:
                         # boundary, so wobbling on it doesn't beep again and again
                         d2 = d - HYSTERESIS
                         back = min(STEPS - 1, int((1 - d2 / reach) * STEPS)) if d2 < reach else -1
-                        self.last_step[zone] = min(self.last_step[zone], max(step, back))
+                        was = self.last_step[zone]
+                        self.last_step[zone] = min(was, max(step, back))
+                        if was >= 0 and self.last_step[zone] == -1 and zone in OPEN_ZONES:
+                            self.audio.play(self.open_sources[zone], self.open_buffer)   # open now
             time.sleep(TICK)
