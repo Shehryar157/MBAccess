@@ -206,6 +206,12 @@ Next / open:
   footsteps vol 4-5 prio 1 (horses 8/3). tools/footsteps.py raises grass/water 11, wood 12,
   prio 6 (backup sounds.txt.mbaccess-backup; "restore" undoes). Same sound for every agent:
   the player's are loudest by distance only. Applied to the user's install; needs a game restart.
+  User (walking): no louder. Session 21 found why (not yet heard by the user): the FILE lines
+  at the top of sounds.txt carry their own flags (still vol 4 prio 1), and the grass recordings
+  peak at only 0.09-0.15 of full scale (wood 0.13-0.29, water 0.69). The tool now also raises
+  the file flags and writes louder copies Sounds/mbaccess_*.wav (peak 0.9: grass 6-10x, wood
+  3-7x, water 1.2x; pygame decodes the .ogg, wave writes; no new tool needed). Optional
+  argument = target peak (e.g. 0.6) if too loud; "restore" deletes the copies too.
 - FIXED 2026-10-10 (Jelkala town centre, read-only): a passage's menu option is at object
   +0x248 (second variation), NOT +0x244 (0 for most doors). Five doors read 7, 6, 5, 4, 2 =
   dungeon, arena, shop, tavern, castle: all named right now. Door PROPS ("rhodok house
