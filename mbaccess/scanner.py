@@ -424,7 +424,7 @@ class Scanner:
 
     def nearby_usable(self, reach):
         """The nearest thing you could use (person, horse, item, exit) within reach:
-        (key, words, distance, angle) or None. For the "close enough" setting."""
+        (key, words, distance, angle, category) or None. For the "close enough" setting."""
         player, found = self._read_all()
         if player is None:
             return None
@@ -436,7 +436,7 @@ class Scanner:
             limit = reach[t["category"]] if isinstance(reach, dict) else reach
             if d <= limit and (best is None or d < best[2]):
                 verb = {"People": "Talk to ", "Animals": "Mount: ", "Items": "Pick up "}.get(t["category"], "")
-                best = (t["key"], verb + t["name"], d, a)
+                best = (t["key"], verb + t["name"], d, a, t["category"])
         return best
 
     def agent_name(self, no):

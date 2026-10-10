@@ -155,6 +155,7 @@ class Prompts:
         elif self.mode() == "Close enough" and self.near and self.turner:
             # Close enough but not facing it: turn to it, look down if the game
             # needs that, and press F, as a sighted player aims with the mouse.
+            self.near = self.scanner.nearby_usable(REACH) or self.near   # where it is NOW
             self.busy = True
             threading.Thread(target=self._aim_and_use, args=(self.near,), daemon=True,
                              name="aim").start()
@@ -164,25 +165,55 @@ class Prompts:
         time.sleep(0.1)
         _user32.keybd_event(0, SCAN_F, KEYEVENTF_SCANCODE | KEYEVENTF_KEYUP, 0)
 
+    def _offered(self, r, want, wait):
+        """Does the game offer the thing we turned to, within `wait` seconds? Only that
+        thing: an item lying under a horse first offers the horse, and F then mounts it
+        (happened in a test, 2026-10-10)."""
+        until = time.perf_counter() + wait
+        while True:
+            kind, no, in_range = self._use(r)
+            if in_range and no == want[1] and (kind in (PERSON, AGENT)) == (want[0] == "agent") \
+                    and kind not in (NOTHING, DISMOUNT):
+                return True
+            if time.perf_counter() >= until:
+                return False
+            time.sleep(0.02)
+
+    def _angle_now(self, r, want, angle):
+        """The angle to turn by to face the thing. A person or horse may have walked on
+        since we last looked, so theirs is worked out again from where they stand now."""
+        mission = walls.mission_address(r, self.game.profile)
+        player = walls.find_player(r, mission, self.game.profile)
+        if want[0] == "agent":
+            begin, end = struct.unpack("<II", r.read(mission + 0x20, 8))
+            chunk = r.ptr(begin + 4 * (want[1] // 16))
+            x, y = struct.unpack("<2f", r.read(chunk + want[1] % 16 * walls.AGENT_SIZE + walls.AGENT_POS, 8))
+            angle = math.degrees(math.atan2(y - player[1], x - player[0]) - player[3] - walls.FORWARD)
+        return math.degrees(player[3]) + angle
+
     def _aim_and_use(self, near):
         r = Reader(self.game)
         moved = 0
         pitch = walls.camera_pitch(r, self.game.profile)
+        want = near[0]                      # ("agent", no) or ("object", no)
+        started = time.perf_counter()
         try:
-            p = walls.find_player(r, walls.mission_address(r, self.game.profile), self.game.profile)
-            self.turner._mouse(math.degrees(p[3]) + near[3])     # face it
-            time.sleep(0.1)
-            want = near[0]                  # ("agent", no) or ("object", no)
-            while moved <= 900:             # items on the ground need a look down
-                kind, no, in_range = self._use(r)
-                # Only the thing we turned to: an item lying under a horse first offers the
-                # horse, and F then mounts it (happened in a test, 2026-10-10).
-                if in_range and no == want[1] and (kind in (PERSON, AGENT)) == (want[0] == "agent")                         and kind not in (NOTHING, DISMOUNT):
-                    self._press_f()
+            found = False
+            for attempt in range(3):        # a walking villager can take a second aim
+                self.turner._mouse(self._angle_now(r, want, near[3] if attempt == 0 else 0.0))
+                found = self._offered(r, want, 0.15)
+                if found or want[0] != "agent":
                     break
+            # Only an item on the ground needs a look down; a person, horse or door doesn't.
+            while not found and near[4] == "Items" and moved <= 900:
                 _user32.mouse_event(MOUSEEVENTF_MOVE, 0, LOOK_STEP, 0, 0)
                 moved += LOOK_STEP
-                time.sleep(0.03)
+                found = self._offered(r, want, 0.03)
+            # For the log: the user found this slow (2026-10-10); how long does it take?
+            print(f"aim at {near[1]!r}: {time.perf_counter() - started:.2f} s, "
+                  f"{attempt + 1} turns, looked down {moved}, offered {found}")
+            if found:
+                self._press_f()
             else:
                 self.say("can't reach it from here")
         except (ReadError, TypeError):
