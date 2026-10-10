@@ -274,3 +274,10 @@ Next / open:
   up or down slur (C5-E5 legato) ONCE from that direction; replays only after you've been
   reach + 3 m away; hits within 2.5 m are the same one. 2.7 ms per check. Verified on fake
   scenes (stairs, ledge, gentle hill silent); untested in a scene with stairs.
+- Jelkala (2026-10-10, read-only): terrain IS readable (32,177 floor triangles incl. terrain,
+  ground under the player = player z exactly). Castle stairs prop 14: collision ramp nz 0.87,
+  6.6 -> 7.7 m over ~1.9 m (0.58 per metre); steepest streets 0.39 per metre. So the rule is
+  steepness: a run steeper than STEEP 0.5 per metre that rises/falls LEVEL_CHANGE 0.5 m.
+  Found from the stairs' low side; 19 of 154 random town spots have one within 4 m (judge by ear).
+  Ladders have no floor (upright collision): not detected; in Native they're siege things.
+  "exit 16m" (8, prop 22 spr_exit_16m) at the town's edges: unknown what they look like.

@@ -339,8 +339,9 @@ def corners_only(dist, on_horse, reach):
 
 # Climbs and drops ahead (stairs, ramps, ledges): wall_beeps plays a two-note slur once each.
 STEP_UP = 0.35          # metres a foot can step up; a tabletop is higher, so it isn't floor
-LEVEL_CHANGE = 0.5      # rise or fall that counts ...
-LEVEL_OVER = 1.5        # ... within this many metres walked (gentler = a slope, ignored)
+STEEP = 0.5             # rise per metre that counts as stairs: Jelkala's castle stairs 0.58,
+                        # its steepest streets 0.39 (measured 2026-10-10)
+LEVEL_CHANGE = 0.5      # metres a steep run must rise or fall in all (a doorstep doesn't)
 LEVEL_STEP = 0.25       # metres between floor samples along each direction
 
 
@@ -368,22 +369,23 @@ def level_changes(walls, player, dist, reach):
 
 
 def _walk(heights, ds, pz, zone, a, px, py):
-    h = base = pz
-    start = None
+    """Follow the floor along one direction; return the start of the first steep run
+    (stairs, ramp) or ledge that rises or falls LEVEL_CHANGE in all."""
+    h = pz
+    start, run = None, 0.0
     for column, d in zip(heights, ds):
         ok = column[column <= h + STEP_UP]
         if not len(ok):
             return []                   # nothing to stand on (or only a step too high)
-        h = float(ok.max())
-        if abs(h - base) <= 0.1:
-            start = None
-            continue
-        if start is None:
-            start = d
-        if abs(h - base) >= LEVEL_CHANGE:
-            if d - start <= LEVEL_OVER:
-                return [(zone, 1 if h > base else -1,
+        new = float(ok.max())
+        rise, h = new - h, new
+        if abs(rise) >= STEEP * LEVEL_STEP and (start is None or (rise > 0) == (run > 0)):
+            if start is None:
+                start, run = d - LEVEL_STEP, 0.0
+            run += rise
+            if abs(run) >= LEVEL_CHANGE:
+                return [(zone, 1 if run > 0 else -1,
                          px + start * math.cos(a), py + start * math.sin(a))]
-        if d - start > LEVEL_OVER:      # a gentle slope: carry on from here
-            base, start = h, None
+        else:
+            start, run = None, 0.0
     return []
