@@ -19,6 +19,7 @@ covers it, read menus.md and screens.md: most work builds on them. Don't read ev
 | conversations.md | conversation window 12, conversation manager, skills array in memory, reaching a conversation without walking | conversations, dialogue, skill names, replacing text files with memory |
 | map.md | world map: parties (blocks of 16), positions, flags, terrain, factions, axes | the map, travel, parties, terrain, kingdoms, radar |
 | scenes.md | mission and scene objects, collision shapes (walls), agents (player, horses), facing angle, wall finder, scanner, prompts and use cue, dismounting, reach, turning, tracking beacon, scene key map | walking, scenes, walls, beeps, agents, battles, towns, scanner, prompts, mounting, turning, sounds |
+| battles.md | fighters: health, teams, attack and block actions; the battle plan and probes | battles, fighting, health, teams, enemies, blocking, orders, arena, sieges |
 | wfs.md | With Fire & Sword status | anything about WFS or porting to it |
 
 **Adding findings:** put each one in the file for its topic, with its date, how it was found
