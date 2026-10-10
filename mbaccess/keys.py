@@ -31,6 +31,9 @@ TAB = 0x09
 SHIFT_TAB, CTRL_LEFT, CTRL_RIGHT = 0x109, 0x125, 0x127
 ALT = 0x12
 # Type search: a letter or digit's key code is its capital character (VK_A = "A").
+# Screen reader modifier keys (NVDA's Insert, or Caps Lock if set so): while one
+# is held, keys belong to the screen reader.
+NVDA_KEYS = {0x2D, 0x14}
 LETTERS = tuple(range(0x30, 0x3A)) + tuple(range(0x41, 0x5B))
 KEY_J, KEY_K, KEY_L, KEY_O = 0x4A, 0x4B, 0x4C, 0x4F   # the scene scanner
 KEY_A, KEY_D, KEY_S = 0x41, 0x44, 0x53   # Shift+A/D/S: turn in a scene; Ctrl+A/D: face the nearest thing
@@ -141,6 +144,16 @@ class HookKeyWatcher:
                 return _user32.CallNextHookEx(None, code, wparam, lparam)
             vk = SIDES.get(info.vkCode, info.vkCode)
             front = _user32.GetForegroundWindow()
+            if NVDA_KEYS & self.held and vk not in NVDA_KEYS:
+                # A screen reader command (NVDA+T reads the title): not ours,
+                # and never swallowed. A release still clears our state.
+                if wparam in (WM_KEYUP, WM_SYSKEYUP):
+                    self.held.discard(vk)
+                    self.passed_down.discard(vk)
+                    if vk in self.hidden_down:
+                        self.hidden_down.discard(vk)
+                        return 1
+                return _user32.CallNextHookEx(None, code, wparam, lparam)
             if wparam in (WM_KEYDOWN, WM_SYSKEYDOWN):
                 if vk in self.keys and (vk not in self.held or vk in REPEATS):
                     reported = vk
