@@ -13,7 +13,7 @@ import time
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, r"E:\code\mods\CFCAccess\tools")
-from mbaccess import click, keys, process, session
+from mbaccess import click, keys, party_skills, process, session
 from mbaccess.mem import Reader
 from mbaccess.menu_watch import MenuWatcher
 
@@ -21,11 +21,14 @@ game = process.try_attach()
 hwnd = process.find_window(game.pid)
 click.use_config(game.profile.config_file)
 said = []
-w = MenuWatcher(Reader(game), None, game.profile.game_offsets, [], said.append,
-                screen=game.profile.screen, mouse=click.Mouse(lambda: hwnd))
+w = MenuWatcher(Reader(game), None, game.profile.game_offsets, [],
+                lambda text, interrupt=True: said.append(text),
+                screen=game.profile.screen, mouse=click.Mouse(lambda: hwnd),
+                party_skills=party_skills.PartySkills(Reader(game), game.profile.screen["party_skills"]))
 found, module = session.locate(game)
 if found:
-    w.set_game(found, session.load_menus(game, module))
+    w.set_game(found, session.load_menus(game, module), session.load_skills(game, module),
+               session.load_skins(game, module))
 for _ in range(20):      # a new screen is spoken once two reads match
     w.poll()
     if said:

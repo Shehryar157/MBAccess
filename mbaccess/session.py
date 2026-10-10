@@ -38,6 +38,11 @@ def load_menus(game, module_name):
         return []
 
 
+def load_skins(game, module_name):
+    """The module's skins (face editor styles); [] if unreadable."""
+    return modfiles.load_skins(os.path.join(game.folder, "Modules", module_name))
+
+
 def load_skills(game, module_name):
     folder = os.path.join(game.folder, "Modules", module_name)
     try:

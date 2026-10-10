@@ -196,6 +196,60 @@ def fill_skill_numbers(skills, module_dir):
             "%d", str(number) if number is not None else "a set number")
 
 
+@dataclass
+class Skin:
+    name: str                   # "man", "woman"
+    hairs: list                 # mesh names, in the face editor's order
+    beards: list
+    faces: list                 # (texture name, colour 0xAARRGGBB): the Skin picker's tones
+
+
+def parse_skins(text):
+    """Parse skins.txt (written by process_skins.py) far enough for the
+    face editor: each skin's hair, beard and face texture lists."""
+    words = iter(text.split())
+    take = lambda: next(words)
+    count = lambda: int(take())
+    if [take(), take(), take()] != ["skins_file", "version", "1"]:
+        raise ValueError("not a skins.txt (version 1)")
+    skins = []
+    for _ in range(count()):
+        name = take()
+        for _ in range(5):
+            take()          # flags, body, calf, hand, head meshes
+        for _ in range(count() * 6):
+            take()          # face keys: id, two numbers, range, name
+        hairs = [take() for _ in range(count())]
+        beards = [take() for _ in range(count())]
+        for _ in range(2):
+            for _ in range(count()):
+                take()      # hair textures, then beard textures
+        faces = []
+        for _ in range(count()):
+            face, colour, materials, colours = take(), int(take()), count(), count()
+            for _ in range(materials + colours):
+                take()
+            faces.append((face, colour))
+        for _ in range(count() * 2):
+            take()          # voices
+        for _ in range(4):
+            take()          # skeleton, scale, two blood particles
+        for _ in range(count()):
+            take(), take()  # a constraint: weight, sign, then its pairs
+            for _ in range(count() * 2):
+                take()
+        skins.append(Skin(name, hairs, beards, faces))
+    return skins
+
+
+def load_skins(module_dir):
+    try:
+        with open(os.path.join(module_dir, "skins.txt"), encoding="utf-8", errors="replace") as f:
+            return parse_skins(f.read())
+    except (OSError, ValueError, StopIteration):
+        return []
+
+
 def load_menus(module_dir, language="en"):
     """Menus of a module folder, with translated texts where available."""
     with open(os.path.join(module_dir, "menus.txt"), encoding="utf-8", errors="replace") as f:

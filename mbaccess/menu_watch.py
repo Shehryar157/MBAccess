@@ -1,4 +1,4 @@
-﻿"""Speaking the game's screens and using them by keyboard.
+"""Speaking the game's screens and using them by keyboard.
 
 That covers the main menu, the game menus (town, village and event menus)
 and form screens like Options. We poll: every tick we check which screen is
@@ -31,6 +31,8 @@ from . import keys
 from . import text as text_mod
 from .form import Item, TreeReader
 from .mem import ReadError
+
+FACE_WINDOW_BYTES = 0x1000   # the face editor window: its style numbers lie in here
 
 HIDDEN = 0x1
 # Click a little right of the button's left edge and halfway up its row.
@@ -75,6 +77,7 @@ class MenuWatcher:
         self.party_skills = party_skills   # party_skills.PartySkills, if the profile has it
         self.world_map = world_map         # world_map.WorldMap: places on the map screen
         self.skills = []                   # the module's skills (modfiles.Skill)
+        self.skins = []                    # the module's skins (modfiles.Skin): face editor styles
         self.page = page             # the Accessibility tab (access_page.AccessPage), if any
         self.settings = settings
         self.game = game_address     # the campaign object; None at the main menu
@@ -116,9 +119,9 @@ class MenuWatcher:
         self.grid_headings = {}      # grid group -> the heading above it
         self.search, self.search_at = "", 0.0   # type search: letters so far, last one's time
 
-    def set_game(self, address, menus, skills=()):
+    def set_game(self, address, menus, skills=(), skins=()):
         """A campaign started or a save was loaded: the game object moved."""
-        self.game, self.menus, self.skills = address, menus, list(skills)
+        self.game, self.menus, self.skills, self.skins = address, menus, list(skills), list(skins)
 
     @property
     def enabled(self):
@@ -246,7 +249,7 @@ class MenuWatcher:
             if config.get("party_skills"):
                 items = self.with_party_skills(items)
             if config.get("face"):
-                items = face.dress(items, self.player_gender())
+                items = face.dress(items, self.player_gender(), self.face_styles(top, items))
             if config.get("saves"):
                 items = self.save_tiles(top, config["saves"]) + items
             if config.get("map") and self.world_map and self.game:
@@ -314,17 +317,44 @@ class MenuWatcher:
                               click=self.tree.middle(tile), widget=tile))
         return items
 
-    def player_gender(self):
-        """"man" or "woman" from the player troop's flags (low bits = skin:
-        0 man, 1 woman); "" if unknown."""
+    def player_skin_no(self):
+        """The player troop's skin (flags' low bits: 0 man, 1 woman), or None."""
         if not (self.party_skills and self.game):
-            return ""
+            return None
         o = self.party_skills.o
         try:
-            skin = self.reader.u32(self.reader.ptr(self.game + o["troops"]) + o["troop_flags"]) & 0xf
+            return self.reader.u32(self.reader.ptr(self.game + o["troops"]) + o["troop_flags"]) & 0xf
         except ReadError:
-            return ""
-        return {0: "man", 1: "woman"}.get(skin, "")
+            return None
+
+    def player_gender(self):
+        """"man" or "woman"; "" if unknown."""
+        return {0: "man", 1: "woman"}.get(self.player_skin_no(), "")
+
+    def face_styles(self, window, items):
+        """{"Skin": "6 of 8, light", "Beard": ..., "Hair": ...} for the face
+        editor's pickers, or {}. The window keeps beard, hair, hair texture
+        and face texture numbers, then age and hair colour, right after its
+        Done, Reset and Randomize button pointers (WarbandLib
+        face_gen_window.h): find those three pointers in a row, and trust the
+        numbers only if age and hair colour match the sliders."""
+        skin = self.player_skin_no()
+        if skin is None or not 0 <= skin < len(self.skins):
+            return {}
+        named = {i.label or i.value: i for i in items if i.kind in ("button", "slider")}
+        if not all(n in named for n in ("Done", "Reset", "Randomize", "Age", "Hair Color")):
+            return {}
+        try:
+            data = self.reader.read(self.window(window), FACE_WINDOW_BYTES)
+        except ReadError:
+            return {}
+        at = data.find(struct.pack("<III", *(named[n].widget for n in ("Done", "Reset", "Randomize"))))
+        if at < 0 or at + 36 > len(data):
+            return {}
+        beard, hair, _, face_no, age, colour = struct.unpack_from("<iiiiff", data, at + 12)
+        if abs(age - named["Age"].fraction) > 0.02 or abs(colour - named["Hair Color"].fraction) > 0.02:
+            return {}       # not the fields we expect: say nothing rather than wrong numbers
+        return face.styles(self.skins[skin], beard, hair, face_no)
 
     def with_party_skills(self, items):
         """The party screen draws its party skills without keeping the text,

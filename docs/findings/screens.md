@@ -105,3 +105,12 @@
   hair colour list (ARGB, light -> dark: Hair Color slider left = light). Slider direction for
   the shape keys (left = less) is ASSUMED: some skins.txt key ranges run backwards; check by
   screenshot.
+- PICKER VALUES (2026-10-10, VERIFIED live: Beard Right 18 -> 19 of 23 and back): the face_gen
+  window keeps beard_no, hair_no, (hair texture: junk 20091 in 1.174), face_texture_no, age
+  float, hair colour float right after its Done, Reset, Randomize button pointers (WarbandLib
+  face_gen_window.h order; here at window+0x448). MenuWatcher.face_styles finds the 3 pointers
+  in a row (no fixed offset) and trusts the numbers only if age and hair colour match the
+  sliders. Counts from skins.txt (modfiles.parse_skins: man 20 hairs, 23 beards, 8 faces;
+  woman 7, 0, 5); skin tone word from the face texture's colour brightness (face.tone).
+- Slider direction: Nose Size 12% -> 100% made the nose visibly longer (screenshot, head
+  moving, so weak evidence): right = more, as assumed. Others still unchecked.

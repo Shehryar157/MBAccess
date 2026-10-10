@@ -66,12 +66,13 @@ def word(label, fraction):
     return ("very " + low, low, middle, high, "very " + high)[band(fraction)]
 
 
-def portrait(sliders, gender=""):
-    """sliders: {label: fraction}. A short description of the face."""
+def portrait(sliders, gender="", skin=""):
+    """sliders: {label: fraction}; skin: a tone word. A short description of the face."""
     age = AGES[band(sliders["Age"])] if "Age" in sliders else ""
     who = " ".join(w for w in (age, gender or "person") if w)
     hair = sliders.get("Hair Color")
-    first = who[:1].upper() + who[1:] + (f", {word('Hair Color', hair)} hair" if hair is not None else "")
+    first = who[:1].upper() + who[1:] + (f", {skin} skin" if skin else "") + \
+        (f", {word('Hair Color', hair)} hair" if hair is not None else "")
     notable = sorted((abs(f - 0.5), label) for label, f in sliders.items()
                      if label in FEATURES and label != "Hair Color" and abs(f - 0.5) > AVERAGE)
     chosen = {label for _, label in notable[-MOST:]}
@@ -86,8 +87,35 @@ def portrait(sliders, gender=""):
     return f"{first}. {text[:1].upper() + text[1:]}."
 
 
-def dress(items, gender=""):
-    """Give the face editor's sliders words, and put the portrait first."""
+SKIN_TONES = ((0.88, "fair"), (0.8, "light"), (0.65, "tan"), (0.55, "brown"), (0.0, "dark"))
+
+
+def tone(colour):
+    """A skin texture's colour (0xAARRGGBB in skins.txt) as a word, by brightness."""
+    brightness = sum((colour >> shift) & 0xFF for shift in (0, 8, 16)) / 765
+    return next(word for edge, word in SKIN_TONES if brightness >= edge)
+
+
+def styles(skin, beard, hair, face_no):
+    """The pickers' values from the editor's numbers (counted from 0) and
+    the player's skin (modfiles.Skin): {"Skin": "6 of 8, light", ...}."""
+    def place(n, total):
+        return f"{n + 1} of {total}" if 0 <= n < total else "none"
+    found = {"Hair": place(hair, len(skin.hairs))}
+    if skin.beards:
+        found["Beard"] = place(beard, len(skin.beards))
+    if 0 <= face_no < len(skin.faces):
+        found["Skin"] = f"{place(face_no, len(skin.faces))}, {tone(skin.faces[face_no][1])}"
+    return found
+
+
+def dress(items, gender="", picked=None):
+    """Give the face editor's sliders words and its pickers their style
+    (picked: from styles()), and put the portrait first."""
+    picked = picked or {}
+    for i in items:
+        if i.kind == "spinner" and i.label in picked:
+            i.value = picked[i.label]
     sliders = {}
     for i in items:
         if i.kind == "slider" and (i.label in FEATURES or i.label == "Age"):
@@ -97,5 +125,6 @@ def dress(items, gender=""):
                 i.value = f"{w}, {i.value}"
     if not sliders:
         return items
-    return [Item("text", "Portrait", 0.0, 1.0, value=portrait(sliders, gender),
+    skin = picked.get("Skin", "").split(", ")[-1] if "," in picked.get("Skin", "") else ""
+    return [Item("text", "Portrait", 0.0, 1.0, value=portrait(sliders, gender, skin),
                  virtual="portrait")] + items

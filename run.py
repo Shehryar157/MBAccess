@@ -1,4 +1,4 @@
-﻿"""MB Access: screen reader support for Mount & Blade games.
+"""MB Access: screen reader support for Mount & Blade games.
 
     python run.py               wait for Warband or With Fire & Sword, then speak menus
     pythonw run.py --with-game  started by the loader DLL: follow one game session,
@@ -43,7 +43,7 @@ def only_instance():
 def play_session(game):
     speech.say(f"Connected to {game.profile.title}.")
     launch = launcher.LauncherWatcher(speech.say)
-    address, menus, skills, next_locate = None, {}, {}, 0
+    address, menus, skills, skins, next_locate = None, {}, {}, {}, 0
     window = {"hwnd": None, "checked": 0}
 
     def game_window():
@@ -141,7 +141,8 @@ def play_session(game):
                 if module not in menus:
                     menus[module] = session.load_menus(game, module)
                     skills[module] = session.load_skills(game, module)
-                watcher.set_game(address, menus[module], skills[module])
+                    skins[module] = session.load_skins(game, module)
+                watcher.set_game(address, menus[module], skills[module], skins[module])
                 if not watcher.enabled:
                     speech.say("Menu reading isn't set up for this game version yet. "
                                "Run the discovery tool once.")
