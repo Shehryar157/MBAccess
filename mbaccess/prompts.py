@@ -28,6 +28,10 @@ USE = 0x408
 # Talk" with type 1, no 12 = his agent). 2 = a horse to mount (agent number). 3 dismount.
 NOTHING, PERSON, AGENT, DISMOUNT = -1, 1, 2, 3
 PASSAGE = 6     # a door to another scene (seen 2026-10-10 at "Door to the castle")
+# An item on the ground; number = its mission object number (VERIFIED 2026-10-10: a dropped
+# crossbow and bolts in Jelkala, objects 334/335, offered from 1.2 m looking ~35 degrees down,
+# on foot only: mounted, looking down only ever offers Dismount).
+ITEM = 7
 SCENE_WINDOW = 10
 
 _user32 = ctypes.WinDLL("user32")
@@ -82,6 +86,12 @@ class Prompts:
             if not known or known[1] not in ("Items", "Exits"):
                 return None
             return ("Pick up " if known[1] == "Items" else "") + known[0]
+        if kind == ITEM:
+            known = self.scanner.object_names.get(no)
+            if known is None:           # dropped since the scanner last looked
+                self.scanner._read_all()
+                known = self.scanner.object_names.get(no)
+            return "Pick up " + (known[0] if known else "item")
         if kind == PASSAGE:
             # Assumed: no = the passage's mission object number, as for type 1.
             known = self.scanner.object_names.get(no)
@@ -157,13 +167,17 @@ class Prompts:
     def _aim_and_use(self, near):
         r = Reader(self.game)
         moved = 0
+        pitch = walls.camera_pitch(r, self.game.profile)
         try:
             p = walls.find_player(r, walls.mission_address(r, self.game.profile), self.game.profile)
             self.turner._mouse(math.degrees(p[3]) + near[3])     # face it
             time.sleep(0.1)
+            want = near[0]                  # ("agent", no) or ("object", no)
             while moved <= 900:             # items on the ground need a look down
-                kind, _, in_range = self._use(r)
-                if kind not in (NOTHING, DISMOUNT) and in_range:
+                kind, no, in_range = self._use(r)
+                # Only the thing we turned to: an item lying under a horse first offers the
+                # horse, and F then mounts it (happened in a test, 2026-10-10).
+                if in_range and no == want[1] and (kind in (PERSON, AGENT)) == (want[0] == "agent")                         and kind not in (NOTHING, DISMOUNT):
                     self._press_f()
                     break
                 _user32.mouse_event(MOUSEEVENTF_MOVE, 0, LOOK_STEP, 0, 0)
@@ -176,22 +190,26 @@ class Prompts:
         finally:
             if moved:
                 time.sleep(0.2)
-                self._look_up(moved)
+                self._look_up(r, pitch)
             self.last = None
             self.busy = False
 
-    def _look_up(self, moved):
-        # In small moves: one big jump can throw the pointer out of the game window,
-        # and then the game stops feeling the mouse (2026-10-10).
-        while moved > 0:
-            part = min(LOOK_STEP, moved)
-            _user32.mouse_event(MOUSEEVENTF_MOVE, 0, -part, 0, 0)
-            moved -= part
-            time.sleep(0.005)
+    def _look_up(self, r, pitch):
+        """Back to the up/down angle we started at. By watching the camera, not by
+        counting steps: the camera stops at its lowest, so steps past that never happened,
+        and undoing them all pointed the camera at the sky (2026-10-10). Small moves: one
+        big jump can throw the pointer out of the window and the game stops feeling it."""
+        for _ in range(150):
+            error = walls.camera_pitch(r, self.game.profile) - pitch
+            if abs(error) < 0.03:
+                return
+            _user32.mouse_event(MOUSEEVENTF_MOVE, 0, -20 if error > 0 else 20, 0, 0)
+            time.sleep(0.015)
 
     def _dismount(self):
         r = Reader(self.game)       # our own: this runs on its own thread
         moved = 0
+        pitch = walls.camera_pitch(r, self.game.profile)
         if self.turner:
             self.turner.center_pointer()
         try:
@@ -210,6 +228,6 @@ class Prompts:
             pass
         finally:
             if moved:
-                self._look_up(moved)     # look ahead again
+                self._look_up(r, pitch)     # look ahead again
             self.last = None
             self.busy = False

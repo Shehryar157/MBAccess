@@ -281,3 +281,17 @@ Next / open:
   Found from the stairs' low side; 19 of 154 random town spots have one within 4 m (judge by ear).
   Ladders have no floor (upright collision): not detected; in Native they're siege things.
   "exit 16m" (8, prop 22 spr_exit_16m) at the town's edges: unknown what they look like.
+- DRIVING TESTS on horseback, Jelkala outskirts (2026-10-10, user hands-off):
+  - Horseback camera aiming WORKS: turner._mouse turned the camera +45.0 / -43.9 (camera and
+    horse body can differ a lot: 136 degrees here, screenshot confirmed).
+  - CAMERA PITCH = scene window +0x394 (z of the camera-to-player direction): 0 level, +0.98
+    lowest (clamps after ~1,400 steps from sky), negative = looking up. BUG FIXED: looking back
+    up by counting steps overshot to the sky when the look-down had hit the clamp; prompts now
+    restore the starting pitch by feedback (walls.camera_pitch).
+  - USE TYPE 7 = ITEM ON THE GROUND, number = mission object number; offered on foot from 1.2 m
+    at pitch ~0.5-0.6; mounted, looking down only offers Dismount. prompts.ITEM speaks
+    "Pick up X". F picked both up.
+  - Keys: 1 = select Infantry (order panel "F1 Movement orders..."), NOT a weapon; the wheel
+    draws a weapon; G dropped crossbow + bolts.
+  - Close enough F now only presses for the prompt of the thing it turned to (items under a
+    horse first offer the horse: my test remounted by mistake).

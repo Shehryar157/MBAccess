@@ -53,6 +53,14 @@ def camera_facing(reader, profile):
     return math.atan2(-cy, -cx) - FORWARD
 
 
+def camera_pitch(reader, profile):
+    """How far the camera looks down: the z of the same camera-to-player direction
+    (+0x394). 0 = level, about +0.98 at the lowest (where the game stops it), negative =
+    looking up. Found 2026-10-10 on horseback: 1,400 mouse steps from sky to lowest."""
+    window = reader.u32(profile.screen["game_windows"] + 4 * SCENE_WINDOW)
+    return struct.unpack("<f", reader.read(window + CAMERA_BACK + 8, 4))[0]
+
+
 def find_player(reader, mission, profile=None):
     """(x, y, z, facing radians, on_horse) for the player's agent, or None. Given the
     profile, on foot the facing is the camera's: the way W walks."""
