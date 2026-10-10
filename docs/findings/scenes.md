@@ -258,3 +258,9 @@ Next / open:
   on their own whatever modifier is held, so Shift+A would also strafe: that's why we hide them.
 - Learn sounds (user's request): Accessibility tab ends with "Learn sound: ..." buttons
   (wall_beeps.LESSONS; WallBeeper.demo plays on its own source from the real direction).
+- Tavern (Jelkala, read-only 2026-10-10): exit passage = menu_town option 3 "Door to the town
+  center" (current menu stays menu_town inside). Hidden now: spr_shadow_*, spr_glow_* (effects).
+  Still listed: castle battlement, rhodok houses (scenery seen through the tavern windows?).
+- Climb announcer (wall_beeps._climb, untested in game): on foot, height gained over the last
+  2 m walked; steeper than 0.4 m per metre = stairs; when it flattens, "up/down N metres" if
+  >= 1.5 m. Simulated: stairs spoken, a 0.2 slope hill silent.

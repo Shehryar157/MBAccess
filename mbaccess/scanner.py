@@ -48,7 +48,8 @@ CATEGORIES = ("All", "People", "Exits", "Items", "Objects", "Animals")
 # Hard-coded (can't be discovered from memory yet): props a sighted player never sees,
 # such as light sources and invisible barriers. Matched against the id without "spr_".
 INVISIBLE = ("light", "barrier", "ai_limiter", "invisible", "collision", "entry", "sound",
-             "spawn", "dummy", "fire_point", "particle", "snowy_barrel")
+             "spawn", "dummy", "fire_point", "particle", "snowy_barrel",
+             "shadow", "glow")      # 2026-10-10 tavern: shadow_square, glow_a are effects
 # Props a player can walk through or climb count as Exits. Door props are only the picture of a
 # door: the usable door is the passage on top of it (or the door does nothing), so they stay
 # Objects (2026-10-10: "rhodok house passage" lay 0.3 m from the real "Door to the dungeon").

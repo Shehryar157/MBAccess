@@ -73,6 +73,13 @@ def _beacon():
     return out / np.max(np.abs(out))
 
 
+# Stairs and steps: after a steep climb on foot, say how far up or down you went.
+CLIMB_WINDOW = 2.0      # metres walked that the slope is measured over
+CLIMB_STEEP = 0.4       # rise per metre walked that counts as stairs (~22 degrees; hills are gentler)
+CLIMB_FLAT = 0.15       # below this the climb is over
+CLIMB_SAY = 1.5         # metres up or down worth saying (a doorstep isn't)
+
+
 NAME_REACH = {False: 1.5, True: 2.5}    # metres: name the thing ahead when this close
 NAME_CLEAR = 0.6                        # metres further before the same thing is new again
 
@@ -254,6 +261,9 @@ class WallBeeper:
         self.open_sources = {zone: self.audio.source(VOICES[zone][0], OPEN_GAIN * volume) for zone in OPEN_ZONES}
         self.open_buffer = self.audio.buffer(_whoosh())
         self.volume = volume
+        self.trail = []                 # (metres walked so far, height) over the last CLIMB_WINDOW
+        self.walked = 0.0
+        self.climb_from = None          # height where the current steep climb began
         self.demo_source = self.audio.source(0, 0)     # Learn sounds: its own, so the
         self.demo_turn = 0                              # beep thread never cuts it off
         self.stop = threading.Event()
@@ -347,6 +357,37 @@ class WallBeeper:
                 a.stop(src)
                 a.set(src, pitch=1.0)
 
+    def _climb(self, player):
+        """On stairs (steep, on foot): once you're off them, "up 4 metres". Measured as
+        height gained over the last CLIMB_WINDOW metres walked, so standing still or a
+        jump in place doesn't count, and gentle hills stay quiet."""
+        if player is None or player[4]:
+            self.trail, self.climb_from = [], None
+            return
+        x, y, z = player[0], player[1], player[2]
+        if self.trail:
+            step = math.hypot(x - self.trail[-1][2], y - self.trail[-1][3])
+            if step > 2.0:              # moved by a door or a load, not by walking
+                self.trail, self.climb_from = [], None
+            elif step < 0.02:
+                return                  # standing still: nothing to measure
+            else:
+                self.walked += step
+        self.trail.append((self.walked, z, x, y))
+        while len(self.trail) > 2 and self.walked - self.trail[1][0] >= CLIMB_WINDOW:
+            self.trail.pop(0)
+        span = self.walked - self.trail[0][0]
+        if span < CLIMB_WINDOW * 0.75:
+            return
+        slope = (z - self.trail[0][1]) / span
+        if abs(slope) >= CLIMB_STEEP and self.climb_from is None:
+            self.climb_from = self.trail[0][1]
+        elif abs(slope) <= CLIMB_FLAT and self.climb_from is not None:
+            rise = z - self.climb_from
+            self.climb_from = None
+            if abs(rise) >= CLIMB_SAY:
+                self.spoken.put("%s %d metres" % ("up" if rise > 0 else "down", round(abs(rise))))
+
     def cue(self, angle=0.0):
         """The hammer-on "you can use this" sound, from `angle` (scanner angles:
         degrees, positive to the left)."""
@@ -419,6 +460,7 @@ class WallBeeper:
             self._horse_drone(self.player if result else None)
             if result:
                 self._ping(self.player)
+                self._climb(self.player)
             if not result:
                 self.last_step = {zone: -1 for zone in VOICES}
             else:
