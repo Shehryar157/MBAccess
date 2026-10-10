@@ -73,3 +73,11 @@
   "X, current"; paragraphs spread down the box. Layout "by_group" = Tab sections Buttons /
   Topics / Page; opens on Page. Box text is hashed into the screen key, so a new page re-announces.
 - Tool: tools/probe_textbox.py <window> dumps these boxes.
+- LINKS (2026-10-10, verified read-only on the Khergit Khanate page): text box +0x2d4 = vector of
+  lower-left corners (x, y floats, 16-byte entries), +0x2e4 = upper-right corners, +0x314 = ints,
+  which link (0.. in text order) each piece belongs to (a wrapped name has 2 pieces), +0x304 =
+  link target id (trp/p/fac number), +0x2f4 = link type. All relative to the box position.
+  form.link_boxes(); articles give "Name, link" items after their line; rows() keeps a box's
+  own order (Item.order). Clicking a link through the mod UNTESTED.
+- Character screen (11): profile "skill_info" speaks modfiles Skill.description after a skill.
+- NVDA key (Insert/Caps Lock) held: keys hook passes everything through (keys.NVDA_KEYS).
