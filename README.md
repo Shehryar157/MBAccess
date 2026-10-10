@@ -6,6 +6,10 @@ The mod is in development. Menus and the campaign's everyday screens are solid; 
 
 ## Contents
 
+- [What works](#what-works)
+- [What may not work correctly](#what-may-not-work-correctly)
+- [Known bugs](#known-bugs)
+- [What does not work yet](#what-does-not-work-yet)
 - [Installing and updating](#installing-and-updating)
 - [Before you play](#before-you-play)
 - [Keys](#keys)
@@ -15,21 +19,63 @@ The mod is in development. Menus and the campaign's everyday screens are solid; 
 - [The world map](#the-world-map)
 - [Combat](#combat)
 - [The mod's sounds](#the-mods-sounds)
-- [What works](#what-works)
-- [What may not work correctly](#what-may-not-work-correctly)
-- [Known bugs](#known-bugs)
-- [What does not work yet](#what-does-not-work-yet)
 - [How it works](#how-it-works)
 - [Building from source](#building-from-source)
 - [Credits](#credits)
 
+## What works
+
+- The launcher (Play, Configure and its options).
+- Main menu, Load game, Options, Video and Controls, including sliders, drop-downs and checkboxes.
+- Character creation, the character screen with skill descriptions, and the face editor.
+- All game menus: towns, villages, castles, camp, encounters.
+- Conversations and their replies.
+- Inventory, looting and trading, with item names, prices and details.
+- The party screen, including party skills, and the Notes pages with their links.
+- The world map: places list, travel, search, right-click menu.
+- Game messages, with history and categories.
+- Scenes: scanner, wall beeps, turning, compass, tracking, prompts, mounting and dismounting, doors and passages.
+- Fights: health and status keys, order lists, lock-on beeps, swing and aim warnings.
+- Question boxes, loading screens and their hints.
+
+## What may not work correctly
+
+These are built but have had little or no testing in real play.
+
+- **The installed program itself.** It was checked to start and wait for the game; a full session from the installed copy has not been played yet.
+- **Lock-on reach.** The distance at which the quick blips start adds a guessed allowance to the weapon's length. You may get a lock and miss, or hit without one.
+- **Order lists in a real battle.** Arrowing and Enter were tested on a made-up list only.
+- **Fighting on horseback** and aiming ranged weapons at enemies above or below you.
+- **Trading with merchants:** prices and Control+Enter quick buy and sell were checked against your own bag and the Discard pile, less at a merchant.
+- **Load game with several saves,** and the Delete button there.
+- **Notes pages** with long scrolling lists, such as Characters and Locations.
+- **Party skill bonuses** above skill level 2.
+- **Full screen.** The mod was developed with the game in a window. Full screen should behave the same but is untested.
+- **Other modules.** Only Native was used. Other modules load their own text and should read, but nothing is promised.
+- **Restarting NVDA while the game runs** can bring back speech being cut off while you hold W; restart the game to fix it.
+
+## Known bugs
+
+- The mod sometimes announces "Main menu" while the game is still loading at startup.
+- **L** is both the game's Game Log key and the scanner's "behind" key in scenes, so the log can open while you scan.
+- When a friendly lord's army fights beside you, his men are counted as enemies by B, N, the scanner and the lock-on beeps.
+- The swing warning has no matching sound for the swing ending, and nothing tells you whether your own blow landed apart from the game's messages.
+
+## What does not work yet
+
+- **Mount & Blade: With Fire & Sword.** The mod's core is shared, but that game's memory layout has not been mapped.
+- **Sieges:** ladders, siege towers, gates and sally doors.
+- **Tournaments:** untested, including the betting screens.
+- **Chests** in a castle you own.
+- **Multiplayer.**
+- **Non-Steam or older versions of Warband.** The mod knows version 1.174 only.
+- **The tutorial.**
+
 ## Installing and updating
 
-1. Download `MBAccess-Setup.exe` from the [Releases](../../releases) page.
-2. Run it and wait. Windows asks once for permission to make changes.
-3. The setup first checks for a newer version of itself. If there is one, a dialog tells you the new version and yours, with what's new in a read-only text box you can arrow through. **Update** (Enter) downloads and installs the new version; **Skip** (Escape) installs the version you downloaded, and the offer comes back the next time you run the setup.
-4. It finds Warband through Steam. If it can't, it asks you to choose the game's folder: the one that contains `mb_warband.exe`.
-5. When it says the mod is installed, start Warband from Steam as usual. The mod starts and stops with the game: it reads the launcher, and says "MB Access" and its version once the game itself is open.
+1. Download `MBAccess-Setup.exe`, the latest file on the [Releases](../../releases) page.
+2. Run it. The mod sets everything up by itself.
+3. Start Warband from Steam.
 
 **To update**, run `MBAccess-Setup.exe` again. Your settings are kept.
 
@@ -197,54 +243,6 @@ Press **1** for infantry, **2** for archers, **3** for cavalry or **0** for ever
 ## The mod's sounds
 
 Every sound can be heard on its own: open the game's Options, go to the **Accessibility** tab after Controls, and use the Learn sound buttons at the bottom. The same tab holds the mod's settings: which message categories are spoken, how much of an inventory item is read, arrow turning speed, naming what's in front, lock-on beeps, and when the use cue plays.
-
-## What works
-
-- The launcher (Play, Configure and its options).
-- Main menu, Load game, Options, Video and Controls, including sliders, drop-downs and checkboxes.
-- Character creation, the character screen with skill descriptions, and the face editor.
-- All game menus: towns, villages, castles, camp, encounters.
-- Conversations and their replies.
-- Inventory, looting and trading, with item names, prices and details.
-- The party screen, including party skills, and the Notes pages with their links.
-- The world map: places list, travel, search, right-click menu.
-- Game messages, with history and categories.
-- Scenes: scanner, wall beeps, turning, compass, tracking, prompts, mounting and dismounting, doors and passages.
-- Fights: health and status keys, order lists, lock-on beeps, swing and aim warnings.
-- Question boxes, loading screens and their hints.
-
-## What may not work correctly
-
-These are built but have had little or no testing in real play.
-
-- **The installed program itself.** It was checked to start and wait for the game; a full session from the installed copy has not been played yet.
-- **Lock-on reach.** The distance at which the quick blips start adds a guessed allowance to the weapon's length. You may get a lock and miss, or hit without one.
-- **Order lists in a real battle.** Arrowing and Enter were tested on a made-up list only.
-- **Fighting on horseback** and aiming ranged weapons at enemies above or below you.
-- **Trading with merchants:** prices and Control+Enter quick buy and sell were checked against your own bag and the Discard pile, less at a merchant.
-- **Load game with several saves,** and the Delete button there.
-- **Notes pages** with long scrolling lists, such as Characters and Locations.
-- **Party skill bonuses** above skill level 2.
-- **Full screen.** The mod was developed with the game in a window. Full screen should behave the same but is untested.
-- **Other modules.** Only Native was used. Other modules load their own text and should read, but nothing is promised.
-- **Restarting NVDA while the game runs** can bring back speech being cut off while you hold W; restart the game to fix it.
-
-## Known bugs
-
-- The mod sometimes announces "Main menu" while the game is still loading at startup.
-- **L** is both the game's Game Log key and the scanner's "behind" key in scenes, so the log can open while you scan.
-- When a friendly lord's army fights beside you, his men are counted as enemies by B, N, the scanner and the lock-on beeps.
-- The swing warning has no matching sound for the swing ending, and nothing tells you whether your own blow landed apart from the game's messages.
-
-## What does not work yet
-
-- **Mount & Blade: With Fire & Sword.** The mod's core is shared, but that game's memory layout has not been mapped.
-- **Sieges:** ladders, siege towers, gates and sally doors.
-- **Tournaments:** untested, including the betting screens.
-- **Chests** in a castle you own.
-- **Multiplayer.**
-- **Non-Steam or older versions of Warband.** The mod knows version 1.174 only.
-- **The tutorial.**
 
 ## How it works
 
