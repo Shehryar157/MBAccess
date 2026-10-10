@@ -10,7 +10,8 @@ import sys
 import time
 
 from mbaccess import (access_page, battle, click, help, keys, launcher, messages, party_skills, world_map,
-                      process, prompts, scanner, session, settings, speech, turning, wall_beeps)
+                      process, prompts, scanner, session, settings, speech, turning, wall_beeps,
+                      walls)
 from mbaccess import text as text_mod
 from mbaccess.mem import Reader
 from mbaccess.menu_watch import MenuWatcher
@@ -110,6 +111,8 @@ def play_session(game):
     scan = scanner.Scanner(Reader(game), game.profile, speech.say,
                            item_name=lambda kind: watcher.item_name(kind),
                            passage_name=passage_name, turner=turning.Turner(game, speech.say))
+    hands = battle.HandWatch(lambda kind: watcher.item_name(kind))
+    scan.holding = lambda: battle.held_words(hands.last, hands.name) if hands.last else ""
     scan.counters = lambda: watcher.hud_counters    # ammunition and arena counts, for H and B
     scan.orders = lambda: watcher.hud_orders        # the order panel's rows, for M
     scan.turner.start_spinning(key_watch.is_held, lambda: in_scene["now"], keys.LEFT, keys.RIGHT,
@@ -174,6 +177,9 @@ def play_session(game):
                 if ACTION_KEY in pressed:
                     prompt.on_action_key()      # F on horseback: dismount
                 prompt.poll()                   # "Talk to Villager", "Mount: Saddle Horse"
+                switched = hands.poll(scan.r, walls.mission_address(scan.r, game.profile), time.time())
+                if switched:
+                    speech.say(switched, interrupt=False)    # "Battle Axe": the weapon now in hand
                 while beeper and not beeper.spoken.empty():
                     speech.say(beeper.spoken.get_nowait())  # "crude fence" ahead
             except Exception as e:      # a scene half loaded or just closed

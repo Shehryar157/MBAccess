@@ -131,6 +131,7 @@ class Scanner:
         self.troop_names = {}       # troop number -> name: they never change
         self.counters = lambda: []  # the scene's on-screen counts (set by run.py)
         self.orders = lambda: []    # the open order panel's rows (set by run.py)
+        self.holding = lambda: ""   # what's in the player's hands (set by run.py)
         self.object_names = {}      # object number -> (name, category or None to skip)
         self.names_scene = None     # the scene object_names belong to
 
@@ -248,7 +249,9 @@ class Scanner:
                 self.say(self.turner.facing_words())
             elif key == keys.KEY_H:
                 words = battle.health_words(self.r, walls.mission_address(self.r, self.profile))
-                self.say(", ".join([words] + [c for c in self.counters() if c.startswith("ammunition")]))
+                holding = self.holding()
+                self.say(", ".join([words] + (["holding " + holding] if holding else [])
+                                   + [c for c in self.counters() if c.startswith("ammunition")]))
             elif key == keys.KEY_B:
                 self.battle_status()
             elif key == keys.KEY_N:

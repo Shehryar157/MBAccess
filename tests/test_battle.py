@@ -43,6 +43,14 @@ def test_other_teams_are_enemies_and_bystanders_are_nobody():
     assert battle.side(6, -1) is None and battle.side(-1, 4) is None
 
 
+def test_switching_a_weapon_says_only_what_changed():
+    name = {541: "Throwing Daggers", 491: "Wooden Shield", 3: "Battle Axe"}.get
+    assert battle.held_words((541, 491), name) == "Throwing Daggers, Wooden Shield"
+    assert battle.held_words((3, 491), name, before=(541, 491)) == "Battle Axe"
+    assert battle.held_words((3, None), name, before=(3, 491)) == "no shield"
+    assert battle.held_words((None, None), name, before=(3, None)) == "weapon put away"
+
+
 def test_team_fields_are_small_numbers_that_differ():
     group = [agent(0x200, 45, 45, 45, 0x300, 0), agent(0x200, 45, 45, 45, 0x300, 1)]
     assert battle.small_int_fields(group) == {0x300: [0, 1]}

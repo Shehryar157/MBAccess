@@ -84,6 +84,13 @@
   on it": the first list of a session now starts with a hint that F1 is a function key.
   Tested on a made-up list only; NOT in a battle (does a swallowed Up really not attack? does
   the list close by itself, and when?).
+- HELD ITEMS (from the battle2 recording; NOT yet seen live): agent item slot n's kind at
+  +0x7d4 + 8 * n (the next int is the item's own count: daggers thrown 0-5, a shield's 360);
+  +0x830 right hand's slot, +0x834 left hand's (shield), -1 empty; +0x838/+0x83c repeat. The
+  user had slot 0 = 541 Throwing Daggers, slot 1 = 491 Wooden Shield, hands (0, 1). Slots 2
+  and 3 unverified. battle.HandWatch speaks the name when a hand changes ("Battle Axe", "no
+  shield", "weapon put away") and H adds "holding ...". The user asked for this for next
+  weapon / next shield (Page Up / Page Down). The old "+0x544 + n * 0x30" guess was wrong.
 - Keys the user set on the game's Controls screen: Up attack, Down defend, Page Up next
   weapon, Page Down next shield. Still free in scenes: U V Z /.
 - The user wants to play arena fights THEMSELVES: record passively, never drive them.

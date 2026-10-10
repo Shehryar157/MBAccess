@@ -91,6 +91,71 @@ class SwingWatch:
         return started
 
 
+# What a fighter carries and holds (from the user's custom battle, 2026-10-10: Throwing
+# Daggers and a Wooden Shield). Item slot n's kind is at +0x7d4 + 8 * n (the int after it
+# is that item's own count: daggers thrown, a shield's 360 hit points). +0x830 = the slot
+# in the right hand, +0x834 the left (a shield); -1 = nothing. +0x838/+0x83c repeat them.
+AGENT_ITEMS, ITEM_STRIDE, ITEM_SLOTS = 0x7d4, 8, 4
+AGENT_HANDS = 0x830
+
+
+def player_agent(reader, mission):
+    """Address of the player's living agent, or None."""
+    for _no, address, data in agents(reader, mission, 0x38):
+        kind, _, status, flags = struct.unpack_from("<iiiI", data, walls.AGENT_TYPE)
+        if kind == HUMAN and status == ALIVE and flags & 1:
+            return address
+    return None
+
+
+def held(reader, address):
+    """(right hand's item kind, left hand's): None for an empty hand."""
+    kinds = []
+    for slot in struct.unpack("<2i", reader.read(address + AGENT_HANDS, 8)):
+        kinds.append(reader.i32(address + AGENT_ITEMS + ITEM_STRIDE * slot)
+                     if 0 <= slot < ITEM_SLOTS else None)
+    return tuple(kinds)
+
+
+def held_words(now, name, before=None):
+    """What to say when the hands change from `before` to `now`: the names of what's
+    newly held, or that a hand is now empty. With no `before`, everything held."""
+    right, left = now
+    parts = []
+    if before is None:
+        parts = [name(kind) for kind in now if kind is not None]
+    else:
+        if right != before[0]:
+            parts.append(name(right) if right is not None else "weapon put away")
+        if left != before[1]:
+            parts.append(name(left) if left is not None else "no shield")
+    return ", ".join(parts)
+
+
+class HandWatch:
+    """Speaks the weapon or shield the player has just switched to: a sighted player sees
+    it in their hands. poll() returns the words, or None."""
+    EVERY = 0.15
+
+    def __init__(self, name):
+        self.name = name        # item kind -> its name
+        self.last, self.checked = None, 0.0
+
+    def poll(self, reader, mission, now):
+        if now - self.checked < self.EVERY:
+            return None
+        self.checked = now
+        me = player_agent(reader, mission)
+        if me is None:
+            self.last = None    # not in a scene, or knocked out: start again next time
+            return None
+        hands = held(reader, me)
+        if hands == self.last:
+            return None
+        before, self.last = self.last, hands
+        return held_words(hands, self.name, before) or None
+
+
 def side(mine, theirs):
     """ "Enemies", "Allies" or None (a bystander, or no fight) for someone on team
     `theirs` when we're on team `mine`. Every other team counts as an enemy: right in an
