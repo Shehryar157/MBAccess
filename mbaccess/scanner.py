@@ -37,7 +37,10 @@ AGENT_HEAD = 0x2a0                  # bytes of each agent we need
 # Object meta types (WSE mission_object.h; 0, 1, 2 and 4 seen in a village 2026-10-10).
 PROP, ENTRY, SCENE_ITEM, PLANT, PASSAGE, SPAWNED_ITEM, DEATH_ITEM, SPAWNED_PROP = 0, 1, 2, 4, 5, 6, 8, 10
 META_CATEGORY = {PROP: "Objects", SPAWNED_PROP: "Objects", PASSAGE: "Exits",
-                 SCENE_ITEM: "Items", SPAWNED_ITEM: "Items", DEATH_ITEM: "Items"}
+                 # Items placed in the scene are merchants' displays: no prompt at any angle
+                 # (Kettle Hat on the armourer's stall, 1.2 m, 2026-10-10). Named, but Objects.
+                 SCENE_ITEM: "Objects", SPAWNED_ITEM: "Items", DEATH_ITEM: "Items"}
+ITEM_METAS = (SCENE_ITEM, SPAWNED_ITEM, DEATH_ITEM)
 
 CATEGORIES = ("All", "People", "Exits", "Items", "Objects", "Animals")
 # Hard-coded (can't be discovered from memory yet): props a sighted player never sees,
@@ -204,7 +207,7 @@ class Scanner:
 
     def _object_name(self, address, block, o, meta, kind, category):
         """(name, category), or (None, None) for things a sighted player never sees."""
-        if category == "Items":
+        if meta in ITEM_METAS:
             return self.item_name(kind), category
         ident = self.r.rgl_string(address + OBJ_ID)
         bare = ident[4:] if ident.startswith("spr_") else ident

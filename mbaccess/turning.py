@@ -24,8 +24,9 @@ SCAN_A, SCAN_D = 0x1E, 0x20        # DirectInput games read scan codes, not key 
 
 TOLERANCE = 2.0         # degrees
 MAX_NUDGE = 4000        # mouse steps per correction: a whole 45-degree turn (~700) goes at once
-BURST = 120             # ... but sent as small moves: one 675-step move turned the WRONG way
-BURST_GAP = 0.004       # seconds between them (2026-10-10)
+BURST = 40              # ... but sent as small moves: one 675-step move turned the WRONG way;
+                        # 120 per 4 ms still ran off a small window between the game's frames
+BURST_GAP = 0.01        # seconds between them (2026-10-10)
 HORSE_TIMEOUT = 4.0     # seconds holding A or D before giving up
 SPIN_SPEED = 90.0       # degrees a second while Left or Right arrow is held (on foot)
 SPIN_TICK = 0.01
@@ -117,6 +118,16 @@ class Turner:
     def _player(self):
         return walls.find_player(self.r, walls.mission_address(self.r, self.profile), self.profile)
 
+    def _view(self):
+        """Where the mouse points: the camera. On foot _player() already gives it; on
+        horseback the mouse turns only the camera, not the horse."""
+        p = self._player()
+        if p[4]:
+            view = walls.camera_facing(self.r, self.profile)
+            if view is not None:
+                return view
+        return p[3]
+
     def facing_words(self):
         p = self._player()
         return "facing " + compass(p[3]) if p else "can't find you"
@@ -146,7 +157,7 @@ class Turner:
         self.center_pointer()
         stuck = 0
         for _ in range(40):
-            before = math.degrees(self._player()[3])
+            before = math.degrees(self._view())
             error = wrap(target - before)
             if abs(error) <= TOLERANCE:
                 return True
@@ -183,7 +194,7 @@ class Turner:
         last, still, start = before, 0, time.perf_counter()
         while time.perf_counter() - start < 0.08:
             time.sleep(0.005)
-            now = math.degrees(self._player()[3])
+            now = math.degrees(self._view())
             if now != last:
                 last, still = now, 0
             elif last != before:

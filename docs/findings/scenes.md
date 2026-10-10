@@ -232,3 +232,17 @@ Next / open:
   of the (windowed) game, after which the game ignored all mouse turns. Now: bursts of 120
   steps 4 ms apart, the pointer re-centred before every turn/spin/look-down, look-up in steps.
 - Player position can be written (agent +0x40): the game keeps it and settles z on the ground.
+- 2026-10-10 session 17, driving tests (user away):
+  - USE TYPE 1 = A PERSON ("Talk"; screenshot "Guild Master / Talk", number = agent no 12).
+    Earlier notes calling type 1 "any prop" were wrong or unconfirmed. Talk reach: prompt shows
+    from 5 m, in range from 3.2 m (centre to centre). prompts.PERSON, REACH People 3.0.
+  - Slaughter: right click on the horse (equipped AND in the bag) does nothing. Native has no
+    itp_type_animal items, so no item has a special action in Native; Shift+Enter says
+    "nothing to do with X". Horse returned to its slot.
+  - Scene items (meta 2) in a town = merchants' displays (helmets, swords, horses at stalls):
+    no prompt at any angle from 1.2 m. Now category Objects (still named by item); Items =
+    spawned/dropped only. Chests: none in a town centre (only a castle you own); untested.
+  - Mouse turning: bursts of 40 steps every 10 ms (120/4 ms ran off a small window between
+    frames: turns did nothing). 4/4 turns landed 44-45 degrees. Camera ~10 steps/degree.
+  - Horseback aiming (Close enough): turning._view() uses the camera on horseback too;
+    UNTESTED (no horse in a town scene).
