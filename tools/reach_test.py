@@ -59,6 +59,16 @@ print("target", t["name"], t["key"], "%.1f m" % d, "on horse" if p[4] else "on f
 if p[4]:
     sys.exit("on horseback: stopping")
 face()
+for _ in range(60):                         # far away: stride up to ~5 m first
+    p, t, d, a = target()
+    if d <= 5.5:
+        break
+    face()
+    key(0x11, 0.5)                          # W
+    time.sleep(0.2)
+    if target()[2] > d - 0.3:
+        sys.exit("blocked on the way: %.1f m from %s" % (d, t["name"]))
+face()
 for _ in range(20):                         # back off to ~5 m
     p, t, d, a = target()
     if d >= 5:

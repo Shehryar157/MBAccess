@@ -168,7 +168,7 @@ class Scanner:
                         name = "someone"
                 people.append(dict(key=("agent", no), name=name, category="People", x=x, y=y, z=z))
         found += people
-        player = walls.find_player(self.r, mission)
+        player = walls.find_player(self.r, mission, self.profile)
         riders = [(p["x"], p["y"]) for p in people] + ([player[:2]] if player else [])
         for no, x, y, z, item in horses:
             # A ridden horse shares its rider's position: the rider is enough.

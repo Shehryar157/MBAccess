@@ -221,3 +221,14 @@ Next / open:
 - Open-space cue (user's request, 2026-10-10): a soft noise whoosh (wall_beeps._whoosh, dark
   to bright, 0.32 s) when a wall ahead/left/right falls out of beep range (last_step drops
   from >= 0 to -1 past the hysteresis). Not behind, not diagonals. Untested by the user.
+- KEY FINDING 2026-10-10 (verified live, on foot): W/A/S/D move relative to the CAMERA. Standing
+  still, the mouse turns only the camera; the body (agent +0x20) swings to the camera's view
+  when you start walking (test: body forward 11, camera view 114, one W -> body 114; S moved
+  toward -66 = camera_back). Scene window +0x38c/+0x390 = x, y of the camera-to-player
+  direction (view = opposite). walls.find_player(..., profile) now returns the camera view on
+  foot (horse: body). Wall zones, scanner sides, compass, turning all follow it. Camera turns
+  ~10 mouse steps per degree.
+- Mouse: one 675-step mouse_event turned the camera the WRONG way and threw the pointer out
+  of the (windowed) game, after which the game ignored all mouse turns. Now: bursts of 120
+  steps 4 ms apart, the pointer re-centred before every turn/spin/look-down, look-up in steps.
+- Player position can be written (agent +0x40): the game keeps it and settles z on the ground.

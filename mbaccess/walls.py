@@ -1,4 +1,4 @@
-"""Walls around the player in a 3D scene (town, village, castle, battle).
+﻿"""Walls around the player in a 3D scene (town, village, castle, battle).
 
 Read the scene's collision shapes once per scene, slice them at chest height into
 2D lines and circles, and cast rays around the player to find the nearest wall in
@@ -37,8 +37,25 @@ def mission_address(reader, profile):
     return reader.u32(profile.game_offsets["cur_game_ptr"] - 4)
 
 
-def find_player(reader, mission):
-    """(x, y, z, facing radians, on_horse) for the player's agent, or None."""
+# Scene window +0x38c: x, y of the direction from the camera back toward the player (so the
+# view is its opposite). Found 2026-10-10: on foot, W/A/S/D move relative to the CAMERA and
+# the body only swings round once you walk; standing still, the mouse turns the camera alone.
+CAMERA_BACK = 0x38c
+SCENE_WINDOW = 10
+
+
+def camera_facing(reader, profile):
+    """The camera's view as a facing angle (forward = it + FORWARD), or None."""
+    window = reader.u32(profile.screen["game_windows"] + 4 * SCENE_WINDOW)
+    cx, cy = struct.unpack("<2f", reader.read(window + CAMERA_BACK, 8))
+    if not 0.2 < math.hypot(cx, cy) < 1.1:        # looking straight up/down, or no scene
+        return None
+    return math.atan2(-cy, -cx) - FORWARD
+
+
+def find_player(reader, mission, profile=None):
+    """(x, y, z, facing radians, on_horse) for the player's agent, or None. Given the
+    profile, on foot the facing is the camera's: the way W walks."""
     begin, end = struct.unpack("<II", reader.read(mission + 0x20, 8))
     if not begin or end <= begin or end - begin > 4 * 1000:
         return None
@@ -66,6 +83,13 @@ def find_player(reader, mission):
         return None
     x, y = player[0], player[1]
     on_horse = any(abs(hx - x) < 0.05 and abs(hy - y) < 0.05 for hx, hy in horses)
+    if profile is not None and not on_horse:
+        try:
+            view = camera_facing(reader, profile)
+        except ReadError:
+            view = None
+        if view is not None:
+            player = player[:3] + (view,)
     return player + (on_horse,)
 
 

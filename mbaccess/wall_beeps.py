@@ -327,7 +327,7 @@ class WallBeeper:
             self.walls, self.scene = walls.SceneWalls(r, scene), scene
             self.box_names = self.namer.name_boxes(self.walls.boxes)
             self.last_ahead = None
-        player = self.player = walls.find_player(r, mission)
+        player = self.player = walls.find_player(r, mission, self.profile)
         if player is None:
             return None
         reach = max(REACH.values())

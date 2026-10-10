@@ -128,7 +128,7 @@ class Prompts:
             return
         try:
             kind, _, _ = self._use()
-            player = walls.find_player(self.r, walls.mission_address(self.r, self.game.profile))
+            player = walls.find_player(self.r, walls.mission_address(self.r, self.game.profile), self.game.profile)
         except ReadError:
             return
         if kind != NOTHING or not player:
@@ -152,7 +152,7 @@ class Prompts:
         r = Reader(self.game)
         moved = 0
         try:
-            p = walls.find_player(r, walls.mission_address(r, self.game.profile))
+            p = walls.find_player(r, walls.mission_address(r, self.game.profile), self.game.profile)
             self.turner._mouse(math.degrees(p[3]) + near[3])     # face it
             time.sleep(0.1)
             while moved <= 900:             # items on the ground need a look down
@@ -170,13 +170,24 @@ class Prompts:
         finally:
             if moved:
                 time.sleep(0.2)
-                _user32.mouse_event(MOUSEEVENTF_MOVE, 0, -moved, 0, 0)
+                self._look_up(moved)
             self.last = None
             self.busy = False
+
+    def _look_up(self, moved):
+        # In small moves: one big jump can throw the pointer out of the game window,
+        # and then the game stops feeling the mouse (2026-10-10).
+        while moved > 0:
+            part = min(LOOK_STEP, moved)
+            _user32.mouse_event(MOUSEEVENTF_MOVE, 0, -part, 0, 0)
+            moved -= part
+            time.sleep(0.005)
 
     def _dismount(self):
         r = Reader(self.game)       # our own: this runs on its own thread
         moved = 0
+        if self.turner:
+            self.turner.center_pointer()
         try:
             time.sleep(0.1)         # let the game handle the player's own F first
             while moved < LOOK_LIMIT:
@@ -193,6 +204,6 @@ class Prompts:
             pass
         finally:
             if moved:
-                _user32.mouse_event(MOUSEEVENTF_MOVE, 0, -moved, 0, 0)     # look ahead again
+                self._look_up(moved)     # look ahead again
             self.last = None
             self.busy = False
