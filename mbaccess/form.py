@@ -27,6 +27,8 @@ SLIDER_VALUE = 0x2bc             # slider: value, then its minimum and maximum (
 HIDDEN, DISABLED = 0x1, 0x2
 ROW = 0.012                      # widgets this close in height share a row
 FAR = 0.3                        # text further apart than this on a row is separate
+PICKER_GAP = 0.04                # a picker's arrows sit at most this far under its label
+PICKER_REACH = 0.06              # ... and at most this far to its left and right
 SLIDER_WIDTH = 0.205             # the slider track, in screen units
 SLIDER_STEP = 0.05               # Left/Right move a slider by 5%
 # Drop-down: its choices are an stl::vector of rgl::strings (0x90 bytes each),
@@ -49,6 +51,7 @@ class Item:
     y: float
     value: str = ""     # what it's set to; can change (checked, "Poor", "40%")
     arrows: tuple = ()  # spinner: x of its left and right arrows
+    arrow_click: tuple = (0.01, 0.015)   # where to click an arrow, from (its x, y)
     fraction: float = 0.0
     click: tuple = (0.1, 0.01)   # where to click, relative to (x, y)
     scroll: tuple = None         # (bottom, top) of the scroll area it's in, if any
@@ -110,7 +113,8 @@ class Item:
             # Ctrl+click: buy or sell (or take or drop) at once, no carrying.
             return ("ctrl click", self.x + self.click[0], y)
         if key in ("left", "right") and self.kind == "spinner" and len(self.arrows) == 2:
-            return ("click", self.arrows[key == "right"] + 0.01, self.y + 0.015)
+            dx, dy = self.arrow_click
+            return ("click", self.arrows[key == "right"] + dx, self.y + dy)
         if key in ("left", "right") and self.kind == "dropdown" and self.choices:
             target = self.chosen + (1 if key == "right" else -1)
             if not 0 <= target < len(self.choices):
@@ -184,7 +188,7 @@ class TreeReader:
     # --- the walk --------------------------------------------------------
 
     def items(self, root, scroll_top, layout=None):
-        found, stack, seen = [], [(root, None, "")], set()
+        found, stack, seen, blanks = [], [(root, None, "")], set(), []
         while stack:
             p, scroll, group = stack.pop()
             if p in seen or p < 0x10000 or len(seen) > 2000:
@@ -203,6 +207,8 @@ class TreeReader:
                     found.extend(self.textbox(p, scroll, name or group))
                 if kind in ("label", "image"):
                     words = self.text(p)
+                    if not words and kind == "image" and not kids:
+                        blanks.append(p)    # maybe a picker's arrow (see pickers())
                     if words:
                         x, y = self.position(p)
                         if kind == "label":
@@ -219,6 +225,7 @@ class TreeReader:
                 stack.extend((k, scroll, name or group) for k in reversed(kids))
             except ReadError:
                 continue            # a freed or half-built widget; skip it
+        found = self.pickers(found, blanks)
         # Which screen this is: the widgets' addresses stay put while it's
         # open, unlike their rows, which shift for a moment while scrolling.
         self.key = tuple(sorted(i.widget for i in found))
@@ -236,6 +243,34 @@ class TreeReader:
                                          layout.get("by_columns", True))]
             return rows(found, layout.get("by_columns", True))
         return rows(found)
+
+    def pickers(self, found, blanks):
+        """A label with two blank picture buttons just under it, one on each
+        side, is a picker: the face editor's Skin, Beard and Hair (previous /
+        next style; the game shows no name or number for the style). It
+        becomes one spinner item whose arrows Left/Right click."""
+        if len(blanks) < 2:
+            return found
+        arrows = []
+        for p in blanks:
+            try:
+                arrows.append((self.position(p), self.middle(p, (0.01, 0.015))))
+            except ReadError:
+                continue
+        result = []
+        for item in found:
+            if item.kind == "text" and not item.from_textbox:
+                under = [a for a in arrows if 0 < item.y - a[0][1] <= PICKER_GAP
+                         and abs(a[0][0] - item.x) <= PICKER_REACH]
+                left = [a for a in under if a[0][0] < item.x]
+                right = [a for a in under if a[0][0] > item.x]
+                if len(left) == 1 and len(right) == 1:
+                    (lx, y), click = left[0]
+                    (rx, _), _ = right[0]
+                    item = Item("spinner", item.label, lx, y, arrows=(lx, rx),
+                                arrow_click=click, scroll=item.scroll, widget=item.widget)
+            result.append(item)
+        return result
 
     def textbox(self, p, scroll, group):
         """A multi-line text (class 0x819984: the Notes screen's topic list

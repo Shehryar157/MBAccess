@@ -108,7 +108,55 @@ def load_skills(module_dir, language="en"):
     tr = read_translations(os.path.join(module_dir, "languages", language, "skills.csv"))
     for skill in skills:
         skill.name = tr.get(skill.id, skill.name)
+    if any("%d" in skill.description for skill in skills):
+        fill_skill_numbers(skills, module_dir)
     return skills
+
+
+STORE_MUL = 2122          # header_operations.py: dest = op1 * op2
+PLAIN_NUMBER = 1 << 56    # bigger arguments are tagged variables, not numbers
+
+# Descriptions with a %d slot, and the script whose multiply step gives the
+# number (Native: prisoners = Prisoner Management level * 5).
+SKILL_NUMBER_SCRIPTS = {"skl_prisoner_management": "game_get_party_prisoner_limit"}
+
+
+def script_multiplier(text, script_name):
+    """The plain number in a script's first store_mul, from scripts.txt
+    text; None if the script or the step isn't there."""
+    lines = text.splitlines()
+    for i, line in enumerate(lines[:-1]):
+        if line.split()[:1] != [script_name]:
+            continue
+        words = iter(lines[i + 1].split())
+        try:
+            for _ in range(int(next(words))):
+                opcode = int(next(words))
+                args = [int(next(words)) for _ in range(int(next(words)))]
+                if opcode == STORE_MUL:
+                    plain = [a for a in args[1:] if 0 <= a < PLAIN_NUMBER]
+                    if plain:
+                        return plain[-1]
+        except (StopIteration, ValueError):
+            pass
+        return None
+    return None
+
+
+def fill_skill_numbers(skills, module_dir):
+    """Fill the %d slots the game fills when it draws a description."""
+    try:
+        with open(os.path.join(module_dir, "scripts.txt"), encoding="utf-8", errors="replace") as f:
+            text = f.read()
+    except OSError:
+        text = ""
+    for skill in skills:
+        if "%d" not in skill.description:
+            continue
+        script = SKILL_NUMBER_SCRIPTS.get(skill.id)
+        number = script_multiplier(text, script) if script else None
+        skill.description = skill.description.replace(
+            "%d", str(number) if number is not None else "a set number")
 
 
 def load_menus(module_dir, language="en"):

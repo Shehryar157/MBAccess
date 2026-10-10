@@ -487,3 +487,11 @@ def test_map_f_search_cycles_matches_only():
     w.handle_keys([keys.DOWN]);   assert w.options[w.cursor].label.startswith("Culmarr")
     w.handle_keys([keys.DOWN]);   assert w.options[w.cursor].label.startswith("Ibdeles Castle")
     w.handle_keys([keys.ESCAPE]); assert said[-1] == "search off" and not w.searching()
+
+
+def test_skill_number_slot_filled_from_script():
+    from mbaccess.modfiles import script_multiplier
+    # count 2: assign (2 args), then store_mul (dest, var, 5); variables are big tagged numbers
+    text = "game_get_party_prisoner_limit -1\n 2 2133 2 1224979098644774912 0 2122 3 1224979098644774913 1224979098644774914 5 \n"
+    assert script_multiplier(text, "game_get_party_prisoner_limit") == 5
+    assert script_multiplier(text, "missing_script") is None

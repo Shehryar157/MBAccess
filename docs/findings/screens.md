@@ -1,4 +1,4 @@
-## Widget tree and form screens (Warband 1.174, VERIFIED 2026-10-05)
+﻿## Widget tree and form screens (Warband 1.174, VERIFIED 2026-10-05)
 
 - Every window's root widget is at **window+0x13c**. A container widget has its name (rgl::string) at **+0x2d0** and an stl::vector of child pointers (start, end, capacity) at **+0x364**. Treat an object as a container only when the name is non-empty: plain labels can have junk that looks like a vector there.
 - Widget class = the vtable (first dword). Classes: 0x7c4bac label; 0x812904 button; 0x81bac4 tab; 0x819b7c checkbox; 0x8144ec spinner (looks like a drop-down: left/right arrow images + a label child holding the value); 0x812ae4 slider; 0x7c4d04 image (with text = a key-binding button on Controls); 0x8134ac a real drop-down (e.g. "Use Desktop Resolution", "Melee only"; read as a label for now, opening it not tried); 0x81b9bc tab bar; 0x8135c4 screen root; 0x81cfcc scroll area ("..._vs"), 0x7c510c its scrolling content ("..._t_c").
@@ -25,7 +25,7 @@
 - Widget size (width, height floats) at **+0x1ac**, next to absolute position +0x19c. Esc-menu buttons are 0.25 wide with centred text and only react near the text: click the size's middle.
 - Window 5 = Esc (pause) menu: Return to Game, Options, Save & Exit, Save, Save As, Quit without Saving (image widgets with text). The Save buttons don't highlight inside the start scene.
 - Window 8 = party screen. Three panels: columns at x 0.34 and 0.66 (profile layout). Troop entries are image widgets with text "name (90%)" inside party_members0_0. The left "party skills" lines (Surgery (1), Path-finding (2)(+1)...) are NOT anywhere in memory as text (searched ASCII and UTF-16): the engine draws them and drops the string. Rebuilt from troop skills: see "Party skills rebuilt" below.
-- Window 10 = scene/battle HUD (tactical). Window 31 = face editor (sliders; order mixed, "Skin Beard Hair" joined: TODO).
+- Window 10 = scene/battle HUD (tactical). Window 31 = face editor: see "Face editor" below.
 - Character creation: Done stays disabled until all attribute AND skill points are spent (a name alone isn't enough). Worth saying why when it's unavailable.
 - tools/find_text.py "text": Ctrl+F over the game's memory (ASCII + UTF-16). tools/shot.py: screenshot. tools/drive.py "item" key count: press any key on an item.
 - The auto-started mod (pythonw run.py --with-game) runs alongside test tools; it only reacts to real key presses while the game is in front.
@@ -85,3 +85,16 @@
   holds troop name label, Move Up/Down, "Class of troop" + class button, "Upgrade to X (10d)" image
   buttons (one per upgrade path; flags 0x2 = disabled until the troop has the XP, 0x3 = hidden),
   wage/morale label, Talk, Disband (reads "Release one" while hidden). Columns named in the profile.
+
+## Face editor (window 31) (2026-10-10, session 20; read live, picker clicks UNTESTED)
+- Root "face_gen". Right: scroll area face_gen_deform_s with 27 label + slider rows (Face Width
+  top .. Chin Size bottom; y grows UPWARD, so the stored order is reversed; rows() already
+  sorts it right). Left (face_gen_buttons): Age and Hair Color sliders; Randomize, Reset, Done
+  (image buttons with text).
+- Skin / Beard / Hair = a label with TWO textless image buttons just under it (previous /
+  next style), all three labels on one row: that's why they read "Skin Beard" + "Hair". The
+  game shows no style name or number. form.TreeReader.pickers(): a label with one blank image
+  under-left and one under-right (within PICKER_GAP / PICKER_REACH) becomes a spinner item;
+  Left/Right click the arrow's middle (Item.arrow_click).
+- Skill descriptions: Prisoner Management's "%d" is filled from scripts.txt
+  game_get_party_prisoner_limit's store_mul number (Native 5; modfiles.fill_skill_numbers).
