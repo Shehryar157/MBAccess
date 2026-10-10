@@ -314,6 +314,8 @@ def test_inventory_grid_arrows_and_sections():
     find = lambda label: next(n for n, i in enumerate(w.options) if i.label == label)
     w.cursor = find("Body")
     w.handle_keys([keys.LEFT]);  assert w.options[w.cursor].label == "Hands"
+    w.handle_keys([keys.UP]);    assert w.options[w.cursor].label == "Hands"   # top of its column
+    w.handle_keys([keys.RIGHT]); assert w.options[w.cursor].label == "Body"
     w.handle_keys([keys.UP]);    assert w.options[w.cursor].label == "Head"
     w.handle_keys([keys.RIGHT]); assert w.options[w.cursor].label == "Weapon 1"
     w.handle_keys([keys.RIGHT]); assert w.options[w.cursor].label == "Weapon 1"   # edge: stays
@@ -326,6 +328,28 @@ def test_inventory_grid_arrows_and_sections():
     w.handle_keys([keys.TAB, keys.TAB])           # Done, then round to Discard
     assert w.options[w.cursor].label == "Discard 1" and said[-1].startswith("Discard: ")
     assert w.has_sections()
+
+
+def test_equipment_columns_down_and_across():
+    """The user's report: Down from Feet went to Weapon 4, then the Horse."""
+    from mbaccess import keys
+    from mbaccess.form import Item
+    w = MenuWatcher(None, None, {}, [], lambda s: None)
+    cells = [("Head", 0.451, 0.605), ("Body", 0.451, 0.517), ("Feet", 0.451, 0.429),
+             ("Hands", 0.363, 0.517), ("Horse", 0.363, 0.317)] + \
+            [(f"Weapon {n + 1}", 0.552, 0.605 - 0.088 * n) for n in range(4)]
+    w.options = [Item("slot", l, x, y, group="inv", widget=n + 1) for n, (l, x, y) in enumerate(cells)]
+    w.config = {}
+    at = lambda: w.options[w.cursor].label
+    w.cursor = 0
+    w.handle_keys([keys.DOWN]);  assert at() == "Body"
+    w.handle_keys([keys.DOWN]);  assert at() == "Feet"
+    w.handle_keys([keys.DOWN]);  assert at() == "Feet"          # bottom of the column
+    w.handle_keys([keys.LEFT]);  assert at() == "Hands"         # nearest in height
+    w.handle_keys([keys.DOWN]);  assert at() == "Horse"
+    w.handle_keys([keys.RIGHT]); assert at() == "Feet"
+    w.handle_keys([keys.RIGHT]); assert at() == "Weapon 3"
+    w.handle_keys([keys.DOWN]);  assert at() == "Weapon 4"
 
 
 def test_cell_names_drop_only_the_grids_own_name():

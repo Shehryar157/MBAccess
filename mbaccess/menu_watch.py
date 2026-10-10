@@ -538,20 +538,23 @@ class MenuWatcher:
 
     def grid_move(self, key, members):
         """The cell next to ours in the arrow's direction, by screen position:
-        same row for Left/Right, the nearest one in line for Up/Down."""
+        Up/Down stay in the column (the end of it is an edge); Left/Right go to the
+        nearest column on that side, to its cell closest in height. The equipment
+        cells are three uneven columns (Head/Body/Feet, Hands/Horse, four weapons):
+        Down from Feet used to jump to Weapon 4, then the Horse."""
         here = self.options[self.cursor]
         best = None
         for n in members:
             c = self.options[n]
             dx, dy = c.x - here.x, c.y - here.y
             if key in (keys.LEFT, keys.RIGHT):
-                if abs(dy) > GRID_ROW or (dx < -0.001) != (key == keys.LEFT) or abs(dx) <= 0.001:
+                if (dx < -0.001) != (key == keys.LEFT) or abs(dx) <= GRID_ROW:
                     continue
-                score = (abs(dx), 0)
+                score = (round(abs(dx), 2), abs(dy))
             else:   # y grows upward
-                if abs(dy) <= GRID_ROW or (dy > 0) != (key == keys.UP):
+                if abs(dx) > GRID_ROW or abs(dy) <= GRID_ROW or (dy > 0) != (key == keys.UP):
                     continue
-                score = (round(abs(dy), 2), abs(dx))
+                score = (abs(dy), 0)
             if best is None or score < best[0]:
                 best = (score, n)
         return best[1] if best else None
