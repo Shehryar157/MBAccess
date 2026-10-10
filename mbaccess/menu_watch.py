@@ -745,8 +745,14 @@ class MenuWatcher:
             elif key in arrows:
                 place = members.index(self.cursor) if self.cursor in members else 0
                 n = len(members)
-                place = {keys.UP: (place - 1) % n, keys.DOWN: (place + 1) % n,
-                         keys.HOME: 0, keys.END: n - 1}[key]
+                if self.config.get("conversation"):
+                    # Replies don't wrap (the user asked, 2026-10-10): at either end
+                    # we stay put and say the reply again.
+                    place = {keys.UP: max(place - 1, 0), keys.DOWN: min(place + 1, n - 1),
+                             keys.HOME: 0, keys.END: n - 1}[key]
+                else:
+                    place = {keys.UP: (place - 1) % n, keys.DOWN: (place + 1) % n,
+                             keys.HOME: 0, keys.END: n - 1}[key]
                 self.go(members[place])
             elif key == keys.RETURN and keys.is_down(keys.SHIFT):
                 self.act("special")
