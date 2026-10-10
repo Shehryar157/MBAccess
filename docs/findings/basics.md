@@ -104,3 +104,16 @@
   holding "Loading Textures...", which stays after loading so the text alone is no signal).
 - Unverified idea: main menu clicks are "option" quick clicks (0.03 s hover); if a press still
   sometimes does nothing after loading, give window 4 a held click.
+
+### Session 17 (2026-10-10): keys and speech
+- NVDA cancels speech on EVERY key down, including the auto-repeats of a held key (W held =
+  ~30 cancels a second): "crude fence" etc. were cut off while walking. The hook process now
+  swallows auto-repeats of keys the game already got, while walking in a scene (quiet_repeats,
+  shared Value). Works because our LL hook is newer than NVDA's (called first); if NVDA is
+  restarted mid-game the order flips. Game unaffected (it reads key state).
+- Hook process runs at HIGH_PRIORITY_CLASS with timeBeginPeriod(1). Game = 96% of one core
+  (CPU-bound); mod ~9%, hook ~1%.
+- The mouse pointer must stay inside the windowed game or it ignores mouse turns: re-centre
+  it (Turner.center_pointer) and send moves in small bursts (see scenes.md).
+- Tests: run "pytest tests" (tools/reach_test.py runs live code if collected). Two menu tests
+  are flaky while someone is pressing real keys.

@@ -82,3 +82,11 @@
 - Trading is the nearest test: prices (buy or sell?), Ctrl+Enter buying and selling, the
   merchant's goods. Check whether a town menu offers trade without walking.
 - The user hasn't heard any of session 9's inventory work through NVDA yet.
+
+## Session 17 (2026-10-10)
+- Equipment arrows: Up/Down stay in a column (end = edge), Left/Right go to the nearest column
+  at the closest height (grid_move). Before, Down from Feet jumped to Weapon 4, then Horse.
+- Right click: Native has NO item with a special action (no itp_type_animal items; the horse,
+  equipped or in the bag, gives nothing; books are read from the Camp menu). Shift+Enter says
+  "nothing to do with X" when no question opens within 0.6 s (check_special).
+- Footsteps louder: tools/footsteps.py (see scenes.md).
