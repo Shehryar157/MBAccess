@@ -89,6 +89,7 @@ class MenuWatcher:
         self.options = []
         self.cursor = 0
         self.pending = None          # (key, tries): an action waiting for scrolling
+        self.link_index = -1         # which link of a Notes line Left/Right chose
         self.root_offsets = {}       # window number -> where its root widget is
         self.tip_wait = None         # (since, tooltip before, widget): waiting to speak a cell
         self.config = {}
@@ -579,6 +580,7 @@ class MenuWatcher:
         """Move the cursor to an item and speak it (after the section's name)."""
         self.cursor = index
         self.pending = None
+        self.link_index = -1        # no link of the new line chosen yet
         self.announce = title
         if self.wants_tooltip():
             self.name_cell()        # from memory, or once the game's tooltip shows
@@ -1036,6 +1038,20 @@ class MenuWatcher:
         if item.virtual:
             self.page.act(item, key)
             return
+        if item.links and key in ("left", "right", "activate"):
+            # A Notes line's links: Left/Right choose one, Enter clicks it.
+            count = len(item.links)
+            if key == "activate":
+                if self.link_index < 0 and count > 1:
+                    self.say("choose a link with Left and Right")
+                    return
+                item = item.links[max(self.link_index, 0)]
+            else:
+                step = 1 if key == "right" else -1
+                self.link_index = ((self.link_index + step) % count if self.link_index >= 0
+                                   else (0 if step > 0 else count - 1))
+                self.say(f"{item.links[self.link_index].value}, link, {self.link_index + 1} of {count}")
+                return
         if item.kind == "tab" and self.page and self.page.open and key == "activate":
             self.page.open = False       # back to the game's own tab
         action = item.action(key)

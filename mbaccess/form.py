@@ -62,6 +62,7 @@ class Item:
     virtual: str = ""            # one of the mod's own items (Accessibility tab), not the game's
     from_textbox: bool = False   # a line, paragraph or link of a multi-line text box
     order: int = 0               # its place within that text box
+    links: tuple = ()            # a text line's links (Items of kind "link")
 
     def spoken(self):
         words = self.label
@@ -73,6 +74,8 @@ class Item:
         words = f"{words}, {role}" if role else words
         if self.raise_at:
             words += ", can raise"
+        if self.links:
+            words += f", {len(self.links)} link" + ("s" if len(self.links) > 1 else "")
         return f"{words}, unavailable" if self.disabled else words
 
     def visible(self):
@@ -276,12 +279,17 @@ class TreeReader:
         for n, line in enumerate(paragraphs):
             # Their real heights aren't known: spread them down the box (rows()
             # keeps the box's own order anyway).
-            add(Item("text", text_mod.clean(line), x, y + h - (n + 0.5) * h / len(paragraphs)))
+            # Its links stay inside it (Left/Right pick one, Enter clicks), so
+            # a page of 9 lines is 9 items, not 60.
+            links = []
             for name in LINK_NAME.findall(line):
                 if link_no in boxes and name.strip():
                     bx, by, click = boxes[link_no]
-                    add(Item("link", "", x + bx, y + by, value=text_mod.clean(name), click=click))
+                    links.append(Item("link", "", x + bx, y + by, value=text_mod.clean(name),
+                                      click=click, scroll=scroll, widget=p))
                 link_no += 1
+            add(Item("text", text_mod.clean(line), x, y + h - (n + 0.5) * h / len(paragraphs),
+                     links=tuple(links)))
         return found
 
     def link_boxes(self, p):
