@@ -251,10 +251,9 @@ Next / open:
 - Shift+S = turn 180 (turner.turn(180), says "facing south"). Horse fix: at the start of a
   180 the error reads -180, which the old overshoot test took as "already past": overshoot
   now also needs |error| < 90.
-- Ctrl+A / Ctrl+D = scanner.snap: turn to the NEAREST (by distance) thing in the current
+- Ctrl+A / Ctrl+D = scanner.snap: turn to the SMALLEST-TURN thing (user changed it from nearest) in the current
   category whose angle is more than SNAP_AHEAD (10) degrees to that side (behind counts);
   says "name, N metres" after the turn; it becomes the scanner's current thing (J, Shift+J).
-  Alternative if sweeping feels jumpy: pick the smallest angle instead of the nearest.
 - keys: new swallow_ctrl (flag bit 4, OWN_CTRL), like swallow_shifted. Warband reads A, D, S
   on their own whatever modifier is held, so Shift+A would also strafe: that's why we hide them.
 - Learn sounds (user's request): Accessibility tab ends with "Learn sound: ..." buttons

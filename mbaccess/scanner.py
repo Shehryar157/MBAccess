@@ -304,16 +304,16 @@ class Scanner:
                  if abs(signed) >= 1.5 else "%s, right here" % name)
 
     def snap(self, side):
-        """Turn to face the nearest thing on one side (1 left, -1 right), counting
-        everything more than SNAP_AHEAD degrees off straight ahead, behind included.
-        What's already in front is skipped, so pressing again moves on to the next."""
+        """Turn to the next thing round on one side (1 left, -1 right): the smallest turn
+        past SNAP_AHEAD degrees, so presses sweep round in order (user's choice,
+        2026-10-10). What's already in front is skipped; behind counts."""
         player, found = self._read()
         if player is None:
             return
         best = None
         for t in found:
             d, a = relative(player, t["x"], t["y"])
-            if a * side > SNAP_AHEAD and d >= 0.5 and (best is None or d < best[0]):
+            if a * side > SNAP_AHEAD and d >= 0.5 and (best is None or abs(a) < abs(best[1])):
                 best = (d, a, t)
         if best is None:
             what = "" if self.category == 0 else CATEGORIES[self.category].lower()
