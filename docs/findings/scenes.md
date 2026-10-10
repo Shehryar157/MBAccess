@@ -179,3 +179,14 @@ Next / open:
   The original Ambient Anti-Soundtrack (mods/1085) has no files left. Install plan: check the
   archive, back up the Music folder, copy in; user's music volume is 7% (raise it).
 - User ideas queued: own mount/dismount sounds and per-place ambience through sound3d.
+
+## Session 17 (2026-10-10)
+- Use prompts for props (module_scripts "game_get_use_string"): in single player only siege
+  things have one: winches ("Open/Close gate"), sally/castle doors ("Open/Close door"), siege
+  ladders ("Raise/Drop ladder"); open state in scene prop slot scene_prop_open_or_close_slot.
+- Passage names: each game-menu option has a DOOR NAME (last field in menus.txt, plain
+  English, no translation file in Native): menu_town 0 castle, 3 town center, 4 tavern,
+  5 shop, 6 arena, 7 dungeon, 8 "To the castle courtyard.", 9 enterprise, 10 garden,
+  18 "Leave Area."; "." = none. modfiles.MenuItem.door; run.passage_name prefers it.
+  Assumes a passage's variation = option index of the current menu (untested in a town).
+- DROPPED by the user (2026-10-10): custom sounds from the user and the Ambient Soundtrack.

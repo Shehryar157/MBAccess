@@ -1,4 +1,4 @@
-"""Reading a module's compiled text files (menus.txt and its translations).
+﻿"""Reading a module's compiled text files (menus.txt and its translations).
 
 These files are made by TaleWorlds' Module System (see
 reference/module_system, process_game_menus.py). Everything is separated by
@@ -19,6 +19,7 @@ from dataclasses import dataclass, field
 class MenuItem:
     id: str      # e.g. "mno_town_1"
     text: str    # e.g. "join a caravan to Praven, in the Kingdom of Swadia."
+    door: str = ""   # a passage running this option shows it: "Door to the tavern."
 
 
 @dataclass
@@ -56,8 +57,10 @@ def parse_menus(text):
             skip_block(words)  # conditions: when to show the option
             item_text = file_text(next(words))
             skip_block(words)  # consequences: what clicking it does
-            next(words)  # door name
-            menu.items.append(MenuItem(item_id, item_text))
+            door = file_text(next(words)).strip()
+            if not door.strip("."):
+                door = ""       # "." or "_": the option has no door
+            menu.items.append(MenuItem(item_id, item_text, door))
         menus.append(menu)
     return menus
 

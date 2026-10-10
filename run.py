@@ -1,4 +1,4 @@
-"""MB Access: screen reader support for Mount & Blade games.
+﻿"""MB Access: screen reader support for Mount & Blade games.
 
     python run.py               wait for Warband or With Fire & Sword, then speak menus
     pythonw run.py --with-game  started by the loader DLL: follow one game session,
@@ -98,10 +98,12 @@ def play_session(game):
         beeper = None
     def passage_name(variation):
         # A passage (a door to another scene) runs that option of the place's menu,
-        # which stays current while walking: "Go to the tavern." (untested in a town)
+        # which stays current while walking. The option's door name is what the
+        # game shows: "Door to the tavern." (untested in a town)
         try:
             number = watcher.read_state()[0]
-            text = watcher.menus[number].items[variation].text
+            option = watcher.menus[number].items[variation]
+            text = option.door or option.text
         except Exception:
             return None
         return text_mod.clean(text).rstrip(".")
