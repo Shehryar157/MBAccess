@@ -1,4 +1,4 @@
-﻿"""Tests against a fake game in memory, so they run without the real game."""
+"""Tests against a fake game in memory, so they run without the real game."""
 import os
 import struct
 
@@ -142,7 +142,7 @@ def make_menu_watcher(top=18):
     said, clicks = [], []
     w = MenuWatcher(Reader(mem), GAME, {"cur_menu_no": MENU_NO_OFFSET,
                                         "cur_menu_text": MENU_TEXT_OFFSET},
-                    [], said.append, screen=SCREEN, mouse=FakeMouse(clicks))
+                    [], lambda t, interrupt=True: said.append(t), screen=SCREEN, mouse=FakeMouse(clicks))
     return w, said, clicks
 
 
@@ -151,7 +151,7 @@ def test_menu_reads_visible_buttons_top_first():
     w.poll()
     assert said == []       # a new screen waits for a second, matching read
     w.poll()
-    assert said == ["Welcome. Continue..., 1 of 2."]
+    assert said == ["Welcome.", "Continue..., 1 of 2"]
 
 
 def test_new_screen_waits_for_leftover_buttons():
@@ -162,12 +162,12 @@ def test_new_screen_waits_for_leftover_buttons():
     said = []
     w = MenuWatcher(Reader(mem), GAME, {"cur_menu_no": MENU_NO_OFFSET,
                                         "cur_menu_text": MENU_TEXT_OFFSET},
-                    [], said.append, screen=SCREEN, mouse=FakeMouse([]))
+                    [], lambda t, interrupt=True: said.append(t), screen=SCREEN, mouse=FakeMouse([]))
     w.poll()
     mem.blocks[0x42002000][0x50:0x54] = struct.pack("<I", 1)   # the game hides it
     w.poll()
     w.poll()
-    assert said == ["Welcome. Continue..., 1 of 2."]
+    assert said == ["Welcome.", "Continue..., 1 of 2"]
 
 
 def test_menu_cursor_and_enter_click():
@@ -213,10 +213,10 @@ def test_main_menu_without_a_campaign():
     said, clicks = [], []
     w = MenuWatcher(Reader(mem), None, {"cur_menu_no": MENU_NO_OFFSET,
                                         "cur_menu_text": MENU_TEXT_OFFSET},
-                    [], said.append, screen=SCREEN, mouse=FakeMouse(clicks))
+                    [], lambda t, interrupt=True: said.append(t), screen=SCREEN, mouse=FakeMouse(clicks))
     w.poll()
     w.poll()
-    assert said == ["Main menu: Play Tutorial, 1 of 2."]
+    assert said == ["Main menu", "Play Tutorial, 1 of 2"]
     w.poll([keys.DOWN, keys.RETURN])
     assert clicks == [pytest.approx((0.015 + 0.15, 0.44 + 0.012))]
 
@@ -227,7 +227,7 @@ def test_game_menu_waits_for_the_campaign():
     said = []
     w = MenuWatcher(Reader(mem), None, {"cur_menu_no": MENU_NO_OFFSET,
                                         "cur_menu_text": MENU_TEXT_OFFSET},
-                    [], said.append, screen=SCREEN)
+                    [], lambda t, interrupt=True: said.append(t), screen=SCREEN)
     w.poll()
     assert said == []
 

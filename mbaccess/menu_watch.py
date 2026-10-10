@@ -324,10 +324,13 @@ class MenuWatcher:
     # --- speaking --------------------------------------------------------
 
     def describe(self, number, body, config):
+        """The screen's words; with live buttons, a list of two lines (the
+        words, then the item under the cursor) so a reply in a conversation
+        isn't run into what the other person said."""
         parts = [text_mod.clean(body)]
         if self.reads_buttons:
             if self.options:
-                parts.append(self.option_text())
+                return [text_mod.spoken(config.get("name", ""), *parts), self.option_text()]
         elif number is not None and 0 <= number < len(self.menus):
             # Without the button addresses, list every option the menu could
             # show (some may be hidden in-game).
@@ -335,6 +338,13 @@ class MenuWatcher:
             if options:
                 parts.append("Options: " + "; ".join(o for o in options if o))
         return text_mod.spoken(config.get("name", ""), *parts)
+
+    def say_lines(self, text):
+        """Speak one line, or several, each its own utterance (the later
+        ones queued), so NVDA's speech history shows them as separate lines."""
+        lines = [text] if isinstance(text, str) else [t for t in text if t]
+        for n, line in enumerate(lines):
+            self.say(line) if n == 0 else self.say(line, interrupt=False)
 
     def typing(self):
         """On an edit box: keys are letters for it, not our commands."""
@@ -386,7 +396,7 @@ class MenuWatcher:
             if self.has_sections():
                 self.open_sections(config)
             else:
-                self.say(self.describe(state[1], state[2], config))
+                self.say_lines(self.describe(state[1], state[2], config))
             return
         self.last = state
         # Same screen: a value may have changed (we ticked a box, moved a slider).
