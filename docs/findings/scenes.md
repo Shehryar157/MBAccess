@@ -295,3 +295,12 @@ Next / open:
     draws a weapon; G dropped crossbow + bolts.
   - Close enough F now only presses for the prompt of the thing it turned to (items under a
     horse first offer the horse: my test remounted by mistake).
+
+## Openable doors (2026-10-10, session 19, from scene files + module system; not built)
+- Only props with ti_on_scene_prop_use have a use prompt/open state: castle/sally doors,
+  door_destructible, siege ladders (state = prop slot 1, scene_prop_open_or_close_slot,
+  stored in mission_object.slots per WSE mission_object.h). Plain "winch" (37 castle
+  exteriors) has NO triggers in single player: gates can't be worked by hand.
+- Searched Native SceneObj/*.sco for the prop names: in single-player scenes only
+  castle_e_sally_door_a in town_20_walls and town_21_walls (siege scenes). Every other hit is
+  a multiplayer scene. So open/closed doors only matter in sieges: do it with battles.
