@@ -28,3 +28,5 @@
 - loader/dinput8.c (copied from CFCAccess, names changed) built 32-bit: zig cc -target x86-windows-gnu. In 32-bit the .def must name the stdcall-decorated functions (Proxy_DirectInput8Create@20, DllGetClassObject@12, the others @0). Verified with pefile: machine 0x14c, 6 plain export names.
 - python tools/build_loader.py install|uninstall finds both games through Steam's libraryfolders.vdf and writes <game>\MBAccess.txt (pythonw run.py --with-game). It writes <game>\MBAccess_loader.log; the mod logs to logs\mbaccess.log. Mutex: MBAccess.SingleInstance.
 - PowerShell 5 Set-Content -Encoding utf8 adds a BOM; strip it (Python copes, other tools may not).
+
+- Update dialog (same day): when a newer release exists, ask_update() shows a Win32 dialog built from an in-memory template (ctypes, DialogBoxIndirectParamW): heading with both versions, read-only multi-line edit with the release's description (focus starts there), Update (Enter) and Skip (Escape = install the carried version). Verified by reading the controls and posting both buttons; a real update hand-over is still untested (private repo). The v0.1.0 asset was replaced with this build.

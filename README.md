@@ -27,7 +27,7 @@ The mod is in development. Menus and the campaign's everyday screens are solid; 
 
 1. Download `MBAccess-Setup.exe` from the [Releases](../../releases) page.
 2. Run it and wait. Windows asks once for permission to make changes.
-3. The setup first checks for a newer version of itself and, if there is one, downloads and runs that instead, so an old download still installs the newest mod.
+3. The setup first checks for a newer version of itself. If there is one, a dialog tells you the new version and yours, with what's new in a read-only text box you can arrow through. **Update** (Enter) downloads and installs the new version; **Skip** (Escape) installs the version you downloaded, and the offer comes back the next time you run the setup.
 4. It finds Warband through Steam. If it can't, it asks you to choose the game's folder: the one that contains `mb_warband.exe`.
 5. When it says the mod is installed, start Warband from Steam as usual. The mod starts and stops with the game: it reads the launcher, and says "MB Access" and its version once the game itself is open.
 
@@ -268,7 +268,7 @@ python tools/build_release.py           # dist/MBAccess-Setup.exe
 
 `docs/findings.md` is the index of the research diary: where everything lives in the game's memory and how it was found.
 
-To release: raise `VERSION` in `mbaccess/__init__.py`, build, and publish a GitHub release tagged `v` plus that version with `MBAccess-Setup.exe` attached. The installer finds it by that file name.
+To release: raise `VERSION` in `mbaccess/__init__.py`, build, and publish a GitHub release tagged `v` plus that version with `MBAccess-Setup.exe` attached. The installer finds it by that file name, and shows the release's description to players as "what's new".
 
 ## Credits
 

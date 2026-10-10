@@ -1,8 +1,9 @@
 """MB Access installer, updater and uninstaller: one file the player runs and waits for.
 
 MBAccess-Setup.exe:
-  1. asks GitHub whether a newer installer has been released; if so it downloads that one
-     and hands over to it, so an old download still installs the newest mod;
+  1. asks GitHub whether a newer installer has been released; if so it shows the new
+     version and what's new, and on Update downloads that one and hands over to it (Skip
+     installs the version this file carries);
   2. finds Mount & Blade: Warband through Steam (or asks for the folder);
   3. copies the mod into <game>\\MBAccess and puts the small auto-start loader
      (dinput8.dll) and MBAccess.txt next to the game, so the mod starts by itself
@@ -93,9 +94,73 @@ def download(address, path):
         raise OSError(f"could not download {address}")
 
 
+ID_UPDATE, ID_SKIP, ID_NOTES = 1, 2, 100       # 1 and 2 are Windows' own OK and Cancel
+
+
+def ask_update(version, notes):
+    """The "update found" dialog: the two versions, what's new in a read-only multi-line
+    box (focus starts there, so a screen reader can arrow through it), and Update and
+    Skip buttons. Enter = Update, Escape = Skip. True to update.
+
+    The dialog is described to Windows as a block of bytes (a dialog template: the
+    window, then each control with its position, kind and text), the way a program's
+    built-in dialogs are stored; Windows then runs it with its usual Tab and Enter keys."""
+    if SILENT:
+        print(f"update found: {version}\n{notes}")
+        return True
+    import struct
+    from ctypes import wintypes
+    user32 = ctypes.windll.user32
+    WS_CHILD, WS_VISIBLE, WS_TABSTOP, WS_BORDER, WS_VSCROLL = 0x40000000, 0x10000000, 0x10000, 0x800000, 0x200000
+    BUTTON, EDIT, STATIC = 0x80, 0x81, 0x82
+    ES_MULTILINE, ES_READONLY, ES_AUTOVSCROLL, BS_DEFPUSHBUTTON = 0x4, 0x800, 0x40, 0x1
+
+    def text(s):
+        return (s + "\0").encode("utf-16-le")
+
+    def control(kind, style, x, y, w, h, ident, label):
+        return (struct.pack("<IIhhhhHHH", style | WS_CHILD | WS_VISIBLE, 0, x, y, w, h, ident, 0xFFFF, kind)
+                + text(label) + b"\0\0")
+
+    heading = f"MB Access {version} is available. You have {VERSION}. What's new:"
+    controls = [
+        control(STATIC, 0, 7, 7, 286, 10, 101, heading),
+        control(EDIT, ES_MULTILINE | ES_READONLY | ES_AUTOVSCROLL | WS_VSCROLL | WS_BORDER | WS_TABSTOP,
+                7, 20, 286, 130, ID_NOTES, ""),
+        control(BUTTON, BS_DEFPUSHBUTTON | WS_TABSTOP, 180, 156, 54, 14, ID_UPDATE, "&Update"),
+        control(BUTTON, WS_TABSTOP, 239, 156, 54, 14, ID_SKIP, "&Skip"),
+    ]
+    # Window: font set, modal frame, centred, brought to the front; popup with a title bar.
+    style = 0x40 | 0x80 | 0x800 | 0x200 | 0x80000000 | 0xC00000 | 0x80000
+    template = (struct.pack("<IIHhhhh", style, 0x8, len(controls), 0, 0, 300, 177) + b"\0\0\0\0"
+                + text("MB Access update") + struct.pack("<H", 9) + text("Segoe UI"))
+    for item in controls:
+        template += b"\0" * (-len(template) % 4) + item      # each control starts on a 4-byte line
+
+    DLGPROC = ctypes.WINFUNCTYPE(ctypes.c_ssize_t, wintypes.HWND, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM)
+    user32.SetDlgItemTextW.argtypes = [wintypes.HWND, ctypes.c_int, wintypes.LPCWSTR]
+    user32.EndDialog.argtypes = [wintypes.HWND, ctypes.c_ssize_t]
+    user32.DialogBoxIndirectParamW.argtypes = [ctypes.c_void_p, ctypes.c_void_p, wintypes.HWND, DLGPROC, wintypes.LPARAM]
+    user32.DialogBoxIndirectParamW.restype = ctypes.c_ssize_t
+    body = "\r\n".join((notes or "No notes were written for this version.").splitlines())
+
+    def handle(window, what, wparam, lparam):
+        if what == 0x110:                   # the dialog is being set up
+            user32.SetDlgItemTextW(window, ID_NOTES, body)
+            return 1                        # let Windows focus the first control: the notes
+        if what == 0x111 and wparam & 0xFFFF in (ID_UPDATE, ID_SKIP):    # a button, Enter or Escape
+            user32.EndDialog(window, wparam & 0xFFFF)
+            return 1
+        return 0
+
+    proc = DLGPROC(handle)
+    return user32.DialogBoxIndirectParamW(None, ctypes.create_string_buffer(template), None, proc, 0) == ID_UPDATE
+
+
 def newer_installer():
-    """(version, download address) of a released installer newer than this one, or None.
-    Any trouble (no internet, no release yet) means None: install what we carry."""
+    """(version, download address, what's new) of a released installer newer than this
+    one, or None. Any trouble (no internet, no release yet) means None: install what we
+    carry. "What's new" is the description written on the GitHub release."""
     answer = os.path.join(tempfile.gettempdir(), "MBAccess-latest.json")
     try:
         download(f"https://api.github.com/repos/{REPO}/releases/latest", answer)
@@ -105,18 +170,23 @@ def newer_installer():
             return None
         for asset in release["assets"]:
             if asset["name"] == ASSET:
-                return release["tag_name"].lstrip("v"), asset["browser_download_url"]
+                return (release["tag_name"].lstrip("v"), asset["browser_download_url"],
+                        release.get("body") or "")
     except (OSError, ValueError, KeyError):
         pass
     return None
 
 
 def update():
-    """Hand over to a newer installer if there is one. True = it has taken over."""
+    """Offer a newer installer if there is one, and hand over to it if the player says
+    Update. True = it has taken over. Skip installs the version we carry; the offer
+    comes back the next time the setup is run."""
     found = newer_installer()
     if found is None:
         return False
-    version, address = found
+    version, address, notes = found
+    if not ask_update(version, notes):
+        return False
     announce(f"Downloading MB Access {version}. Please wait.")
     target = os.path.join(tempfile.gettempdir(), f"MBAccess-Setup-{version}.exe")
     try:
