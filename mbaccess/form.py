@@ -34,8 +34,10 @@ SLIDER_STEP = 0.05               # Left/Right move a slider by 5%
 CHOICES, CHOSEN, LIST_ROW, RGL_STRING = 0x2e8, 0x2b0, 0x320, 0x90
 # A text box line that is nothing but one link: "<ip=4>Courtship</>".
 WHOLE_LINK = re.compile(r"^<[a-z]+=\d+>[^<]*</>$", re.IGNORECASE)
+LINK_NAME = re.compile(r"<[a-z]+=\d+>([^<]*)</>", re.IGNORECASE)   # a link's words
+LINK_VECTORS = (0x2d4, 0x2e4, 0x314)   # text box: link boxes' corners, their link numbers
 CONTROLS = ("button", "tab", "checkbox", "spinner", "slider", "edit", "dropdown", "slot")
-ROLE = {"button": "button", "tab": "tab", "checkbox": "checkbox",
+ROLE = {"button": "button", "link": "link", "tab": "tab", "checkbox": "checkbox",
         "spinner": "spinner", "slider": "slider", "edit": "edit box", "dropdown": "drop-down"}
 
 
@@ -58,7 +60,8 @@ class Item:
     list_row: float = 0.0        # drop-down: height of one row of the open list
     group: str = ""              # name of the container it's in, e.g. "inv" (equipment)
     virtual: str = ""            # one of the mod's own items (Accessibility tab), not the game's
-    from_textbox: bool = False   # a line or paragraph of a multi-line text box
+    from_textbox: bool = False   # a line, paragraph or link of a multi-line text box
+    order: int = 0               # its place within that text box
 
     def spoken(self):
         words = self.label
@@ -95,7 +98,7 @@ class Item:
         y = self.y + self.click[1]
         if key == "right" and self.raise_at:
             return ("click",) + self.raise_at
-        if key == "activate" and self.kind in ("option", "button", "tab", "checkbox", "edit", "slot"):
+        if key == "activate" and self.kind in ("option", "button", "link", "tab", "checkbox", "edit", "slot"):
             return ("click", self.x + self.click[0], y)
         if key == "special" and self.kind == "slot":
             # The item's one special action: slaughter an animal (the game asks first).
@@ -233,14 +236,22 @@ class TreeReader:
 
     def textbox(self, p, scroll, group):
         """A multi-line text (class 0x819984: the Notes screen's topic list
-        and article). Lines holding a link tag ("<ip=4>Courtship</>") are
-        links: one clickable item per line, at that line's height (box height
-        / number of lines). Other text comes as one item per paragraph."""
+        and article). A topic list (every line one whole link, "<ip=4>Courtship</>")
+        gives one button per line. An article gives one text item per line,
+        each followed by its links ("Sanjar Khan, link"). Links are clicked in
+        the middle of the box the game keeps for them (link_boxes)."""
         raw = self.r.rgl_string(p + self.s["widget_text"]).replace("^", "\n")
         x, y = self.position(p)
         h = struct.unpack("<f", self.r.read(p + SIZE + 4, 4))[0]
         lines = raw.split("\n")
-        found = []
+        boxes = self.link_boxes(p)
+        found, link_no = [], 0
+
+        def add(item):
+            item.scroll, item.widget, item.group = scroll, p, group
+            item.from_textbox, item.order = True, len(found)
+            found.append(item)
+
         # A topic list: every line is one whole link, except the page you're
         # on. Articles have links INSIDE sentences (lords, towns): not a list.
         whole = [bool(WHOLE_LINK.match(line.strip())) for line in lines if line.strip()]
@@ -252,20 +263,53 @@ class TreeReader:
                     continue
                 bottom = y + h - (n + 1) * step     # line n's lower edge
                 if WHOLE_LINK.match(line.strip()):
-                    found.append(Item("button", "", x, bottom, value=words, click=(0.02, step / 2),
-                                      scroll=scroll, widget=p, group=group, from_textbox=True))
+                    item = Item("button", "", x, bottom, value=words, click=(0.02, step / 2))
+                    if link_no in boxes:
+                        item.x, item.y, item.click = (x + boxes[link_no][0], y + boxes[link_no][1],
+                                                      boxes[link_no][2])
+                    link_no += 1
+                    add(item)
                 else:   # the page you're on isn't a link
-                    found.append(Item("text", f"{words}, current", x, bottom, scroll=scroll,
-                                      widget=p, group=group, from_textbox=True))
+                    add(Item("text", f"{words}, current", x, bottom))
             return found
-        paragraphs = [text_mod.clean(part) for part in raw.split("\n")]
-        paragraphs = [para for para in paragraphs if para]
-        for n, para in enumerate(paragraphs):
-            # Their real heights aren't known: spread them down the box so they
-            # stay in order and never share a row.
-            found.append(Item("text", para, x, y + h - (n + 0.5) * h / len(paragraphs),
-                              scroll=scroll, widget=p, group=group, from_textbox=True))
+        paragraphs = [line for line in lines if text_mod.clean(line)]
+        for n, line in enumerate(paragraphs):
+            # Their real heights aren't known: spread them down the box (rows()
+            # keeps the box's own order anyway).
+            add(Item("text", text_mod.clean(line), x, y + h - (n + 0.5) * h / len(paragraphs)))
+            for name in LINK_NAME.findall(line):
+                if link_no in boxes and name.strip():
+                    bx, by, click = boxes[link_no]
+                    add(Item("link", "", x + bx, y + by, value=text_mod.clean(name), click=click))
+                link_no += 1
         return found
+
+    def link_boxes(self, p):
+        """{link number: (x, y, click offset)} relative to the text box: the
+        lower-left corner of the link's first box and the offset to its middle.
+        The game keeps one box per piece (a name wrapped over two lines has
+        two): lower-left corners at +0x2d4, upper-right at +0x2e4 (16 bytes
+        each), and which link each piece belongs to at +0x314 (ints)."""
+        try:
+            lows, highs, owners = (struct.unpack("<II", self.r.read(p + off, 8))
+                                   for off in LINK_VECTORS)
+            count = (lows[1] - lows[0]) // 16
+            if not (0 < count <= 2000 and (highs[1] - highs[0]) // 16 == count
+                    and (owners[1] - owners[0]) // 4 == count):
+                return {}
+            low = self.r.read(lows[0], count * 16)
+            high = self.r.read(highs[0], count * 16)
+            owner = struct.unpack(f"<{count}i", self.r.read(owners[0], count * 4))
+        except ReadError:
+            return {}
+        boxes = {}
+        for n in range(count):
+            if owner[n] in boxes:
+                continue        # the second piece of a wrapped name
+            x0, y0 = struct.unpack_from("<ff", low, n * 16)
+            x1, y1 = struct.unpack_from("<ff", high, n * 16)
+            boxes[owner[n]] = (x0, y0, ((x1 - x0) / 2, (y1 - y0) / 2))
+        return boxes
 
     def control(self, p, kind, kids, scroll):
         x, y = self.position(p)
@@ -331,6 +375,12 @@ def rows(found, by_columns=True):
         return 0 if i.y >= top else 2
 
     found.sort(key=lambda i: (section(i), -i.y, i.x))
+    # A text box's own order wins (a line, then its links): paragraph heights
+    # are only estimates, so its items go back into its slots in that order.
+    for box in {i.widget for i in found if i.from_textbox}:
+        slots = [n for n, i in enumerate(found) if i.from_textbox and i.widget == box]
+        for n, item in zip(slots, sorted((found[n] for n in slots), key=lambda i: i.order)):
+            found[n] = item
     groups = []
     for item in found:
         # A text box's lines are whole lines: never paired with what sits
@@ -350,6 +400,10 @@ def rows(found, by_columns=True):
         block.clear()
 
     for group in groups:
+        if group[0].from_textbox:
+            flush()
+            result.append(group[0])
+            continue
         group.sort(key=lambda i: i.x)
         group = attach_plus(group)
         controls = [i for i in group if i.kind != "text"]
