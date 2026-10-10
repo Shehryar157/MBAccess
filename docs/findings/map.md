@@ -160,3 +160,19 @@
   kingdom or caravans, not places). The click goes to "game_event_context_menu_button_clicked".
 - Useful later: map list keys for "Accompany" and "View notes" (a sighted player has them by
   right click). Where the menu lives in memory (a window number?) is unknown.
+
+## Context menu plan (2026-10-10, session 20; from WarbandLib headers, NOT tried live)
+- Native's buttons (module_scripts.py): "Move here" = cmenu_move (engine travel: our Enter
+  already does it), "View notes" = value 1 (place: change_screen_notes 3) or 2 (party led by a
+  lord/companion: notes on that troop), "Accompany" = cmenu_follow (engine follow; own kingdom
+  parties and caravans only, not places).
+- Memory (1.153 layout, offsets to re-find in 1.174): game.h context_menu_num_items,
+  context_menu_mouseover_index, context_menu_items[50] (rgl::strings), context_menu_values[50]
+  = the open menu's rows. map_window.h: rgl::camera cam, camera_origin, rotations, zoom
+  (lets us project a party's map position to the screen), context_menu_mode,
+  context_menu_object (the party the menu is for). rgl_window_manager.h:
+  context_menu_position (where the menu is drawn: to click its rows).
+- Plan: Shift+Enter on a map list party = right-click it where it's drawn (project with the
+  camera; verify by the hover/selection like the aim self-check), read the rows from the game
+  object, Up/Down + Enter click a row. Needs the map open: find the offsets by opening a
+  menu once by hand-click.
