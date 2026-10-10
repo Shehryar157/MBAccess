@@ -200,6 +200,10 @@ def play_session(game):
             mine.update(keys.LETTERS)
         if watcher.search_key():
             mine.add(keys.KEY_F)        # the map: F starts a search
+        if in_scene["now"] and watcher.hud_orders:
+            # An order list is open: Up and Down walk it (the user has attack and defend
+            # on them, and asked for this), so the game doesn't get them until it closes.
+            mine.update((keys.UP, keys.DOWN))
         if in_scene["now"]:
             mine.update((keys.KEY_J, keys.KEY_K, keys.KEY_L, keys.KEY_O, keys.KEY_H, keys.KEY_B,
                          keys.KEY_N, keys.KEY_M, keys.SEMICOLON, keys.QUOTE))

@@ -77,6 +77,13 @@
 - Orders: the user pressed 0 and 1 and heard the list, but never an F key, expecting to arrow
   through it. Added M = the order list again, and B now says where your own men are. Troops
   start a battle already charging, which is why they were far from the user.
+- ORDER LIST, second pass (the user asked for arrows as well): Up/Down walk the open list (no
+  wrap), Enter presses that row's function key for the game (keys.tap_scan, scan 0x3B + n - 1);
+  the F keys still work directly. While a list is open run.py swallows Up and Down (the user's
+  attack and defend) so they don't swing. The user had read "F1 - ..." as "press the letter F
+  on it": the first list of a session now starts with a hint that F1 is a function key.
+  Tested on a made-up list only; NOT in a battle (does a swallowed Up really not attack? does
+  the list close by itself, and when?).
 - Keys the user set on the game's Controls screen: Up attack, Down defend, Page Up next
   weapon, Page Down next shield. Still free in scenes: U V Z /.
 - The user wants to play arena fights THEMSELVES: record passively, never drive them.

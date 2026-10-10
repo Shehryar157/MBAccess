@@ -44,6 +44,17 @@ ALL = (UP, DOWN, RETURN, HOME, END, LEFT, RIGHT, SPACE, F9, ESCAPE,
        LEFT_BRACKET, RIGHT_BRACKET, SEMICOLON, QUOTE, COMMA, PERIOD, CONTROL, TAB) + LETTERS
 
 
+def tap_scan(scan, hold=0.08):
+    """Press and let go of a key for the game, by scan code (it reads keys through
+    DirectInput). On its own thread, so the mod doesn't wait for the hold. Our hook
+    ignores keys we send, so this never comes back to us as a press."""
+    def tap():
+        _user32.keybd_event(0, scan, 0x8, 0)            # KEYEVENTF_SCANCODE
+        time.sleep(hold)
+        _user32.keybd_event(0, scan, 0x8 | 0x2, 0)      # ... | KEYEVENTF_KEYUP
+    threading.Thread(target=tap, daemon=True, name="tap").start()
+
+
 def is_down(vk):
     """Is this key held right now? For modifiers: Shift+Enter is an Enter
     that went down while is_down(SHIFT) is true."""

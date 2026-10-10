@@ -75,6 +75,7 @@ BACK = re.compile(r"(go back|back|leave|return|cancel|never ?mind|forget it|done
 SEARCH_PAUSE = 1.0      # seconds between letters before type search starts over
 ORDER_ROW = re.compile(r"(F\d+) - (.+)")        # a row of the battle order panel
 COUNTER = re.compile(r"[^:]+: *\d+$")           # "Opponents Beaten: 0"
+F1_SCAN = 0x3B          # F1's scan code; F2 to F10 follow it
 
 
 class MenuWatcher:
@@ -114,6 +115,9 @@ class MenuWatcher:
         self.special_check = None    # (since, the cell's item): after Shift+Enter
         self.map_menu = None         # [rows, cursor]: a map place's right-click menu is open
         self.hud_orders, self.hud_others, self.hud_counters = [], [], []   # a scene's texts
+        self.hud_seen = False        # read_hud ran this tick: we're in a scene
+        self.order_cursor = None     # the order list row Up/Down chose, if any
+        self.order_hint_given = False
         self.tip_nudged = False      # moved the mouse again for a slow tooltip
         self.carried = []            # keys from a tick whose read failed
         self.settling = None         # a new screen seen once, waiting for a second read
@@ -300,14 +304,39 @@ class MenuWatcher:
                 counters.append(line)
             elif line.strip():
                 others.append(line)
+        self.hud_seen = True
         if orders != self.hud_orders:
-            self.hud_orders = orders
+            self.hud_orders, self.order_cursor = orders, None
             if orders:
-                self.say("Orders: " + ", ".join(orders))
+                # Once per session: F1 is a function key, not the letter F (the user took
+                # "F1 - ..." for "press F on it", 2026-10-10).
+                hint = "" if self.order_hint_given else \
+                    "Up, Down and Enter, or the function keys along the top of the keyboard. "
+                self.order_hint_given = True
+                self.say(hint + "Orders: " + ", ".join(orders))
         for line in others:
             if line not in self.hud_others:
                 self.say(line, interrupt=False)
         self.hud_others, self.hud_counters = others, counters
+
+    def order_keys(self, pressed):
+        """The order list can also be walked (the user asked, 2026-10-10): Up and Down
+        move through its rows, Enter presses the row's F key for you. The F keys
+        themselves still work, as for a sighted player. run.py keeps Up and Down from the
+        game while a list is open, as the user has attack and defend on them."""
+        rows = self.hud_orders
+        for key in pressed:
+            if key in (keys.UP, keys.DOWN):
+                if self.order_cursor is None:
+                    self.order_cursor = 0 if key == keys.DOWN else len(rows) - 1
+                else:
+                    step = 1 if key == keys.DOWN else -1
+                    self.order_cursor = max(0, min(len(rows) - 1, self.order_cursor + step))
+                self.say("%s, %d of %d" % (rows[self.order_cursor], self.order_cursor + 1, len(rows)))
+            elif key == keys.RETURN and self.order_cursor is not None:
+                number = int(rows[self.order_cursor].split()[0][1:])    # "F2 Follow me" -> 2
+                keys.tap_scan(F1_SCAN + number - 1)
+                self.order_cursor = None
 
     def with_access_tab(self, items, key, config):
         """On an Options screen, add our Accessibility tab after the game's
@@ -457,6 +486,7 @@ class MenuWatcher:
 
     def poll(self, pressed=()):
         pressed, self.carried = self.carried + list(pressed), []
+        self.hud_seen = False
         try:
             found = self.read()
         except ReadError:
@@ -464,8 +494,12 @@ class MenuWatcher:
             # (a few, so a long load doesn't replay a pile of presses).
             self.carried = pressed[-3:]
             return
+        if not self.hud_seen:       # not in a scene any more: its order list is gone
+            self.hud_orders, self.order_cursor = [], None
         if found is None:
             self.last, self.options, self.pending = None, [], None
+            if self.hud_orders:
+                self.order_keys(pressed)
             return
         state, items, config = found
         self.config = config
