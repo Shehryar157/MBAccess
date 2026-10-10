@@ -81,3 +81,7 @@
   own order (Item.order). Clicking a link through the mod UNTESTED.
 - Character screen (11): profile "skill_info" speaks modfiles Skill.description after a skill.
 - NVDA key (Insert/Caps Lock) held: keys hook passes everything through (keys.NVDA_KEYS).
+- Party screen (8), 2026-10-10 verified read-only with a Rhodok Tribesman selected: party_info panel
+  holds troop name label, Move Up/Down, "Class of troop" + class button, "Upgrade to X (10d)" image
+  buttons (one per upgrade path; flags 0x2 = disabled until the troop has the XP, 0x3 = hidden),
+  wage/morale label, Talk, Disband (reads "Release one" while hidden). Columns named in the profile.
