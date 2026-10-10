@@ -44,11 +44,17 @@ def test_other_teams_are_enemies_and_bystanders_are_nobody():
 
 
 def test_switching_a_weapon_says_only_what_changed():
-    name = {541: "Throwing Daggers", 491: "Wooden Shield", 3: "Battle Axe"}.get
-    assert battle.held_words((541, 491), name) == "Throwing Daggers, Wooden Shield"
-    assert battle.held_words((3, 491), name, before=(541, 491)) == "Battle Axe"
-    assert battle.held_words((3, None), name, before=(3, 491)) == "no shield"
-    assert battle.held_words((None, None), name, before=(3, None)) == "weapon put away"
+    names = {541: "Throwing Daggers", 491: "Wooden Shield", 3: "Battle Axe"}
+    name = lambda kind, flags: ("Rusty " if flags >> 24 else "") + names[kind]
+    daggers, shield, axe, rusty = (541, 5), (491, 360), (3, 0), (3, 1 << 24)
+    assert battle.held_words((daggers, shield), name) == "Throwing Daggers, Wooden Shield"
+    assert battle.held_words((axe, shield), name, before=(daggers, shield)) == "Battle Axe"
+    assert battle.held_words((rusty, shield), name, before=(axe, shield)) == "Rusty Battle Axe"
+    assert battle.held_words((axe, None), name, before=(axe, shield)) == "no shield"
+    assert battle.held_words((None, None), name, before=(axe, None)) == "weapon put away"
+    # A shield that's been hit is still the same shield: nothing to say.
+    assert battle.held_words((axe, (491, 300)), name, before=(axe, shield)) == ""
+    assert battle.shield_words((axe, (491, 300))) == "shield strength 300"
 
 
 def test_team_fields_are_small_numbers_that_differ():

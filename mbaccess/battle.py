@@ -109,27 +109,45 @@ def player_agent(reader, mission):
 
 
 def held(reader, address):
-    """(right hand's item kind, left hand's): None for an empty hand."""
-    kinds = []
+    """(right hand's item, left hand's): each (kind, flags), or None for an empty hand.
+    The flags are the troop inventory's: the top byte is the modifier ("Rusty", "Cracked",
+    "Balanced": Warband's quality and condition are this one word), the rest the item's own
+    count (a shield's hit points left)."""
+    items = []
     for slot in struct.unpack("<2i", reader.read(address + AGENT_HANDS, 8)):
-        kinds.append(reader.i32(address + AGENT_ITEMS + ITEM_STRIDE * slot)
+        items.append(struct.unpack("<iI", reader.read(address + AGENT_ITEMS + ITEM_STRIDE * slot, 8))
                      if 0 <= slot < ITEM_SLOTS else None)
-    return tuple(kinds)
+    return tuple(items)
+
+
+def same_item(item):
+    """What makes it "the same thing in the hand": its kind and modifier, not its count
+    (a shield losing hit points hasn't been switched)."""
+    return None if item is None else (item[0], item[1] >> 24)
 
 
 def held_words(now, name, before=None):
     """What to say when the hands change from `before` to `now`: the names of what's
-    newly held, or that a hand is now empty. With no `before`, everything held."""
+    newly held ("Rusty Sword"), or that a hand is now empty. With no `before`, everything
+    held. name(kind, flags) gives an item's name with its modifier."""
     right, left = now
     parts = []
     if before is None:
-        parts = [name(kind) for kind in now if kind is not None]
+        parts = [name(*item) for item in now if item is not None]
     else:
-        if right != before[0]:
-            parts.append(name(right) if right is not None else "weapon put away")
-        if left != before[1]:
-            parts.append(name(left) if left is not None else "no shield")
+        if same_item(right) != same_item(before[0]):
+            parts.append(name(*right) if right is not None else "weapon put away")
+        if same_item(left) != same_item(before[1]):
+            parts.append(name(*left) if left is not None else "no shield")
     return ", ".join(parts)
+
+
+def shield_words(now):
+    """ "shield strength 360" for the H key: the hit points left on what the left hand
+    holds (seen as 360 on a fresh Wooden Shield; not yet watched going down)."""
+    left = now[1] if now else None
+    points = left[1] & 0xffffff if left else 0
+    return "shield strength %d" % points if points else ""
 
 
 class HandWatch:
@@ -138,7 +156,7 @@ class HandWatch:
     EVERY = 0.15
 
     def __init__(self, name):
-        self.name = name        # item kind -> its name
+        self.name = name        # (item kind, flags) -> its name, modifier included
         self.last, self.checked = None, 0.0
 
     def poll(self, reader, mission, now):
@@ -150,9 +168,9 @@ class HandWatch:
             self.last = None    # not in a scene, or knocked out: start again next time
             return None
         hands = held(reader, me)
-        if hands == self.last:
-            return None
         before, self.last = self.last, hands
+        if before is not None and [same_item(i) for i in hands] == [same_item(i) for i in before]:
+            return None
         return held_words(hands, self.name, before) or None
 
 

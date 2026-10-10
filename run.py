@@ -111,8 +111,9 @@ def play_session(game):
     scan = scanner.Scanner(Reader(game), game.profile, speech.say,
                            item_name=lambda kind: watcher.item_name(kind),
                            passage_name=passage_name, turner=turning.Turner(game, speech.say))
-    hands = battle.HandWatch(lambda kind: watcher.item_name(kind))
-    scan.holding = lambda: battle.held_words(hands.last, hands.name) if hands.last else ""
+    hands = battle.HandWatch(lambda kind, flags=0: watcher.item_name(kind, flags))
+    scan.holding = lambda: ", ".join(w for w in (battle.held_words(hands.last, hands.name),
+                                                 battle.shield_words(hands.last)) if w) if hands.last else ""
     scan.counters = lambda: watcher.hud_counters    # ammunition and arena counts, for H and B
     scan.orders = lambda: watcher.hud_orders        # the order panel's rows, for M
     scan.turner.start_spinning(key_watch.is_held, lambda: in_scene["now"], keys.LEFT, keys.RIGHT,
