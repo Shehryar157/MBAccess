@@ -73,6 +73,9 @@ GROUPS = [
          "where it is, lower when it's behind you, quicker as you get close.", None),
         ("Apostrophe: compass, the way you're facing.", None),
         ("H: your health, and your horse's when you're riding.", None),
+        ("In a fight. B: how many stand with you and against you, and where most of the "
+         "enemy are. N: the nearest enemy. The scanner's categories gain Enemies and Allies, "
+         "so Control+A and Control+D turn you to the nearest enemy on that side.", None),
         ("On foot, hold Left or Right arrow: turn on the spot, as moving the mouse "
          "does. Press Apostrophe to hear where you now face. The speed is set on the "
          "Accessibility tab of the Options screen.", None),

@@ -25,6 +25,26 @@
 - tools/record_battle.py [seconds] [name]: passive recorder for a fight the USER plays (they
   want to fight the arena themselves; never drive it). Player 5 times a second, others once;
   "read" prints each fighter's health and status over time. logs/stop ends it early.
+
+## Arena melee recording (2026-10-10, session 21; logs/arena1.pkl.gz, the user fought and lost)
+- TEAM VERIFIED: agent +0x7b4 (and +0x7b8, same value). Melee: six fighters 3, 5, 3, 5, 2, 2
+  (pairs), Tournament Master watching -1, player 6. Village: everyone -1, player 0. Arena
+  lobby afterwards: player -1, a Veteran Fighter 4.
+- Status +0x30: 1 alive, 4 knocked unconscious (player and a Regular Fighter; health 0).
+  The player's health stepped 52, 43, 37, 27, 19, 13, 9, 4, 0, then 52 again in the lobby.
+- Likely "who hit me last": +0x5dbc (-1 until hit; the knocked-out fighter held 8 = the
+  Veteran Fighter the message log named; the player cycled 12, 11, 13) and +0x5ea8 (similar,
+  never -1 in the fight). +0x60f4 = -1 between hits, 85-99 during one (a hit animation?).
+  NOT found: attack and block state. The player never swung, and the others were sampled only
+  once a second: record again with everyone at 5-10 a second (tools/analyse_battle.py reads it).
+- BUILT (untested by the user): scanner categories Enemies and Allies (battle.side: another
+  team = enemy, -1 = bystander; a friendly lord's team in a real battle will wrongly count as
+  enemy until the mission's team relations are found); B = "2 with you, 6 against, most of
+  them 12 metres, ahead left"; N = nearest enemy; "Talk to" isn't offered for an enemy, and
+  Close enough mode skips enemies.
+- OPEN: in the melee the mod read the fight's HUD as a screen ("Opponents Beaten: 0, 1 of 2",
+  "Opponents Remaining: 40", "80 80, 3 of 3"). It should speak changes, not take the cursor.
+- The user wants to play arena fights THEMSELVES: record passively, never drive them.
 - First run was with NO scene open (trade screen; the old Jelkala tavern mission still in
   memory, 7 agents): health candidates +0x864, +0x5d6c, +0x5f50, +0x5ff8; +0x864 read
   spawn ?, max 45, now 0 for all seven. Means nothing until run in a live scene: a stale

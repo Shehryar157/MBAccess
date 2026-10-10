@@ -44,7 +44,7 @@ META_CATEGORY = {PROP: "Objects", SPAWNED_PROP: "Objects", PASSAGE: "Exits",
                  SCENE_ITEM: "Objects", SPAWNED_ITEM: "Items", DEATH_ITEM: "Items"}
 ITEM_METAS = (SCENE_ITEM, SPAWNED_ITEM, DEATH_ITEM)
 
-CATEGORIES = ("All", "People", "Exits", "Items", "Objects", "Animals")
+CATEGORIES = ("All", "People", "Enemies", "Allies", "Exits", "Items", "Objects", "Animals")
 # Hard-coded (can't be discovered from memory yet): props a sighted player never sees,
 # such as light sources and invisible barriers. Matched against the id without "spr_".
 INVISIBLE = ("light", "barrier", "ai_limiter", "invisible", "collision", "entry", "sound",
@@ -151,6 +151,7 @@ class Scanner:
         mission = walls.mission_address(self.r, self.profile)
         found, people = [], []
         horses = []
+        my_team = battle.NO_TEAM
         for chunk in self._chunks(mission + 0x20):
             for i in range(16):
                 try:
@@ -160,6 +161,8 @@ class Scanner:
                 no = struct.unpack_from("<i", h, 8)[0]
                 valid = struct.unpack_from("<i", h, 4)[0]
                 kind, _, status, flags = struct.unpack_from("<iiiI", h, walls.AGENT_TYPE)
+                if valid == 1 and status == 1 and flags & 1 and kind == battle.HUMAN:
+                    my_team = self.r.i32(chunk + i * walls.AGENT_SIZE + battle.AGENT_TEAM)
                 if valid != 1 or status != 1 or flags & 1:
                     continue
                 x, y, z = struct.unpack_from("<3f", h, walls.AGENT_POS)
@@ -173,7 +176,10 @@ class Scanner:
                         name = self.troop_names[troop] = self._troop_name(troop)
                     except (ReadError, KeyError, TypeError):
                         name = "someone"
-                people.append(dict(key=("agent", no), name=name, category="People", x=x, y=y, z=z))
+                people.append(dict(key=("agent", no), name=name, category="People", x=x, y=y, z=z,
+                                   team=self.r.i32(chunk + i * walls.AGENT_SIZE + battle.AGENT_TEAM)))
+        for person in people:       # in a fight: which side they're on
+            person["side"] = battle.side(my_team, person["team"])
         found += people
         player = walls.find_player(self.r, mission, self.profile)
         riders = [(p["x"], p["y"]) for p in people] + ([player[:2]] if player else [])
@@ -240,6 +246,10 @@ class Scanner:
                 self.say(self.turner.facing_words())
             elif key == keys.KEY_H:
                 self.say(battle.health_words(self.r, walls.mission_address(self.r, self.profile)))
+            elif key == keys.KEY_B:
+                self.battle_status()
+            elif key == keys.KEY_N:
+                self.nearest_enemy()
             elif key in (keys.KEY_A, keys.KEY_D) and shift and self.turner:
                 self.turner.turn(45 if key == keys.KEY_A else -45)
             elif key == keys.KEY_S and shift and self.turner:
@@ -265,8 +275,43 @@ class Scanner:
             return None, []
         wanted = CATEGORIES[self.category]
         if wanted != "All":
-            found = [t for t in found if t["category"] == wanted]
+            found = [t for t in found if wanted in (t["category"], t.get("side"))]
         return player, found
+
+    # --- battles: who's standing, and the nearest enemy -------------------------------
+
+    def battle_status(self):
+        """B: how many stand on each side, and where the enemy's main body is."""
+        player, found = self._read_all()
+        if player is None:
+            self.say("can't find you in the scene")
+            return
+        enemies = [t for t in found if t.get("side") == "Enemies"]
+        allies = [t for t in found if t.get("side") == "Allies"]
+        if not enemies and not allies:
+            self.say("no fight here")
+            return
+        words = "%d with you, %d against" % (len(allies), len(enemies))
+        if enemies:
+            # The middle of them all: where a sighted player sees the enemy line.
+            x = sum(t["x"] for t in enemies) / len(enemies)
+            y = sum(t["y"] for t in enemies) / len(enemies)
+            d, a = relative(player, x, y)
+            words += ", most of them %s, %s" % (describe_distance(d), describe_angle(a))
+        self.say(words)
+
+    def nearest_enemy(self):
+        """N: the nearest enemy, how far and which way."""
+        player, found = self._read_all()
+        if player is None:
+            self.say("can't find you in the scene")
+            return
+        enemies = [(relative(player, t["x"], t["y"]), t) for t in found if t.get("side") == "Enemies"]
+        if not enemies:
+            self.say("no enemies")
+            return
+        (d, a), t = min(enemies, key=lambda e: e[0][0])
+        self.say("%s, %s, %s" % (t["name"], describe_distance(d), describe_angle(a)))
 
     def step(self, key):
         """Walk one of two lines through the player: ahead/behind (O further ahead,
@@ -432,6 +477,8 @@ class Scanner:
         for t in found:
             if t["category"] not in ("People", "Animals", "Items", "Exits"):
                 continue
+            if t.get("side") == "Enemies":
+                continue        # nobody talks to the man swinging at them
             d, a = relative(player, t["x"], t["y"])
             limit = reach[t["category"]] if isinstance(reach, dict) else reach
             if d <= limit and (best is None or d < best[2]):
@@ -454,6 +501,26 @@ class Scanner:
         if troop not in self.troop_names:
             self.troop_names[troop] = self._troop_name(troop)
         return self.troop_names[troop], False
+
+    def agent_side(self, no):
+        """ "Enemies", "Allies" or None for agent number `no`: so a fight's prompts don't
+        offer to talk to an enemy."""
+        mission = walls.mission_address(self.r, self.profile)
+        chunks = self._chunks(mission + 0x20)
+        if not 0 <= no // 16 < len(chunks):
+            return None
+        mine = battle.NO_TEAM
+        for chunk in chunks:
+            for i in range(16):
+                try:
+                    h = self.r.read(chunk + i * walls.AGENT_SIZE, 0x38)
+                except ReadError:
+                    continue
+                kind, _, status, flags = struct.unpack_from("<iiiI", h, walls.AGENT_TYPE)
+                if struct.unpack_from("<i", h, 4)[0] == 1 and kind == battle.HUMAN and flags & 1:
+                    mine = self.r.i32(chunk + i * walls.AGENT_SIZE + battle.AGENT_TEAM)
+        theirs = self.r.i32(chunks[no // 16] + no % 16 * walls.AGENT_SIZE + battle.AGENT_TEAM)
+        return battle.side(mine, theirs)
 
     def object_name(self, no):
         """The name the scanner gave mission object `no`, if it has read it."""

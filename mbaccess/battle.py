@@ -16,6 +16,20 @@ MAX_HEALTH = 2000.0     # nothing in the game has more hit points than this
 # Found by find_health in Buvran's centre (2026-10-10): villagers 42-44, a horse 100, us 52.
 HEALTH_MAX, HEALTH_NOW = 0x5ffc, 0x6000     # floats; +0x5ff8 at spawn, +0x6004 as an int
 AGENT_HORSE = 0x114     # the agent number of the horse a rider is on, or -1
+# The team number (found in a Jelkala arena melee the user fought, 2026-10-10: the six
+# fighters read 3, 5, 3, 5, 2, 2, the Tournament Master watching -1, the player 6; +0x7b8
+# holds the same). Villagers in a peaceful scene are -1 and the player 0.
+AGENT_TEAM = 0x7b4
+NO_TEAM = -1
+
+
+def side(mine, theirs):
+    """ "Enemies", "Allies" or None (a bystander, or no fight) for someone on team
+    `theirs` when we're on team `mine`. Every other team counts as an enemy: right in an
+    arena melee; a battle beside an allied lord (a friendly team) still has to be checked."""
+    if theirs == NO_TEAM or mine == NO_TEAM:
+        return None
+    return "Allies" if theirs == mine else "Enemies"
 HEAD = 0x120            # bytes of an agent that tell who it is
 
 
