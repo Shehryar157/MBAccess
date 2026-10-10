@@ -454,7 +454,11 @@ class MenuWatcher:
             return ("list", "places")
         if item.kind == "slot":
             return ("grid", item.group)
-        columns = (self.config.get("layout") or {}).get("columns")
+        layout = self.config.get("layout") or {}
+        if layout.get("by_group"):
+            # One section per container (Notes: buttons, topic list, page).
+            return ("list", item.group if item.from_textbox else "")
+        columns = layout.get("columns")
         if columns:
             return ("list", next(n for n, x in enumerate(columns + [99]) if item.x < x))
         return ("list", 0)

@@ -55,6 +55,7 @@ class Item:
     list_row: float = 0.0        # drop-down: height of one row of the open list
     group: str = ""              # name of the container it's in, e.g. "inv" (equipment)
     virtual: str = ""            # one of the mod's own items (Accessibility tab), not the game's
+    from_textbox: bool = False   # a line or paragraph of a multi-line text box
 
     def spoken(self):
         words = self.label
@@ -184,6 +185,8 @@ class TreeReader:
                     found.append(self.control(p, kind, kids, scroll))
                     found[-1].group = group
                     continue        # its children (label, arrows) are read by control()
+                if kind == "textbox":
+                    found.extend(self.textbox(p, scroll, name or group))
                 if kind in ("label", "image"):
                     words = self.text(p)
                     if words:
@@ -205,6 +208,9 @@ class TreeReader:
         # Which screen this is: the widgets' addresses stay put while it's
         # open, unlike their rows, which shift for a moment while scrolling.
         self.key = tuple(sorted(i.widget for i in found))
+        # A text box keeps its address when its text changes (a new Notes
+        # page), so its words count too: a new page is a new screen.
+        self.key += tuple(hash(i.label + i.value) for i in found if i.from_textbox)
         if layout:
             found = arrange(found, layout)
             if "columns" in layout:
@@ -216,6 +222,39 @@ class TreeReader:
                                          layout.get("by_columns", True))]
             return rows(found, layout.get("by_columns", True))
         return rows(found)
+
+    def textbox(self, p, scroll, group):
+        """A multi-line text (class 0x819984: the Notes screen's topic list
+        and article). Lines holding a link tag ("<ip=4>Courtship</>") are
+        links: one clickable item per line, at that line's height (box height
+        / number of lines). Other text comes as one item per paragraph."""
+        raw = self.r.rgl_string(p + self.s["widget_text"]).replace("^", "\n")
+        x, y = self.position(p)
+        h = struct.unpack("<f", self.r.read(p + SIZE + 4, 4))[0]
+        lines = raw.split("\n")
+        found = []
+        if any(text_mod.LINK_TAG.search(line) for line in lines):
+            step = h / len(lines)
+            for n, line in enumerate(lines):
+                words = text_mod.clean(line)
+                if not words:
+                    continue
+                bottom = y + h - (n + 1) * step     # line n's lower edge
+                if text_mod.LINK_TAG.search(line):
+                    found.append(Item("button", "", x, bottom, value=words, click=(0.02, step / 2),
+                                      scroll=scroll, widget=p, group=group, from_textbox=True))
+                else:   # the page you're on isn't a link
+                    found.append(Item("text", f"{words}, current", x, bottom, scroll=scroll,
+                                      widget=p, group=group, from_textbox=True))
+            return found
+        paragraphs = [text_mod.clean(part) for part in raw.split("\n\n")]
+        paragraphs = [para for para in paragraphs if para]
+        for n, para in enumerate(paragraphs):
+            # Their real heights aren't known: spread them down the box so they
+            # stay in order and never share a row.
+            found.append(Item("text", para, x, y + h - (n + 0.5) * h / len(paragraphs),
+                              scroll=scroll, widget=p, group=group, from_textbox=True))
+        return found
 
     def control(self, p, kind, kids, scroll):
         x, y = self.position(p)
