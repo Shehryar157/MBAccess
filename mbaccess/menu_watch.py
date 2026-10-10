@@ -28,6 +28,7 @@ import time
 
 from . import face
 from . import keys
+from . import paths
 from . import text as text_mod
 from . import world_map
 from .form import Item, TreeReader
@@ -64,8 +65,7 @@ HIGHLIGHT = 0x1f2       # widget byte: non-zero while the mouse is over it
 AIM_WAIT = 0.15         # seconds for the game to light up a hovered button
 # Screens whose picture we found out by hovering (window number -> letterbox),
 # kept between runs so each screen is learned once.
-LEARNED = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                       "learned.json")
+LEARNED = os.path.join(paths.USER, "learned.json")
 ACTION_KEYS = {keys.RETURN: "activate", keys.SPACE: "activate",
                keys.LEFT: "left", keys.RIGHT: "right"}
 # Escape presses the screen's own way back: an option or button starting

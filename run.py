@@ -5,13 +5,15 @@
                                 log to logs\mbaccess.log, and exit when the game closes
 """
 import ctypes
+import multiprocessing
 import os
 import sys
 import time
 
 from mbaccess import (access_page, battle, click, help, keys, launcher, messages, party_skills, world_map,
-                      process, prompts, scanner, session, settings, speech, turning, wall_beeps,
+                      paths, process, prompts, scanner, session, settings, speech, turning, wall_beeps,
                       walls)
+from mbaccess import VERSION
 from mbaccess import text as text_mod
 from mbaccess.mem import Reader
 from mbaccess.menu_watch import MenuWatcher
@@ -20,7 +22,7 @@ ACTION_KEY = 0x46   # F: the game's Action key (Options > Controls)
 MESSAGE_GRACE = 1.5    # seconds a fresh game message is protected from menu speech
 POLL_SECONDS = 0.05  # check the game 20 times a second
 STARTUP_WAIT = 120   # --with-game: give up if the game hasn't appeared by then
-HERE = os.path.dirname(os.path.abspath(__file__))
+HERE = paths.USER
 
 
 def setup_log():
@@ -42,7 +44,7 @@ def only_instance():
 
 
 def play_session(game):
-    speech.say(f"Connected to {game.profile.title}.")
+    speech.say(f"MB Access {VERSION}. Connected to {game.profile.title}.")
     launch = launcher.LauncherWatcher(speech.say)
     address, menus, skills, skins, next_locate = None, {}, {}, {}, 0
     window = {"hwnd": None, "checked": 0}
@@ -251,6 +253,9 @@ def main():
 
 
 if __name__ == "__main__":
+    # As MBAccess.exe the key hook's child process is this same program started again:
+    # this line makes that copy do the child's job instead of starting a second mod.
+    multiprocessing.freeze_support()
     try:
         main()
     except KeyboardInterrupt:

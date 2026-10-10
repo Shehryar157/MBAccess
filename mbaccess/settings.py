@@ -8,8 +8,9 @@ an old settings.json keeps working when we add new settings.
 import json
 import os
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-PATH = os.path.join(ROOT, "settings.json")
+from . import paths
+
+PATH = os.path.join(paths.USER, "settings.json")
 
 ITEM_DETAILS = ("Full", "Name and price", "Name only")
 TURN_SPEEDS = (30, 45, 60, 90, 120, 180, 240)    # degrees a second, arrow keys on foot

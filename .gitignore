@@ -8,3 +8,5 @@ loader/*.pdb
 settings.json
 learned.json
 out/
+build/
+dist/

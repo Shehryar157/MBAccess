@@ -7,10 +7,11 @@ the defaults here, so updating them never means editing code.
 """
 import json
 import os
+
+from . import paths
 from dataclasses import dataclass, field
 
-HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-PROFILE_DIR = os.path.join(HERE, "profiles")
+PROFILE_DIR = os.path.join(paths.DATA, "profiles")
 
 # Field offsets inside wb::game. None = not discovered yet; features that
 # need a missing offset stay switched off.

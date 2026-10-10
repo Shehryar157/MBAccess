@@ -82,6 +82,11 @@ GROUPS = [
         ("In a fight. B: how many stand with you and against you, and where most of each "
          "side are. N: the nearest enemy. The scanner's categories gain Enemies and Allies, "
          "so Control+A and Control+D turn you to the nearest enemy on that side.", None),
+        ("Lock-on beeps in a fight: quick high blips mean you face an enemy and your "
+         "weapon reaches him. Lower, slower blips mean you face one who is still too "
+         "far; they quicken as you close in. Silence means no enemy is in front of you. "
+         "A short rising zip is an enemy near you raising his weapon at you: block. "
+         "A low creak is an archer aiming at you.", None),
         ("On foot, hold Left or Right arrow: turn on the spot, as moving the mouse "
          "does. Press Apostrophe to hear where you now face. The speed is set on the "
          "Accessibility tab of the Options screen.", None),
@@ -118,8 +123,9 @@ GROUPS = [
          "page on that place, or on the lord leading that party) and, for a friendly party "
          "or a caravan, Accompany. Up and Down choose, Enter presses, Escape closes.", None),
         ("Tab: the map's buttons: Camp, Reports, Notes, Inventory, Character and Party.", None),
-        ("Letters search the places, so the game's letter shortcuts (I, P, C) don't work "
-         "here: use the map buttons instead.", None),
+        ("F: search the places. Type part of a name, Up and Down step through the "
+         "matches, Enter travels there, Escape ends the search. Other letters stay the "
+         "game's own shortcuts: I inventory, P party, C character, Q quests.", None),
     ]),
 ]
 
