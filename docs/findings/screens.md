@@ -114,3 +114,7 @@
   woman 7, 0, 5); skin tone word from the face texture's colour brightness (face.tone).
 - Slider direction: Nose Size 12% -> 100% made the nose visibly longer (screenshot, head
   moving, so weak evidence): right = more, as assumed. Others still unchecked.
+- SLIDER GRAB FIX (2026-10-10, VERIFIED face editor Age 0 -> 5 -> 0%): at 0% the drag started on
+  the slider's left edge and missed the handle (its centre sits ~0.005 in). Sliders now use
+  their own width (+0x1ac: Age 0.2175, Nose Size 0.2075, was a fixed 0.205) and grab at
+  x + 0.005 + f * (width - 0.01). One Left press right after a Right didn't take (a retry did).

@@ -29,7 +29,8 @@ ROW = 0.012                      # widgets this close in height share a row
 FAR = 0.3                        # text further apart than this on a row is separate
 PICKER_GAP = 0.04                # a picker's arrows sit at most this far under its label
 PICKER_REACH = 0.06              # ... and at most this far to its left and right
-SLIDER_WIDTH = 0.205             # the slider track, in screen units
+SLIDER_WIDTH = 0.205             # the handle's travel when the slider's size is unreadable
+SLIDER_INSET = 0.005             # the handle's centre at 0% sits this far in from the left edge
 SLIDER_STEP = 0.05               # Left/Right move a slider by 5%
 # Drop-down: its choices are an stl::vector of rgl::strings (0x90 bytes each),
 # the chosen index, and the height of one row of the open list.
@@ -52,6 +53,7 @@ class Item:
     value: str = ""     # what it's set to; can change (checked, "Poor", "40%")
     arrows: tuple = ()  # spinner: x of its left and right arrows
     arrow_click: tuple = (0.01, 0.015)   # where to click an arrow, from (its x, y)
+    width: float = 0.0           # slider: its own width (size +0x1ac); 0 = unknown
     fraction: float = 0.0
     click: tuple = (0.1, 0.01)   # where to click, relative to (x, y)
     scroll: tuple = None         # (bottom, top) of the scroll area it's in, if any
@@ -127,8 +129,12 @@ class Item:
         if key in ("left", "right") and self.kind == "slider":
             step = SLIDER_STEP if key == "right" else -SLIDER_STEP
             target = min(1.0, max(0.0, self.fraction + step))
-            return ("drag", self.x + self.fraction * SLIDER_WIDTH,
-                    self.x + target * SLIDER_WIDTH, y)
+            # Grab the handle where it's drawn: at 0% the left edge itself
+            # misses it (face editor Age), so allow for its half-width.
+            travel = self.width - 2 * SLIDER_INSET if self.width > 0.05 else SLIDER_WIDTH
+            start = SLIDER_INSET if self.width > 0.05 else 0.0
+            return ("drag", self.x + start + self.fraction * travel,
+                    self.x + start + target * travel, y)
         return None
 
 
@@ -400,6 +406,8 @@ class TreeReader:
             # Options sliders run 0-1, Custom Battle's 0-100 or 1-75.
             item.fraction = (value - low) / (high - low) if high > low else 0.0
             item.value = f"{round(item.fraction * 100)}%"
+            width = struct.unpack("<f", self.r.read(p + SIZE, 4))[0]
+            item.width = width if 0.05 < width < 1 else 0.0
         return item
 
 
