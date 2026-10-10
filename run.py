@@ -111,6 +111,7 @@ def play_session(game):
                            item_name=lambda kind: watcher.item_name(kind),
                            passage_name=passage_name, turner=turning.Turner(game, speech.say))
     scan.counters = lambda: watcher.hud_counters    # ammunition and arena counts, for H and B
+    scan.orders = lambda: watcher.hud_orders        # the order panel's rows, for M
     scan.turner.start_spinning(key_watch.is_held, lambda: in_scene["now"], keys.LEFT, keys.RIGHT,
                                speed=lambda: prefs.get("turn_speed"))
     if beeper:
@@ -199,7 +200,7 @@ def play_session(game):
             mine.add(keys.KEY_F)        # the map: F starts a search
         if in_scene["now"]:
             mine.update((keys.KEY_J, keys.KEY_K, keys.KEY_L, keys.KEY_O, keys.KEY_H, keys.KEY_B,
-                         keys.KEY_N, keys.SEMICOLON, keys.QUOTE))
+                         keys.KEY_N, keys.KEY_M, keys.SEMICOLON, keys.QUOTE))
         # Shift+A / D / S turn (S: about-face), Ctrl+A / D face the nearest thing in the
         # scanner's category; plain A, D and S still walk.
         key_watch.swallow_shifted = frozenset((keys.KEY_A, keys.KEY_D, keys.KEY_S)) if in_scene["now"] else frozenset()

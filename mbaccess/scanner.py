@@ -130,6 +130,7 @@ class Scanner:
         self.current = None         # key of the thing last spoken: ("agent", no) / ("object", no)
         self.troop_names = {}       # troop number -> name: they never change
         self.counters = lambda: []  # the scene's on-screen counts (set by run.py)
+        self.orders = lambda: []    # the open order panel's rows (set by run.py)
         self.object_names = {}      # object number -> (name, category or None to skip)
         self.names_scene = None     # the scene object_names belong to
 
@@ -252,6 +253,8 @@ class Scanner:
                 self.battle_status()
             elif key == keys.KEY_N:
                 self.nearest_enemy()
+            elif key == keys.KEY_M:
+                self.repeat_orders()
             elif key in (keys.KEY_A, keys.KEY_D) and shift and self.turner:
                 self.turner.turn(45 if key == keys.KEY_A else -45)
             elif key == keys.KEY_S and shift and self.turner:
@@ -294,14 +297,28 @@ class Scanner:
         if not enemies and not allies:
             self.say(", ".join(counts) or "no fight here")
             return
-        words = ", ".join(["%d with you, %d against" % (len(allies), len(enemies))] + counts)
-        if enemies:
-            # The middle of them all: where a sighted player sees the enemy line.
-            x = sum(t["x"] for t in enemies) / len(enemies)
-            y = sum(t["y"] for t in enemies) / len(enemies)
+        def middle(group):
+            """Where most of a group is: what a sighted player sees as "the line"."""
+            x = sum(t["x"] for t in group) / len(group)
+            y = sum(t["y"] for t in group) / len(group)
             d, a = relative(player, x, y)
-            words += ", most of them %s, %s" % (describe_distance(d), describe_angle(a))
-        self.say(words)
+            return "%s, %s" % (describe_distance(d), describe_angle(a))
+
+        parts = []
+        if allies:
+            parts.append("%d with you, most of them %s" % (len(allies), middle(allies)))
+        else:
+            parts.append("nobody with you")
+        if enemies:
+            parts.append("%d against, most of them %s" % (len(enemies), middle(enemies)))
+        else:
+            parts.append("no enemies standing")
+        self.say(". ".join(parts + counts))
+
+    def repeat_orders(self):
+        """M: the order panel's rows again (they're read once when it opens)."""
+        rows = self.orders()
+        self.say("Orders: " + ", ".join(rows) if rows else "no order list open. Press 1, 2, 3 or 0 first")
 
     def nearest_enemy(self):
         """N: the nearest enemy, how far and which way."""

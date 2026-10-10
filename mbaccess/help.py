@@ -73,8 +73,12 @@ GROUPS = [
          "where it is, lower when it's behind you, quicker as you get close.", None),
         ("Apostrophe: compass, the way you're facing.", None),
         ("H: your health, and your horse's when you're riding.", None),
-        ("In a fight. B: how many stand with you and against you, and where most of the "
-         "enemy are. N: the nearest enemy. The scanner's categories gain Enemies and Allies, "
+        ("Orders: press 1 for infantry, 2 archers, 3 cavalry or 0 for everyone. The order "
+         "list is read out: press the F key it names, then the F key of the order in the next "
+         "list. There is nothing to arrow through: the game only takes the F keys. M reads "
+         "the open list again. The game announces the order when it's given.", None),
+        ("In a fight. B: how many stand with you and against you, and where most of each "
+         "side are. N: the nearest enemy. The scanner's categories gain Enemies and Allies, "
          "so Control+A and Control+D turn you to the nearest enemy on that side.", None),
         ("On foot, hold Left or Right arrow: turn on the spot, as moving the mouse "
          "does. Press Apostrophe to hear where you now face. The speed is set on the "
