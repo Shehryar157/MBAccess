@@ -26,6 +26,7 @@ import re
 import struct
 import time
 
+from . import face
 from . import keys
 from . import text as text_mod
 from .form import Item, TreeReader
@@ -77,6 +78,7 @@ class MenuWatcher:
         self.page = page             # the Accessibility tab (access_page.AccessPage), if any
         self.settings = settings
         self.game = game_address     # the campaign object; None at the main menu
+        self.face_seen = ""          # the face editor's last portrait (face.py)
         self.offsets = offsets
         self.screen = screen or {}   # the profile's "screen" addresses
         # JSON keys are always strings, so turn "18" back into 18.
@@ -243,6 +245,8 @@ class MenuWatcher:
                 return None     # nothing readable (e.g. the 3D scene)
             if config.get("party_skills"):
                 items = self.with_party_skills(items)
+            if config.get("face"):
+                items = face.dress(items, self.player_gender())
             if config.get("saves"):
                 items = self.save_tiles(top, config["saves"]) + items
             if config.get("map") and self.world_map and self.game:
@@ -309,6 +313,18 @@ class MenuWatcher:
             items.append(Item("button", words, x, y, value="selected" if n == chosen else "",
                               click=self.tree.middle(tile), widget=tile))
         return items
+
+    def player_gender(self):
+        """"man" or "woman" from the player troop's flags (low bits = skin:
+        0 man, 1 woman); "" if unknown."""
+        if not (self.party_skills and self.game):
+            return ""
+        o = self.party_skills.o
+        try:
+            skin = self.reader.u32(self.reader.ptr(self.game + o["troops"]) + o["troop_flags"]) & 0xf
+        except ReadError:
+            return ""
+        return {0: "man", 1: "woman"}.get(skin, "")
 
     def with_party_skills(self, items):
         """The party screen draws its party skills without keeping the text,
@@ -420,6 +436,12 @@ class MenuWatcher:
                 self.say(new.value[len(old.value):])   # echo what was typed
             else:
                 self.say(new.value or "blank")
+        # Randomize or Reset changed the whole face: say what it looks like now.
+        if old and new.kind == "button" and items[0].virtual == "portrait" \
+                and old.virtual != "portrait" and items[0].value != self.face_seen \
+                and self.face_seen:
+            self.say(items[0].value, interrupt=False)
+        self.face_seen = items[0].value if items[0].virtual == "portrait" else ""
         if self.tip_wait:
             self.check_tooltip()
         if self.aim_check:
@@ -1090,6 +1112,10 @@ class MenuWatcher:
         if item.virtual == "map":
             if key == "activate":
                 self.world_map.travel(self.game, item)
+            return
+        if item.virtual == "portrait":
+            if key == "activate":
+                self.say(item.value)
             return
         if item.virtual:
             self.page.act(item, key)

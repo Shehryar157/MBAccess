@@ -98,3 +98,10 @@
   Left/Right click the arrow's middle (Item.arrow_click).
 - Skill descriptions: Prisoner Management's "%d" is filled from scripts.txt
   game_get_party_prisoner_limit's store_mul number (Native 5; modfiles.fill_skill_numbers).
+- Face words (mbaccess/face.py, profile window 31 "face": true): sliders read "Nose Size,
+  large, 73%" (5 bands); a "Portrait" item first (age + man/woman from troop 0 flags & 0xf,
+  hair shade, up to 6 features furthest from average, face order); read again after
+  Randomize/Reset. skins.txt: the Skin picker steps through 8 face textures, each with its own
+  hair colour list (ARGB, light -> dark: Hair Color slider left = light). Slider direction for
+  the shape keys (left = less) is ASSUMED: some skins.txt key ranges run backwards; check by
+  screenshot.

@@ -495,3 +495,14 @@ def test_skill_number_slot_filled_from_script():
     text = "game_get_party_prisoner_limit -1\n 2 2133 2 1224979098644774912 0 2122 3 1224979098644774913 1224979098644774914 5 \n"
     assert script_multiplier(text, "game_get_party_prisoner_limit") == 5
     assert script_multiplier(text, "missing_script") is None
+
+
+def test_face_words_and_portrait():
+    from mbaccess import face
+    assert face.word("Nose Size", 0.95) == "very large"
+    assert face.word("Nose Size", 0.5) == "average"
+    assert face.word("Chin Forward", 0.2) == "receding"
+    text = face.portrait({"Age": 0.1, "Hair Color": 0.9, "Nose Size": 0.95,
+                          "Nose Shape": 0.9, "Face Width": 0.5}, "man")
+    assert text == "Very young man, very dark hair. Very large, very hooked nose."
+    assert face.portrait({"Age": 0.5}, "woman") == "Middle-aged woman. An average face."
