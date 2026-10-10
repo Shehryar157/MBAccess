@@ -93,9 +93,7 @@ class Turner:
                     left, right = held(left_key), held(right_key)
                     if left == right:
                         owed = 0.0
-                        if spinning:
-                            spinning = False
-                            self.say(self.facing_words())
+                        spinning = False    # let go: nothing is said (the user asked, session 21)
                         continue
                     if now - checked > 0.25:        # mounted? (horses turn with A/D)
                         p = walls.find_player(r, walls.mission_address(r, self.profile), self.profile)

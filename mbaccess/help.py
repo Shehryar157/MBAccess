@@ -73,7 +73,7 @@ GROUPS = [
          "where it is, lower when it's behind you, quicker as you get close.", None),
         ("Apostrophe: compass, the way you're facing.", None),
         ("On foot, hold Left or Right arrow: turn on the spot, as moving the mouse "
-         "does. Let go and the compass direction is read. The speed is set on the "
+         "does. Press Apostrophe to hear where you now face. The speed is set on the "
          "Accessibility tab of the Options screen.", None),
         ("The game's prompts are read when they appear: Talk to someone, Mount a horse. "
          "Press F to do it, as usual.", None),
