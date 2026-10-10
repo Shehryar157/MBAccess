@@ -206,3 +206,8 @@ Next / open:
   footsteps vol 4-5 prio 1 (horses 8/3). tools/footsteps.py raises grass/water 11, wood 12,
   prio 6 (backup sounds.txt.mbaccess-backup; "restore" undoes). Same sound for every agent:
   the player's are loudest by distance only. Applied to the user's install; needs a game restart.
+- FIXED 2026-10-10 (Jelkala town centre, read-only): a passage's menu option is at object
+  +0x248 (second variation), NOT +0x244 (0 for most doors). Five doors read 7, 6, 5, 4, 2 =
+  dungeon, arena, shop, tavern, castle: all named right now. Door PROPS ("rhodok house
+  passage", "panel door", "door left/right") are pictures only: moved from Exits to Objects;
+  Exits = passages, gates, stairs, ladders.

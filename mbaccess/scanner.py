@@ -1,4 +1,4 @@
-"""Scene scanner: what's around the player, by direction, while walking in a scene.
+﻿"""Scene scanner: what's around the player, by direction, while walking in a scene.
 
 Two lines through the player: O / L step along the ahead-behind line (further ahead /
 further back), K / semicolon along the left-right line (further left / further right).
@@ -26,7 +26,11 @@ from .mem import ReadError
 
 OBJECTS = 0xc75c
 OBJECT_SIZE = 0x298
-OBJ_POS, OBJ_META, OBJ_KIND, OBJ_ID, OBJ_VARIATION = 0x48, 0x1ac, 0x1b0, 0x1b4, 0x244
+OBJ_POS, OBJ_META, OBJ_KIND, OBJ_ID = 0x48, 0x1ac, 0x1b0, 0x1b4
+# A passage's menu option number (its second variation). Found 2026-10-10 in Jelkala's town
+# centre: five doors read 7, 6, 5, 4, 2 here (dungeon, arena, shop, tavern, castle); the
+# first variation (+0x244) was 0 for most of them.
+OBJ_VARIATION = 0x248
 AGENT_TROOP, AGENT_HORSE_ITEM = 0x298, 0x29c
 AGENT_HEAD = 0x2a0                  # bytes of each agent we need
 
@@ -40,7 +44,10 @@ CATEGORIES = ("All", "People", "Exits", "Items", "Objects", "Animals")
 # such as light sources and invisible barriers. Matched against the id without "spr_".
 INVISIBLE = ("light", "barrier", "ai_limiter", "invisible", "collision", "entry", "sound",
              "spawn", "dummy", "fire_point", "particle", "snowy_barrel")
-DOOR_WORDS = ("door", "gate", "passage", "stairs", "ladder")
+# Props a player can walk through or climb count as Exits. Door props are only the picture of a
+# door: the usable door is the passage on top of it (or the door does nothing), so they stay
+# Objects (2026-10-10: "rhodok house passage" lay 0.3 m from the real "Door to the dungeon").
+DOOR_WORDS = ("gate", "stairs", "ladder")
 
 DIRECTIONS = {keys.KEY_O: "ahead", keys.KEY_K: "to the left",
               keys.SEMICOLON: "to the right", keys.KEY_L: "behind"}
