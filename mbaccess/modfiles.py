@@ -1,4 +1,4 @@
-﻿"""Reading a module's compiled text files (menus.txt and its translations).
+"""Reading a module's compiled text files (menus.txt and its translations).
 
 These files are made by TaleWorlds' Module System (see
 reference/module_system, process_game_menus.py). Everything is separated by
@@ -86,6 +86,7 @@ class Skill:
     name: str
     flags: int
     max_level: int
+    description: str = ""   # what the Character screen shows on hover
 
 
 def parse_skills(text):
@@ -95,8 +96,8 @@ def parse_skills(text):
     skills = []
     for _ in range(int(next(words))):
         skill_id, name, flags, max_level = (next(words) for _ in range(4))
-        next(words)  # description
-        skills.append(Skill(skill_id, file_text(name), int(flags), int(max_level)))
+        description = file_text(next(words)).replace("%%", "%")
+        skills.append(Skill(skill_id, file_text(name), int(flags), int(max_level), description))
     return skills
 
 

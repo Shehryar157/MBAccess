@@ -585,7 +585,21 @@ class MenuWatcher:
         else:
             self.tip_wait = None
             self.say(self.option_text())
+            info = self.skill_description(self.options[index])
+            if info:
+                self.say(info, interrupt=False)
             self.hover()
+
+    def skill_description(self, item):
+        """On the Character screen, a skill's description (what a sighted
+        player sees on hover), from the module's skill list; else ""."""
+        if not self.config.get("skill_info"):
+            return ""
+        words = item.label or item.value
+        for skill in self.skills:
+            if skill.description and skill.name and words.startswith(skill.name):
+                return skill.description
+        return ""
 
     def position_text(self):
         """", 3 of 8": the place within the section (the whole screen if one)."""

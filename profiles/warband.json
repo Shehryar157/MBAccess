@@ -42,7 +42,7 @@
       "15": {"name": "Controls", "tree": true, "selected_tab": "Controls"},
       "16": {"name": "Load game", "tree": true,
              "saves": {"first": 316, "stride": 304, "count": 9, "day": 144, "exists": 288, "selected": 3112}},
-      "11": {"name": "Character", "tree": true, "layout": {"columns": [0.3, 0.69]}},
+      "11": {"name": "Character", "tree": true, "skill_info": true, "layout": {"columns": [0.3, 0.69]}},
       "8": {"name": "Party", "tree": true, "party_skills": true, "layout": {"columns": [0.34, 0.66]}},
       "7": {"name": "Inventory", "tree": true, "tooltip": true, "held": 2992, "layout": {
         "columns": [0.34, 0.54, 0.66], "by_columns": false,
