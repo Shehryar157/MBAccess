@@ -264,3 +264,13 @@ Next / open:
 - Climb announcer (wall_beeps._climb, untested in game): on foot, height gained over the last
   2 m walked; steeper than 0.4 m per metre = stairs; when it flattens, "up/down N metres" if
   >= 1.5 m. Simulated: stairs spoken, a 0.2 slope hill silent.
+- FLOORS (2026-10-10, tavern, read-only): stored bodies hold walkable floor quads (normal z
+  +0xcc >= 0.7; earlier I misread +0xc8 = ny). Tavern: ground floor 191 m2 at z 0, raised
+  part at 1 m, roofs 8-14 m; no upper floor. Outdoor terrain (BF_TERRAIN_QUAD) is now also
+  read as floor (not seen in a tavern; unverified outdoors).
+- Climbs and drops (user's spec): walls.level_changes walks each of the 8 directions in 25 cm
+  steps up to the wall, following floors a foot can step onto (STEP_UP 0.35; tabletops are
+  higher); 0.5 m rise/fall within 1.5 m walked = a climb/drop. wall_beeps._levels plays the
+  up or down slur (C5-E5 legato) ONCE from that direction; replays only after you've been
+  reach + 3 m away; hits within 2.5 m are the same one. 2.7 ms per check. Verified on fake
+  scenes (stairs, ledge, gentle hill silent); untested in a scene with stairs.

@@ -99,6 +99,7 @@ class SceneWalls:
     def __init__(self, reader, scene):
         self.scene = scene
         quads, capsules, spheres = [], [], []
+        floors = []         # walkable triangles (facing up), for climbs and drops ahead
         boxes = []          # each solid top-level shape's bounding box: what's in front
         with reader.cached():
             begin, end = struct.unpack("<II", reader.read(scene + 0x58, 8))
@@ -118,7 +119,11 @@ class SceneWalls:
                 except ReadError:
                     continue
                 vtable, _, flags = struct.unpack_from("<IiI", h, 0)
-                if flags & (BF_NO_COLLISION | BF_TERRAIN_QUAD):
+                if flags & BF_NO_COLLISION:
+                    continue
+                if flags & BF_TERRAIN_QUAD:     # ground outdoors: a floor, never a wall
+                    if vtable == QUAD:
+                        self._add_floor(floors, h)
                     continue
                 if vtable == COMPOSITE:
                     parts, n = struct.unpack_from("<Ii", h, 0x44)
@@ -126,6 +131,8 @@ class SceneWalls:
                         stack.extend(struct.unpack("<%dI" % n, reader.read(parts, 4 * n)))
                 elif vtable == QUAD:
                     nx, ny, nz = struct.unpack_from("<3f", h, 0xc4)
+                    if nz >= 0.7:
+                        self._add_floor(floors, h)
                     if abs(nz) < 0.7:           # upright: a wall, not a floor or roof
                         corners = [struct.unpack_from("<3f", h, 0x44 + 16 * k) for k in range(4)]
                         c0, c3 = corners[0], corners[3]
@@ -155,6 +162,40 @@ class SceneWalls:
         self.spheres = np.array(spheres, dtype=np.float64).reshape(-1, 4)
         self._slices = {}           # height (25 cm steps) -> (segments, circles)
         self.boxes = np.array(boxes, dtype=np.float64).reshape(-1, 6)
+        self.floors = np.array(floors, dtype=np.float64).reshape(-1, 3, 3)
+
+    @staticmethod
+    def _add_floor(floors, h):
+        """A floor quad as one or two triangles (the 4th corner may be junk: see walls)."""
+        nx, ny, nz = struct.unpack_from("<3f", h, 0xc4)
+        c = [struct.unpack_from("<3f", h, 0x44 + 16 * k) for k in range(4)]
+        if not all(abs(v) < 1e5 for p in c[:3] for v in p):
+            return
+        floors.append(c[:3])
+        c0, c3 = c[0], c[3]
+        if abs(nx * (c3[0] - c0[0]) + ny * (c3[1] - c0[1]) + nz * (c3[2] - c0[2])) < 0.05                 and c3 != c[2]:
+            floors.append((c[0], c[2], c[3]))
+
+    def floor_heights(self, points, near, reach):
+        """For points (P,2): heights (P,T) of every floor triangle under each point (NaN
+        where a triangle isn't under it). Only triangles within reach of `near` count."""
+        f = self.floors
+        if not len(f):
+            return np.full((len(points), 0), np.nan)
+        lo, hi = f[:, :, :2].min(axis=1), f[:, :, :2].max(axis=1)
+        keep = np.all((lo <= np.asarray(near) + reach) & (hi >= np.asarray(near) - reach), axis=1)
+        f = f[keep]
+        a, b, c = f[:, 0], f[:, 1], f[:, 2]
+        p = np.asarray(points, dtype=np.float64)[:, None, :]          # (P,1,2)
+        v0, v1 = (b - a)[None, :, :2], (c - a)[None, :, :2]
+        v2 = p - a[None, :, :2]
+        den = v0[..., 0] * v1[..., 1] - v1[..., 0] * v0[..., 1]
+        den = np.where(np.abs(den) < 1e-9, np.nan, den)
+        u = (v2[..., 0] * v1[..., 1] - v1[..., 0] * v2[..., 1]) / den
+        v = (v0[..., 0] * v2[..., 1] - v2[..., 0] * v0[..., 1]) / den
+        inside = (u >= -1e-6) & (v >= -1e-6) & (u + v <= 1 + 1e-6)
+        z = a[None, :, 2] + u * (b - a)[None, :, 2] + v * (c - a)[None, :, 2]
+        return np.where(inside, z, np.nan)
 
     def owner_at(self, x, y, z, tolerance=0.4):
         """Index of the solid shape whose box holds this point (the smallest if several),
@@ -294,3 +335,55 @@ def corners_only(dist, on_horse, reach):
         if dist[name] >= explained:
             out[name] = reach
     return out
+
+
+# Climbs and drops ahead (stairs, ramps, ledges): wall_beeps plays a two-note slur once each.
+STEP_UP = 0.35          # metres a foot can step up; a tabletop is higher, so it isn't floor
+LEVEL_CHANGE = 0.5      # rise or fall that counts ...
+LEVEL_OVER = 1.5        # ... within this many metres walked (gentler = a slope, ignored)
+LEVEL_STEP = 0.25       # metres between floor samples along each direction
+
+
+def level_changes(walls, player, dist, reach):
+    """[(zone, +1 up / -1 down, x, y)]: for each movement direction, the first place
+    before the wall where the floor climbs or drops steeply. Follows floors a foot can
+    step onto, so it walks up stairs and stops at a ledge; no floor at all = stop."""
+    px, py, pz, facing = player[0], player[1], player[2], player[3]
+    heading = facing + FORWARD
+    rays = []
+    for i, zone in enumerate(ZONES):
+        a = heading - i * math.pi / 4           # zones go clockwise
+        far = min(dist.get(zone, reach), reach)
+        ds = np.arange(LEVEL_STEP, far + 1e-6, LEVEL_STEP)
+        rays.append((zone, a, ds))
+    points = [(px + d * math.cos(a), py + d * math.sin(a)) for _, a, ds in rays for d in ds]
+    if not points:
+        return []
+    heights = walls.floor_heights(points, (px, py), reach + 1)
+    found, row = [], 0
+    for zone, a, ds in rays:
+        found += _walk(heights[row:row + len(ds)], ds, pz, zone, a, px, py)
+        row += len(ds)
+    return found
+
+
+def _walk(heights, ds, pz, zone, a, px, py):
+    h = base = pz
+    start = None
+    for column, d in zip(heights, ds):
+        ok = column[column <= h + STEP_UP]
+        if not len(ok):
+            return []                   # nothing to stand on (or only a step too high)
+        h = float(ok.max())
+        if abs(h - base) <= 0.1:
+            start = None
+            continue
+        if start is None:
+            start = d
+        if abs(h - base) >= LEVEL_CHANGE:
+            if d - start <= LEVEL_OVER:
+                return [(zone, 1 if h > base else -1,
+                         px + start * math.cos(a), py + start * math.sin(a))]
+        if d - start > LEVEL_OVER:      # a gentle slope: carry on from here
+            base, start = h, None
+    return []

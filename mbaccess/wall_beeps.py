@@ -80,6 +80,25 @@ CLIMB_FLAT = 0.15       # below this the climb is over
 CLIMB_SAY = 1.5         # metres up or down worth saying (a doorstep isn't)
 
 
+CLIMB_NOTES = (523.25, 659.25)  # C5 -> E5 going up; reversed going down
+CLIMB_GAIN = 0.6
+LEVEL_SAME = 2.5        # metres: a climb found this close to one already played is the same one
+LEVEL_FORGET = 3.0      # metres beyond reach before a played climb or drop can play again
+
+
+def _slur(first, second, length=0.26, switch=0.09):
+    """A beep that slurs from one note to the next with no new attack, like a guitar
+    hammer-on (rising) or pull-off (falling): one continuous wave whose pitch jumps.
+    Sine plus a soft octave, a quick start and a smooth decay."""
+    t = np.arange(int(RATE * length)) / RATE
+    freq = np.where(t < switch, first, second)
+    phase = 2 * math.pi * np.cumsum(freq) / RATE      # continuous phase: no click at the jump
+    tone = np.sin(phase) + 0.25 * np.sin(2 * phase)
+    envelope = np.minimum(1, t / 0.005) * np.exp(-t / 0.12)
+    out = tone * envelope * np.minimum(1, (length - t) / 0.02)
+    return out / np.max(np.abs(out))
+
+
 NAME_REACH = {False: 1.5, True: 2.5}    # metres: name the thing ahead when this close
 NAME_CLEAR = 0.6                        # metres further before the same thing is new again
 
@@ -220,6 +239,8 @@ LESSONS = (
     ("ping near", "tracking ping, ahead, coming closer: it gets quicker"),
     ("ping behind", "tracking ping, behind you: lower"),
     ("drone", "horse slowing down after you let go of W"),
+    ("climb up", "a way up in that direction: stairs, a ramp or steps. Plays once as it comes in range"),
+    ("climb down", "a way down or a drop in that direction"),
 )
 
 
@@ -264,6 +285,10 @@ class WallBeeper:
         self.trail = []                 # (metres walked so far, height) over the last CLIMB_WINDOW
         self.walked = 0.0
         self.climb_from = None          # height where the current steep climb began
+        self.climb_source = self.audio.source(0, CLIMB_GAIN * volume / 0.35)
+        self.levels_heard = []          # (x, y, +1/-1) climbs and drops already played
+        self.climb_up = self.audio.buffer(0.8 * _slur(*CLIMB_NOTES))
+        self.climb_down = self.audio.buffer(0.8 * _slur(*CLIMB_NOTES[::-1]))
         self.demo_source = self.audio.source(0, 0)     # Learn sounds: its own, so the
         self.demo_turn = 0                              # beep thread never cuts it off
         self.stop = threading.Event()
@@ -343,6 +368,8 @@ class WallBeeper:
                     return
                 if not wait(ping_interval(distance)):
                     return
+        elif lesson in ("climb up", "climb down"):
+            play(self.climb_up if lesson == "climb up" else self.climb_down, 0, CLIMB_GAIN * v / 0.35)
         elif lesson == "drone":
             a.place(src, 0)
             a.set(src, gain=DRONE_GAIN, pitch=1.0)
@@ -387,6 +414,20 @@ class WallBeeper:
             self.climb_from = None
             if abs(rise) >= CLIMB_SAY:
                 self.spoken.put("%s %d metres" % ("up" if rise > 0 else "down", round(abs(rise))))
+
+    def _levels(self, player, dist, reach):
+        """A climb or drop comes into range: the up or down slur once, from its direction.
+        Not again as you come closer; again only after you've gone well away from it."""
+        px, py = player[0], player[1]
+        self.levels_heard = [(x, y, s) for x, y, s in self.levels_heard
+                             if math.hypot(x - px, y - py) <= reach + LEVEL_FORGET]
+        for zone, sign, x, y in walls.level_changes(self.walls, player, dist, reach):
+            if any(s == sign and math.hypot(x - hx, y - hy) < LEVEL_SAME
+                   for hx, hy, s in self.levels_heard):
+                continue
+            self.levels_heard.append((x, y, sign))
+            self.audio.place(self.climb_source, VOICES[zone][0])
+            self.audio.play(self.climb_source, self.climb_up if sign > 0 else self.climb_down)
 
     def cue(self, angle=0.0):
         """The hammer-on "you can use this" sound, from `angle` (scanner angles:
@@ -448,6 +489,7 @@ class WallBeeper:
         reach = max(REACH.values())
         dist = walls.zone_distances(self.walls, player, reach=reach)
         self._name_ahead(player, dist)
+        self._levels(player, dist, REACH[player[4]])
         return walls.corners_only(dist, player[4], reach), player[4]
 
     def _run(self):

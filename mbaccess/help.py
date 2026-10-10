@@ -92,6 +92,9 @@ GROUPS = [
         ("Control A and Control D: turn to the next thing round on your left or right, "
          "in the scanner's current category. Its name and distance are read, and J and "
          "Shift J then work on it. Press again for the next one round.", None),
+        ("A two-note slur, once, from where it is: a way up (rising) or a way down or "
+         "drop (falling) in that direction, like stairs or a ledge. After climbing, how "
+         "far you went up or down is said.", None),
         ("To learn the mod's sounds, open the Accessibility tab on the Options screen: "
          "the Learn sound buttons at the bottom play each one.", None),
     ]),
