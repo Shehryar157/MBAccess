@@ -33,7 +33,7 @@ ALT = 0x12
 # Type search: a letter or digit's key code is its capital character (VK_A = "A").
 LETTERS = tuple(range(0x30, 0x3A)) + tuple(range(0x41, 0x5B))
 KEY_J, KEY_K, KEY_L, KEY_O = 0x4A, 0x4B, 0x4C, 0x4F   # the scene scanner
-KEY_A, KEY_D = 0x41, 0x44         # Shift+A / Shift+D: turn in a scene
+KEY_A, KEY_D, KEY_S = 0x41, 0x44, 0x53   # Shift+A/D/S: turn in a scene; Ctrl+A/D: face the nearest thing
 ALL = (UP, DOWN, RETURN, HOME, END, LEFT, RIGHT, SPACE, F9, ESCAPE,
        LEFT_BRACKET, RIGHT_BRACKET, SEMICOLON, QUOTE, COMMA, PERIOD, CONTROL, TAB) + LETTERS
 
@@ -50,7 +50,7 @@ class KeyWatcher:
         self.keys = keys
         self.down = set()
         self.swallow, self.game_hwnd = frozenset(), None    # polling can't hide keys
-        self.swallow_shifted = frozenset()
+        self.swallow_shifted = self.swallow_ctrl = frozenset()
 
     def wait(self, seconds):
         time.sleep(seconds)     # polling can't be woken by a key
@@ -106,6 +106,7 @@ class HookKeyWatcher:
         self.arrived = threading.Event()   # set by the hook: wakes wait() at once
         self.swallow = frozenset()      # keys to hide from the game (set by run.py)
         self.swallow_shifted = frozenset()  # hidden only while Shift is held
+        self.swallow_ctrl = frozenset()     # hidden only while Ctrl is held
         self.hidden_down = set()        # keys whose press we hid: hide their release too
         self.passed_down = set()        # keys whose press the game got: so will the release
         self.quiet_repeats = False      # set by run.py while walking in a scene
@@ -184,7 +185,8 @@ class HookKeyWatcher:
 
     def _owns(self, vk):
         """Does the mod take this key from the game right now?"""
-        return vk in self.swallow or (vk in self.swallow_shifted and SHIFT in self.held)
+        return (vk in self.swallow or (vk in self.swallow_shifted and SHIFT in self.held)
+                or (vk in self.swallow_ctrl and CONTROL in self.held))
 
     def _game(self):
         return self.game_hwnd
@@ -225,9 +227,9 @@ class HookKeyWatcher:
 # whenever the wall beeps, the scanner or speech are running: walking felt sluggish.
 # In its own process the hook has Python to itself and answers in microseconds.
 # The two processes share a table of which keys the mod owns (bit 1: always,
-# bit 2: only with Shift held) and the game's window; presses come back on a queue.
+# bit 2: only with Shift held, bit 4: only with Ctrl held) and the game's window; presses come back on a queue.
 
-OWN, OWN_SHIFTED = 1, 2
+OWN, OWN_SHIFTED, OWN_CTRL = 1, 2, 4
 
 
 class _SharedHook(HookKeyWatcher):
@@ -248,7 +250,8 @@ class _SharedHook(HookKeyWatcher):
 
     def _owns(self, vk):
         bits = self.flags[vk] if vk < len(self.flags) else 0
-        return bool(bits & OWN or (bits & OWN_SHIFTED and SHIFT in self.held))
+        return bool(bits & OWN or (bits & OWN_SHIFTED and SHIFT in self.held)
+                    or (bits & OWN_CTRL and CONTROL in self.held))
 
     def _game(self):
         return self.hwnd.value
@@ -285,7 +288,7 @@ class ProcessKeyWatcher:
         self.held = ctx.Array("B", 0x200, lock=False)     # 1 while a key is down
         self.quiet = ctx.Value("b", 0, lock=False)        # 1: hide auto-repeats (walking)
         self.early = []         # events wait() took off the queue: pressed() returns them
-        self._swallow, self._shifted = frozenset(), frozenset()
+        self._swallow, self._shifted, self._ctrl = frozenset(), frozenset(), frozenset()
         ready = ctx.Queue()
         self.process = ctx.Process(target=_hook_process,
                                    args=(self.flags, self.hwnd, self.events, self.held, self.quiet, ready),
@@ -325,6 +328,17 @@ class ProcessKeyWatcher:
         if keys != self._shifted:
             self._set(self._shifted, keys, OWN_SHIFTED)
             self._shifted = keys
+
+    @property
+    def swallow_ctrl(self):
+        return self._ctrl
+
+    @swallow_ctrl.setter
+    def swallow_ctrl(self, keys):
+        keys = frozenset(keys)
+        if keys != self._ctrl:
+            self._set(self._ctrl, keys, OWN_CTRL)
+            self._ctrl = keys
 
     @property
     def quiet_repeats(self):

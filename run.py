@@ -120,6 +120,7 @@ def play_session(game):
                              turner=scan.turner)
     if beeper:
         beeper.name_ahead = lambda: prefs.get("name_ahead")
+        page.sounds = beeper            # Learn sounds on the Accessibility tab
     next_launcher = 0
     while game.is_running():
         # Looking for the launcher costs a little; while it's open, follow it
@@ -194,8 +195,10 @@ def play_session(game):
             mine.update(keys.LETTERS)
         if in_scene["now"]:
             mine.update((keys.KEY_J, keys.KEY_K, keys.KEY_L, keys.KEY_O, keys.SEMICOLON, keys.QUOTE))
-        # Shift+A / Shift+D turn; plain A and D still walk.
-        key_watch.swallow_shifted = frozenset((keys.KEY_A, keys.KEY_D)) if in_scene["now"] else frozenset()
+        # Shift+A / D / S turn (S: about-face), Ctrl+A / D face the nearest thing in the
+        # scanner's category; plain A, D and S still walk.
+        key_watch.swallow_shifted = frozenset((keys.KEY_A, keys.KEY_D, keys.KEY_S)) if in_scene["now"] else frozenset()
+        key_watch.swallow_ctrl = frozenset((keys.KEY_A, keys.KEY_D)) if in_scene["now"] else frozenset()
         key_watch.swallow = frozenset(mine)
         # Walking: a held W's auto-repeats would make NVDA cut off "crude fence".
         key_watch.quiet_repeats = in_scene["now"]

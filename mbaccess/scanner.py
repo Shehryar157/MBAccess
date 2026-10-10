@@ -5,7 +5,9 @@ further back), K / semicolon along the left-right line (further left / further r
 Starting with a key gives the nearest thing on that side. Shift+K / Shift+L: previous / next category.
 J: where the current thing is now (it may have moved, and so may you).
 Shift+J: track it: a ping plays from where it is (wall_beeps.py plays it).
-Apostrophe: compass. Shift+A / Shift+D: turn 45 degrees left / right (turning.py).
+Apostrophe: compass. Shift+A / Shift+D: turn 45 degrees left / right, Shift+S: turn round
+(turning.py). Ctrl+A / Ctrl+D: turn to face the nearest thing on the left / right in the
+current category (snap); it becomes the current thing, so J and Shift+J follow it.
 
 Directions are relative to the way the player faces: a thing counts as ahead when it's
 within 45 degrees of straight ahead, so "mostly ahead, a bit left" is under O.
@@ -54,6 +56,7 @@ DOOR_WORDS = ("gate", "stairs", "ladder")
 
 DIRECTIONS = {keys.KEY_O: "ahead", keys.KEY_K: "to the left",
               keys.SEMICOLON: "to the right", keys.KEY_L: "behind"}
+SNAP_AHEAD = 10     # degrees: Ctrl+A/D skip a thing this close to straight ahead
 SIDE_WORDS = {("ahead", 1): "ahead", ("ahead", -1): "behind",
               ("side", 1): "right", ("side", -1): "left"}
 
@@ -236,6 +239,10 @@ class Scanner:
                 self.say(self.turner.facing_words())
             elif key in (keys.KEY_A, keys.KEY_D) and shift and self.turner:
                 self.turner.turn(45 if key == keys.KEY_A else -45)
+            elif key == keys.KEY_S and shift and self.turner:
+                self.turner.turn(180)
+            elif key in (keys.KEY_A, keys.KEY_D) and keys.is_down(keys.CONTROL) and self.turner:
+                self.snap(1 if key == keys.KEY_A else -1)
             elif key in (keys.KEY_K, keys.KEY_L) and shift:
                 self.category = (self.category + (1 if key == keys.KEY_L else -1)) % len(CATEGORIES)
                 self.direction = None
@@ -295,6 +302,26 @@ class Scanner:
         where = SIDE_WORDS[axis, 1 if signed >= 0 else -1]
         self.say("%s, %s %s" % (name, describe_distance(abs(signed)), where)
                  if abs(signed) >= 1.5 else "%s, right here" % name)
+
+    def snap(self, side):
+        """Turn to face the nearest thing on one side (1 left, -1 right), counting
+        everything more than SNAP_AHEAD degrees off straight ahead, behind included.
+        What's already in front is skipped, so pressing again moves on to the next."""
+        player, found = self._read()
+        if player is None:
+            return
+        best = None
+        for t in found:
+            d, a = relative(player, t["x"], t["y"])
+            if a * side > SNAP_AHEAD and d >= 0.5 and (best is None or d < best[0]):
+                best = (d, a, t)
+        if best is None:
+            what = "" if self.category == 0 else CATEGORIES[self.category].lower()
+            self.say("no %s to the %s" % (what or "thing", "left" if side > 0 else "right"))
+            return
+        d, a, t = best
+        self.direction, self.current = None, (t["key"], t["name"])
+        self.turner.turn(a, words=lambda: "%s, %s" % (t["name"], describe_distance(d)))
 
     def _where_words(self, thing_key, name, short=False):
         player, found = self._read_all()

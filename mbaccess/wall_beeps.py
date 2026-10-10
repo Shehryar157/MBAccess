@@ -198,6 +198,24 @@ VOICES = {
 }
 
 
+# The Accessibility tab's "Learn sounds" list: (id, what the player hears it called).
+LESSONS = (
+    ("front", "wall ahead. Each step closer beeps a little higher"),
+    ("front right", "wall ahead on the right, diagonal. Shorter and brighter"),
+    ("right", "wall on the right"),
+    ("behind right", "wall behind on the right, diagonal. Hollow double blip"),
+    ("behind", "wall behind. A double blip"),
+    ("behind left", "wall behind on the left, diagonal"),
+    ("left", "wall on the left"),
+    ("front left", "wall ahead on the left, diagonal"),
+    ("open", "opening. A wall on your left, ahead or right falls away, like a side street"),
+    ("use", "you can use something: talk, mount, go through"),
+    ("ping near", "tracking ping, ahead, coming closer: it gets quicker"),
+    ("ping behind", "tracking ping, behind you: lower"),
+    ("drone", "horse slowing down after you let go of W"),
+)
+
+
 class WallBeeper:
     def __init__(self, game, active, volume=0.35):
         """active(): True while the player is walking around (scene window on top)."""
@@ -235,6 +253,9 @@ class WallBeeper:
         self.last_step = {zone: -1 for zone in VOICES}   # -1 = nothing in range
         self.open_sources = {zone: self.audio.source(VOICES[zone][0], OPEN_GAIN * volume) for zone in OPEN_ZONES}
         self.open_buffer = self.audio.buffer(_whoosh())
+        self.volume = volume
+        self.demo_source = self.audio.source(0, 0)     # Learn sounds: its own, so the
+        self.demo_turn = 0                              # beep thread never cuts it off
         self.stop = threading.Event()
         threading.Thread(target=self._run, daemon=True, name="wall beeps").start()
 
@@ -272,6 +293,59 @@ class WallBeeper:
                 self.slow_from = 0.0    # slide over: backing up with S won't restart it;
             return                      # only holding W again (which resets it) does
         self.audio.set(self.drone_source, gain=self.drone_gain, pitch=self.pitch)
+
+    def demo(self, lesson):
+        """Play one of LESSONS (Learn sounds, Accessibility tab) from where it would really
+        come from. A new demo cuts off the one playing."""
+        self.demo_turn += 1
+        threading.Thread(target=self._demo, args=(lesson, self.demo_turn), daemon=True,
+                         name="sound demo").start()
+
+    def _demo(self, lesson, turn):
+        a, src, v = self.audio, self.demo_source, self.volume
+
+        def play(buffer, angle, gain, pitch=1.0):
+            if turn != self.demo_turn:
+                return False                # another demo started: stop this one
+            a.place(src, angle)
+            a.set(src, gain=gain, pitch=pitch)
+            a.play(src, buffer)
+            return True
+
+        def wait(seconds):
+            time.sleep(seconds)
+            return turn == self.demo_turn
+
+        if lesson in VOICES:
+            angle, _, _, _, gain = VOICES[lesson]
+            for step in range(STEPS):           # the four steps, far to near
+                if not play(self.sounds[lesson, step], angle, gain * v) or not wait(0.45):
+                    return
+        elif lesson == "open":
+            play(self.open_buffer, VOICES["left"][0], OPEN_GAIN * v)
+        elif lesson == "use":
+            play(self.hammer, 0, 0.5 * v / 0.35)
+        elif lesson in ("ping near", "ping behind"):
+            behind = lesson == "ping behind"
+            for distance in ((20, 12, 8, 5, 3) if not behind else (10,) * 5):
+                angle = 180 if behind else 0
+                if not play(self.ping_buffer, angle, PING_GAIN * v / 0.35, ping_pitch(angle)):
+                    return
+                if not wait(ping_interval(distance)):
+                    return
+        elif lesson == "drone":
+            a.place(src, 0)
+            a.set(src, gain=DRONE_GAIN, pitch=1.0)
+            a.loop(src, self.drone_buffer)
+            try:
+                for n in range(50):             # 2.5 s slide down to the halt
+                    if not wait(0.05):
+                        return
+                    a.set(src, pitch=1.0 - (1.0 - LOWEST_PITCH) * n / 49,
+                          gain=DRONE_GAIN * min(1.0, (50 - n) / 10))
+            finally:
+                a.stop(src)
+                a.set(src, pitch=1.0)
 
     def cue(self, angle=0.0):
         """The hammer-on "you can use this" sound, from `angle` (scanner angles:

@@ -88,6 +88,12 @@ GROUPS = [
          "for you, as the game needs, and looks ahead again.", None),
         ("Shift A and Shift D: turn 45 degrees left or right. On horseback the mod "
          "steers the horse with A or D for you.", None),
+        ("Shift S: turn right round, 180 degrees, then the compass direction is read.", None),
+        ("Control A and Control D: turn to face the nearest thing on your left or right, "
+         "in the scanner's current category. Its name and distance are read, and J and "
+         "Shift J then work on it. Press again for the next one round.", None),
+        ("To learn the mod's sounds, open the Accessibility tab on the Options screen: "
+         "the Learn sound buttons at the bottom play each one.", None),
     ]),
     ("World map", [
         ("To reach the map: in a town or village scene, press Tab to leave it; "

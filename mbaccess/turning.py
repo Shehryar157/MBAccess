@@ -1,4 +1,5 @@
-﻿"""Turn the player by a set angle in a scene (Shift+A / Shift+D: 45 degrees).
+﻿"""Turn the player by a set angle in a scene (Shift+A / Shift+D: 45 degrees, Shift+S: 180;
+Ctrl+A / Ctrl+D: as far as the nearest thing on that side, scanner.snap).
 
 On foot the mouse turns you, so we nudge the mouse sideways and read the facing back
 from memory until it's within TOLERANCE: a feedback loop, like a thermostat. It learns
@@ -132,14 +133,15 @@ class Turner:
         p = self._player()
         return "facing " + compass(p[3]) if p else "can't find you"
 
-    def turn(self, degrees):
-        """Positive = left. Runs in the background so the mod stays responsive."""
+    def turn(self, degrees, words=None):
+        """Positive = left. Runs in the background so the mod stays responsive.
+        Says `words` when done (a function, called then), else which way we face."""
         if self.busy:
             return
         self.busy = True
-        threading.Thread(target=self._turn, args=(degrees,), daemon=True, name="turn").start()
+        threading.Thread(target=self._turn, args=(degrees, words), daemon=True, name="turn").start()
 
-    def _turn(self, degrees):
+    def _turn(self, degrees, words=None):
         try:
             p = self._player()
             if p is None:
@@ -147,7 +149,7 @@ class Turner:
             target = math.degrees(p[3]) + degrees
             ok = self._steer_horse(target, degrees > 0) if p[4] else self._mouse(target)
             if ok:
-                self.say(self.facing_words())
+                self.say(words() if words else self.facing_words())
         except (ReadError, OSError):
             pass
         finally:
@@ -215,7 +217,10 @@ class Turner:
             while time.time() - start < HORSE_TIMEOUT:
                 facing = math.degrees(self._player()[3])
                 error = wrap(target - facing)
-                if abs(error) <= self.horse_overshoot or (error > 0) != left:
+                # Overshot = the error crossed to the other side. Not at the start of a
+                # 180-degree turn, where "180 to go" can read as -180.
+                overshot = (error > 0) != left and abs(error) < 90
+                if abs(error) <= self.horse_overshoot or overshot:
                     turned = True
                     break
                 time.sleep(0.005)

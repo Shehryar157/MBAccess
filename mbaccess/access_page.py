@@ -22,6 +22,7 @@ class AccessPage:
         self.settings = settings
         self.categories = categories     # message category names, e.g. "Combat"
         self.open = False
+        self.sounds = None              # the wall beeper (set by run.py): plays Learn sounds
 
     def tab(self):
         return Item("tab", TAB, 0, 0, value="selected" if self.open else "", virtual="tab")
@@ -41,6 +42,11 @@ class AccessPage:
                               s.get("name_ahead"), "name_ahead"))
         found.append(Item("dropdown", "Use cue plays when", 0, 0,
                           value=s.get("interact_mode"), virtual="interact_mode"))
+        if self.sounds:
+            # Learn sounds: Enter plays each from the direction it really comes from.
+            from .wall_beeps import LESSONS
+            found += [Item("button", "Learn sound: " + label, 0, 0, virtual="sound:" + lesson)
+                      for lesson, label in LESSONS]
         return found
 
     def act(self, item, key):
@@ -48,6 +54,8 @@ class AccessPage:
         s, name = self.settings, item.virtual
         if name in ("speak_messages", "name_ahead") and key == "activate":
             s.set(name, not s.get(name))
+        elif name.startswith("sound:") and key == "activate" and self.sounds:
+            self.sounds.demo(name.split(":", 1)[1])
         elif name.startswith("category:") and key == "activate":
             s.toggle_category(name.split(":", 1)[1])
         elif name == "item_details" and key in ("activate", "left", "right"):

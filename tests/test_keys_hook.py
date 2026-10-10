@@ -12,7 +12,7 @@ PASSED, HIDDEN = "passed", "hidden"
 def hook(in_scene):
     h = keys.HookKeyWatcher.__new__(keys.HookKeyWatcher)   # skip installing a real hook
     h.keys, h.held, h.events = set(), set(), queue.Queue()
-    h.swallow, h.swallow_shifted = frozenset(), frozenset()
+    h.swallow, h.swallow_shifted, h.swallow_ctrl = frozenset(), frozenset(), frozenset()
     h.hidden_down, h.passed_down = set(), set()
     h.game_hwnd, h.quiet_repeats = GAME, in_scene
     return h
