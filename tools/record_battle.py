@@ -21,6 +21,7 @@ from mbaccess.mem import ReadError, Reader
 LOGS = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "logs")
 PARTS = ((0, 0x900), (0x5900, 0x6200))      # byte ranges of an agent we keep
 HEALTH = 0x6000                             # hit_points_float (found 2026-10-10)
+NEAR = 8.0                                  # metres: closer fighters are saved every tick
 
 
 def keep(data):
@@ -54,10 +55,14 @@ def record(seconds, name):
         try:
             mission = walls.mission_address(reader, game.profile)
             frame = {}
+            me = walls.find_player(reader, mission)
             for no, _address, data in battle.agents(reader, mission):
                 kind, _, _status, flags = struct.unpack_from("<iiiI", data, walls.AGENT_TYPE)
                 mine = kind == battle.HUMAN and flags & 1
-                if mine or tick % 5 == 0:
+                x, y = struct.unpack_from("<2f", data, walls.AGENT_POS)
+                # Fighters within reach of us are the ones whose swings matter: every tick.
+                near = me is not None and abs(x - me[0]) < NEAR and abs(y - me[1]) < NEAR
+                if mine or near or tick % 5 == 0:
                     frame[no] = keep(data)
                     if no not in names:
                         troop = struct.unpack_from("<i", data, scanner.AGENT_TROOP)[0]
