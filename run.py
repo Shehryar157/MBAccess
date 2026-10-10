@@ -9,7 +9,7 @@ import os
 import sys
 import time
 
-from mbaccess import (access_page, click, help, keys, launcher, messages, party_skills, world_map,
+from mbaccess import (access_page, battle, click, help, keys, launcher, messages, party_skills, world_map,
                       process, prompts, scanner, session, settings, speech, turning, wall_beeps)
 from mbaccess import text as text_mod
 from mbaccess.mem import Reader
@@ -145,6 +145,8 @@ def play_session(game):
                     skills[module] = session.load_skills(game, module)
                     skins[module] = session.load_skins(game, module)
                 watcher.set_game(address, menus[module], skills[module], skins[module])
+                if beeper:      # the swing cue tells a raised weapon by its animation's name
+                    beeper.swings = battle.SwingWatch(session.load_actions(game, module))
                 if not watcher.enabled:
                     speech.say("Menu reading isn't set up for this game version yet. "
                                "Run the discovery tool once.")

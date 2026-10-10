@@ -38,6 +38,11 @@ def load_menus(game, module_name):
         return []
 
 
+def load_actions(game, module_name):
+    """The module's animation names, for telling a raised weapon from a walk."""
+    return modfiles.load_actions(os.path.join(game.folder, "Modules", module_name))
+
+
 def load_skins(game, module_name):
     """The module's skins (face editor styles); [] if unreadable."""
     return modfiles.load_skins(os.path.join(game.folder, "Modules", module_name))

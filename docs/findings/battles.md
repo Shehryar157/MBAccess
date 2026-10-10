@@ -57,6 +57,28 @@
   By movement keys, By relative enemy position (they tried them; the user leans to movement
   keys); Damage to Player = Reduced to 1/4 (Easiest). Suggested keys, not agreed yet: Up arrow
   attack, Down arrow defend (set on the game's Controls screen; Left/Right already turn).
+
+## Attack and block state FOUND; swing cue built (2026-10-10, logs/battle2.pkl.gz, a custom battle)
+- Agent +0x6e4 (and +0x6e8) = the upper body's ACTION NUMBER = an index into the module's
+  actions.txt (670 actions in Native; an action's line starts with one space, its sequences'
+  with two: modfiles.parse_actions). -1 between actions. Seen on the player: 143
+  equip_default, 188 ready_throwing_knife, 189 release_throwing_knife, 320 defend_shield_keep
+  (so the user's Down arrow = defend works). Names follow one scheme for every weapon:
+  ready_<slashright|slashleft|overswing|thrust>_<onehanded|twohanded|staff|...> (melee),
+  ready_bow / crossbow / javelin / throwing_knife ... (ranged), release_*, defend_*, parried_*,
+  blocked_*, strike_* (being hit). The legs' action is probably +0x6c0 (127 lancer_ride_1?).
+- battle.SwingWatch (in the wall-beep thread, every 50 ms): an ENEMY whose action changes to
+  ready_* plays a 3D sound from where he stands: melee within 5 m = a short upward "zip",
+  higher the closer; ranged within 80 m AND facing us within 3 m of where we stand = a low
+  rising "creak". Up to 3 at once. Learn sound buttons "swing" and "aim". UNTESTED live.
+- tools/replay_swings.py <recording> runs the watcher over a recording: battle2 gave 0 melee
+  (nobody came near the user: their men charged off) and 3 ranged at 73-80 m before the aim
+  was narrowed. The block direction is in the name if manual blocking is ever wanted.
+- Orders: the user pressed 0 and 1 and heard the list, but never an F key, expecting to arrow
+  through it. Added M = the order list again, and B now says where your own men are. Troops
+  start a battle already charging, which is why they were far from the user.
+- Keys the user set on the game's Controls screen: Up attack, Down defend, Page Up next
+  weapon, Page Down next shield. Still free in scenes: U V Z /.
 - The user wants to play arena fights THEMSELVES: record passively, never drive them.
 - First run was with NO scene open (trade screen; the old Jelkala tavern mission still in
   memory, 7 agents): health candidates +0x864, +0x5d6c, +0x5f50, +0x5ff8; +0x864 read

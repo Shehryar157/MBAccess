@@ -14,12 +14,13 @@ each from a fixed spot around your head:
 """
 import math
 import queue
+import struct
 import threading
 import time
 
 import numpy as np
 
-from . import keys, scanner as scanner_mod, walls
+from . import battle, keys, scanner as scanner_mod, walls
 from .mem import Reader, ReadError
 from .sound3d import Sound3D
 
@@ -207,8 +208,41 @@ def _whoosh(length=0.32):
     return 0.6 * mix * envelope
 
 
+SWING_GAIN = 0.9
+SWING_VOICES = 3        # attackers heard at once: each needs its own source
+
+
+def _zip(length=0.11):
+    """An enemy's weapon going up: a quick dry sweep upward with a breath of noise. No
+    steady pitch, so it's never taken for a wall beep, and short, because the swing is
+    already on its way."""
+    t = np.arange(int(RATE * length)) / RATE
+    sweep = 520 * 3.0 ** (t / length)                       # 520 Hz up to 1560 Hz
+    tone = np.sin(2 * math.pi * np.cumsum(sweep) / RATE)
+    noise = np.random.default_rng(3).standard_normal(len(t))
+    noise = noise - np.convolve(noise, np.ones(12) / 12, mode="same")    # the bright part only
+    envelope = np.minimum(1, t / 0.004) * np.exp(-t / (length * 0.45))
+    return (0.7 * tone + 0.3 * noise / np.abs(noise).max()) * envelope
+
+
+def swing_pitch(distance):
+    """The zip's pitch: as written at the edge of reach, a third higher point blank."""
+    return 1.0 + 0.3 * max(0.0, min(1.0, 1 - (distance - 1.0) / (battle.MELEE_REACH - 1.0)))
+
+
+def _creak(length=0.42):
+    """An archer or thrower aiming at you: a low rising creak, like a string being drawn."""
+    t = np.arange(int(RATE * length)) / RATE
+    sweep = 95 * 1.8 ** (t / length)
+    phase = 2 * math.pi * np.cumsum(sweep) / RATE
+    buzz = sum(np.sin(m * phase) / m for m in range(1, 9))  # a rough, stringy tone
+    grain = 0.6 + 0.4 * np.sign(np.sin(2 * math.pi * 34 * t))    # the creak's stutter
+    envelope = np.minimum(1, t / 0.03) * np.minimum(1, (length - t) / 0.06)
+    return 0.5 * buzz / np.abs(buzz).max() * grain * envelope
+
+
 SINE = [(1, 1.0)]
-BRIGHT = [(1, 1.0), (2, 0.5), (3, 0.3), (4, 0.15)]         # all overtones: clear, bright
+BRIGHT =[(1, 1.0), (2, 0.5), (3, 0.3), (4, 0.15)]         # all overtones: clear, bright
 HOLLOW = [(1, 1.0), (3, 0.45), (5, 0.25), (7, 0.12)]        # odd ones only: reedy, clarinet-like
 
 # zone -> (angle in degrees clockwise from ahead, harmonics, length, blips, gain)
@@ -241,6 +275,9 @@ LESSONS = (
     ("drone", "horse slowing down after you let go of W"),
     ("climb up", "a way up in that direction: stairs, a ramp or steps. Plays once as it comes in range"),
     ("climb down", "a way down or a drop in that direction"),
+    ("swing", "an enemy near you raises his weapon: block now. It comes from where he "
+              "stands, and is higher the closer he is"),
+    ("aim", "an archer or thrower aims at you"),
 )
 
 
@@ -289,6 +326,10 @@ class WallBeeper:
         self.levels_heard = []          # (x, y, +1/-1) climbs and drops already played
         self.climb_up = self.audio.buffer(0.8 * _slur(*CLIMB_NOTES))
         self.climb_down = self.audio.buffer(0.8 * _slur(*CLIMB_NOTES[::-1]))
+        self.swings = None              # battle.SwingWatch, set by run.py once the names load
+        self.swing_sources = [self.audio.source(0, SWING_GAIN * volume / 0.35) for _ in range(SWING_VOICES)]
+        self.swing_turn = 0
+        self.zip, self.creak = self.audio.buffer(0.8 * _zip()), self.audio.buffer(0.8 * _creak())
         self.demo_source = self.audio.source(0, 0)     # Learn sounds: its own, so the
         self.demo_turn = 0                              # beep thread never cuts it off
         self.stop = threading.Event()
@@ -370,6 +411,13 @@ class WallBeeper:
                     return
         elif lesson in ("climb up", "climb down"):
             play(self.climb_up if lesson == "climb up" else self.climb_down, 0, CLIMB_GAIN * v / 0.35)
+        elif lesson == "swing":
+            # From the right at the edge of reach, then ahead and close: higher.
+            for angle, distance in ((70, battle.MELEE_REACH), (0, 1.5)):
+                if not play(self.zip, angle, SWING_GAIN * v / 0.35, swing_pitch(distance)) or not wait(0.7):
+                    return
+        elif lesson == "aim":
+            play(self.creak, -40, SWING_GAIN * v / 0.35)
         elif lesson == "drone":
             a.place(src, 0)
             a.set(src, gain=DRONE_GAIN, pitch=1.0)
@@ -428,6 +476,20 @@ class WallBeeper:
             self.levels_heard.append((x, y, sign))
             self.audio.place(self.climb_source, VOICES[zone][0])
             self.audio.play(self.climb_source, self.climb_up if sign > 0 else self.climb_down)
+
+    def _swings(self, player):
+        """Play each attack an enemy has just begun on us, from where he stands."""
+        if self.swings is None:
+            return
+        mission = walls.mission_address(self.reader, self.profile)
+        with self.reader.cached():
+            started = self.swings.check(self.reader, mission, player)
+        for kind, distance, angle in started[:SWING_VOICES]:
+            source = self.swing_sources[self.swing_turn % SWING_VOICES]
+            self.swing_turn += 1
+            self.audio.place(source, -angle)        # ours grow to the left, the sound's to the right
+            self.audio.set(source, pitch=swing_pitch(distance) if kind == "melee" else 1.0)
+            self.audio.play(source, self.zip if kind == "melee" else self.creak)
 
     def cue(self, angle=0.0):
         """The hammer-on "you can use this" sound, from `angle` (scanner angles:
@@ -503,6 +565,10 @@ class WallBeeper:
             if result:
                 self._ping(self.player)
                 self._climb(self.player)
+                try:
+                    self._swings(self.player)
+                except (ReadError, ValueError, OSError, struct.error):
+                    pass
             if not result:
                 self.last_step = {zone: -1 for zone in VOICES}
             else:

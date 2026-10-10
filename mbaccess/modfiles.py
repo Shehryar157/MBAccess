@@ -250,6 +250,21 @@ def load_skins(module_dir):
         return []
 
 
+def parse_actions(text):
+    """The animation names of actions.txt, in order: an agent's action number is an index
+    into them. An action's line starts with one space, its sequences' lines with two."""
+    return [line.split()[0] for line in text.split("\n")[1:]
+            if line.startswith(" ") and not line.startswith("  ") and line.strip()]
+
+
+def load_actions(module_dir):
+    try:
+        with open(os.path.join(module_dir, "actions.txt"), encoding="utf-8", errors="replace") as f:
+            return parse_actions(f.read())
+    except OSError:
+        return []
+
+
 def load_menus(module_dir, language="en"):
     """Menus of a module folder, with translated texts where available."""
     with open(os.path.join(module_dir, "menus.txt"), encoding="utf-8", errors="replace") as f:

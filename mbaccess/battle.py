@@ -5,6 +5,7 @@ hit_points_float (floats), then hit_points_int; and elsewhere team_no, group_no,
 division_no. The offsets differ in 1.174 and the struct between is full of types we
 can't size, so we find them by shape in the live agents instead (docs/findings/battles.md).
 """
+import math
 import struct
 
 from . import walls
@@ -21,6 +22,73 @@ AGENT_HORSE = 0x114     # the agent number of the horse a rider is on, or -1
 # holds the same). Villagers in a peaceful scene are -1 and the player 0.
 AGENT_TEAM = 0x7b4
 NO_TEAM = -1
+
+
+# The upper body's current animation: an index into the module's actions.txt (found in the
+# user's custom battle, 2026-10-10: 188 ready_throwing_knife, 189 release_throwing_knife,
+# 320 defend_shield_keep, 143 equip_default, -1 between). +0x6e8 holds the same.
+AGENT_ACTION = 0x6e4
+SWINGS = ("slash", "thrust", "overswing", "swing", "direct", "uppercut")   # melee "ready_" names
+MELEE_REACH = 5.0       # metres: a raised weapon this near is meant for us
+RANGED_REACH = 80.0
+AIMED = 15.0            # degrees: an archer facing us this squarely is aiming at us
+AIM_WIDTH = 3.0         # metres either side of us that still counts as "at us" from afar
+
+
+def wind_up(name):
+    """ "melee" or "ranged" if the animation is a weapon being raised or drawn, else None.
+    Told from the names the game gives them: ready_slashright_onehanded, ready_bow..."""
+    if not name.startswith("ready_"):
+        return None
+    return "melee" if any(word in name for word in SWINGS) else "ranged"
+
+
+class SwingWatch:
+    """Notices enemies near the player starting an attack: what a sighted player sees as
+    a weapon going up. check() gives each new one once."""
+
+    def __init__(self, action_names):
+        self.names = action_names
+        self.last = {}          # agent number -> the action it was in
+
+    def check(self, reader, mission, player):
+        """[(kind, distance, angle)] for attacks that began since the last call: kind
+        "melee" or "ranged", angle in degrees from where the player faces (positive left)."""
+        fighters, mine = [], NO_TEAM
+        for no, _address, data in agents(reader, mission, AGENT_TEAM + 4):
+            kind, _, status, flags = struct.unpack_from("<iiiI", data, walls.AGENT_TYPE)
+            if kind != HUMAN or status != ALIVE:
+                continue
+            team = struct.unpack_from("<i", data, AGENT_TEAM)[0]
+            if flags & 1:
+                mine = team
+            else:
+                fighters.append((no, team, data))
+        started, seen = [], {}
+        px, py, facing = player[0], player[1], player[3]
+        for no, team, data in fighters:
+            action = seen[no] = struct.unpack_from("<i", data, AGENT_ACTION)[0]
+            if action == self.last.get(no) or side(mine, team) != "Enemies":
+                continue
+            kind = wind_up(self.names[action]) if 0 <= action < len(self.names) else None
+            if kind is None:
+                continue
+            x, y = struct.unpack_from("<2f", data, walls.AGENT_POS)
+            distance = math.hypot(x - px, y - py)
+            if kind == "melee" and distance > MELEE_REACH:
+                continue
+            if kind == "ranged":
+                # Is he facing us? His heading against the direction from him to us.
+                heading = struct.unpack_from("<f", data, walls.AGENT_DIRF)[0] + walls.FORWARD
+                off = math.degrees(math.atan2(py - y, px - x) - heading)
+                # Far off, "at us" is a narrow line: within AIM_WIDTH metres of where we stand.
+                allowed = min(AIMED, math.degrees(math.atan2(AIM_WIDTH, max(distance, 0.1))))
+                if distance > RANGED_REACH or abs((off + 180) % 360 - 180) > allowed:
+                    continue
+            angle = math.degrees(math.atan2(y - py, x - px) - facing - walls.FORWARD)
+            started.append((kind, distance, (angle + 180) % 360 - 180))
+        self.last = seen
+        return started
 
 
 def side(mine, theirs):
