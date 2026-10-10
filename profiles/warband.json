@@ -34,7 +34,7 @@
       "21": {"name": "Notes", "tree": true, "layout": {"by_group": true,
         "section_names": {"": "Buttons", "notes_key_collection": "Topics", "notes_data_collection": "Page"},
         "start_section": "notes_data_collection"}},
-      "6": {"name": "Map", "tree": true, "map": true},
+      "6": {"name": "Map", "tree": true, "map": true, "type_search": "after_f"},
       "10": {"tree": true, "type_search": false, "escape": false},
       "12": {"conversation": true, "buttons": 676, "slots": 64, "speaker": 648, "continue": 656, "click": [0.45, 0.02], "scroll": [0.01, 0.28]},
       "13": {"name": "Options", "tree": true, "selected_tab": "General Options"},

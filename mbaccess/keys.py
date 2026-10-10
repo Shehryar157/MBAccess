@@ -36,6 +36,7 @@ ALT = 0x12
 NVDA_KEYS = {0x2D, 0x14}
 LETTERS = tuple(range(0x30, 0x3A)) + tuple(range(0x41, 0x5B))
 KEY_J, KEY_K, KEY_L, KEY_O = 0x4A, 0x4B, 0x4C, 0x4F   # the scene scanner
+KEY_F = 0x46                    # the map: start a search (F is Action, used only in scenes)
 KEY_A, KEY_D, KEY_S = 0x41, 0x44, 0x53   # Shift+A/D/S: turn in a scene; Ctrl+A/D: face the nearest thing
 ALL = (UP, DOWN, RETURN, HOME, END, LEFT, RIGHT, SPACE, F9, ESCAPE,
        LEFT_BRACKET, RIGHT_BRACKET, SEMICOLON, QUOTE, COMMA, PERIOD, CONTROL, TAB) + LETTERS

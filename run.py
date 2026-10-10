@@ -189,10 +189,12 @@ def play_session(game):
         mine = set()
         if watcher.has_sections():
             mine.add(keys.TAB)
-        if watcher.back_item() is not None:
+        if watcher.back_item() is not None or watcher.search_on:
             mine.add(keys.ESCAPE)
         if watcher.searching():
             mine.update(keys.LETTERS)
+        if watcher.search_key():
+            mine.add(keys.KEY_F)        # the map: F starts a search
         if in_scene["now"]:
             mine.update((keys.KEY_J, keys.KEY_K, keys.KEY_L, keys.KEY_O, keys.SEMICOLON, keys.QUOTE))
         # Shift+A / D / S turn (S: about-face), Ctrl+A / D face the nearest thing in the

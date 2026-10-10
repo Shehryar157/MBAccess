@@ -90,6 +90,7 @@ class MenuWatcher:
         self.cursor = 0
         self.pending = None          # (key, tries): an action waiting for scrolling
         self.link_index = -1         # which link of a Notes line Left/Right chose
+        self.search_on = False       # the map: F started a search (letters search until Escape)
         self.root_offsets = {}       # window number -> where its root widget is
         self.tip_wait = None         # (since, tooltip before, widget): waiting to speak a cell
         self.config = {}
@@ -393,6 +394,7 @@ class MenuWatcher:
             self.special_check = None     # a question opened (slaughter): it's read out
             self.last, self.pending = state, None
             self.announce, self.section_memory = "", {}
+            self.search_on = False       # a new screen ends an F search
             self.options, self.cursor = items, min(config.get("start", 0), len(items) - 1)
             if self.has_sections():
                 self.open_sections(config)
@@ -627,9 +629,20 @@ class MenuWatcher:
         if not self.options:
             return
         for key in pressed:
+            if key == keys.KEY_F and self.search_key() and not self.search_on:
+                # The map's letters are the game's (P party...): F starts a search.
+                self.search_on, self.search = True, ""
+                self.say("search")
+                continue
             if key in keys.LETTERS:
                 if self.searching():
                     self.type_search(chr(key).lower())
+                continue
+            if key == keys.RETURN and self.search_on:
+                self.search_on = False      # found it: Enter travels, the letters are the game's again
+            if key == keys.ESCAPE and self.search_on:
+                self.search_on = False
+                self.say("search off")
                 continue
             if key == keys.ESCAPE:
                 back = self.back_item()
@@ -683,10 +696,16 @@ class MenuWatcher:
 
     def searching(self):
         """Do letters search this screen? Not in a name box (they're typed),
-        and not where the profile says the game needs them ("type_search": false)."""
+        and not where the profile says the game needs them ("type_search": false).
+        With "type_search": "after_f" (the map) only once F has started a search."""
+        mode = self.config.get("type_search", True)
         return bool(self.options) and not self.typing() \
-            and self.config.get("type_search", True) \
+            and (self.search_on if mode == "after_f" else bool(mode)) \
             and not (keys.is_down(keys.CONTROL) or keys.is_down(keys.ALT))
+
+    def search_key(self):
+        """Does F start a search on this screen (the map)?"""
+        return bool(self.options) and self.config.get("type_search") == "after_f"
 
     def type_search(self, letter):
         """Jump to the next item starting with the letters typed so far.
