@@ -22,6 +22,8 @@ scan = scanner.Scanner(r, game.profile, lambda s: None)
 turner = turning.Turner(game, lambda s: None)
 w10 = r.ptr(game.profile.screen["game_windows"] + 4 * 10)
 want = sys.argv[1] if len(sys.argv) > 1 else "Animals"
+# use prompt types (verified 2026-10-10 by screenshot: "Guild Master / Talk" = type 1)
+TYPES = {"People": 1, "Animals": 2}
 named = sys.argv[2].lower() if len(sys.argv) > 2 else ""
 
 
@@ -88,7 +90,8 @@ for _ in range(160):
         face()
     key(0x11, 0.08)                         # W, a short step
     time.sleep(0.25)
-on = [x for x in rows if x[4]]
+on = [x for x in rows if x[4] and x[2] == (TYPES.get(want, 1)) and x[3] == t["key"][1]]
 print("REACH: in range from %.2f m" % max(x[0] for x in on) if on else "never in range")
-seen = [x for x in rows if x[3] == t["key"][1]]
+want_type = TYPES.get(want, 1)
+seen = [x for x in rows if x[2] == want_type and x[3] == t["key"][1]]
 print("looked-at from %.2f m" % max(x[0] for x in seen) if seen else "never looked-at")

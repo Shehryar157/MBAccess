@@ -3,9 +3,9 @@ and F on horseback made to dismount the way a sighted player does it.
 
 The prompt isn't text in memory: the game draws it each frame from three numbers in the
 scene window (WSE tactical_window order, found 2026-10-10, docs/findings/scenes.md):
-- +0x408 use_object_type: -1 nothing, 1 a mission object (ANY prop aimed at: a fence and
-  a feeding trough showed it, in range at ~1.9 m), 2 an agent (horse: "Mount"; person: "Talk",
-  assumed), 3 Dismount (only while looking down at your own horse). Others not seen yet.
+- +0x408 use_object_type: -1 nothing, 1 a person ("Talk", in range within 3.2 m; VERIFIED
+  by screenshot; earlier notes also saw it on props, unconfirmed), 2 a horse ("Mount"),
+  3 Dismount (only while looking down at your own horse), 6 a door to another scene.
 - +0x40c use_object_no: the agent or mission object's number.
 - +0x414 use_object_in_range: 1 when close enough to press F.
 
@@ -24,7 +24,9 @@ from . import walls
 from .mem import Reader, ReadError
 
 USE = 0x408
-NOTHING, OBJECT, AGENT, DISMOUNT = -1, 1, 2, 3
+# 1 = a person to talk to, number = agent (VERIFIED 2026-10-10: screenshot "Guild Master /
+# Talk" with type 1, no 12 = his agent). 2 = a horse to mount (agent number). 3 dismount.
+NOTHING, PERSON, AGENT, DISMOUNT = -1, 1, 2, 3
 PASSAGE = 6     # a door to another scene (seen 2026-10-10 at "Door to the castle")
 SCENE_WINDOW = 10
 
@@ -36,8 +38,9 @@ LOOK_STEP, LOOK_LIMIT = 60, 1500     # mouse steps per nudge; give up past this
 
 
 # Metres from you to a thing's centre where the game lets you use it (tools/reach_test.py,
-# 2026-10-10): a horse 1.3, a scene object about 1.9. People not measured: as a horse.
-REACH = {"People": 1.3, "Animals": 1.3, "Items": 1.9, "Exits": 1.9}
+# 2026-10-10): a horse 1.3, a scene object about 1.9, a person 3.2 (Guild Master; "Talk"
+# shows from 5 m but only works within 3.2).
+REACH = {"People": 3.0, "Animals": 1.3, "Items": 1.9, "Exits": 1.9}
 NEARBY_EVERY = 0.25     # seconds between "what's close enough" checks
 
 
@@ -70,8 +73,11 @@ class Prompts:
                 return None
             name, horse = who
             return "Mount: " + name if horse else "Talk to " + name
-        if kind == OBJECT:
-            # The game aims at any prop (fences too), so speak only the usable kinds.
+        if kind == PERSON:
+            who = self.scanner.agent_name(no)
+            if who is not None:
+                return ("Mount: " if who[1] else "Talk to ") + who[0]
+            # Not a living person: older notes saw type 1 on props (a fence); speak only usable kinds.
             known = self.scanner.object_names.get(no)
             if not known or known[1] not in ("Items", "Exits"):
                 return None
