@@ -13,6 +13,7 @@ slider, image.
 Then we sort everything into rows by height, so the label "Combat AI:"
 joins the spinner on its row and is spoken as "Combat AI: Poor, spinner".
 """
+import re
 import struct
 from dataclasses import dataclass
 
@@ -31,6 +32,8 @@ SLIDER_STEP = 0.05               # Left/Right move a slider by 5%
 # Drop-down: its choices are an stl::vector of rgl::strings (0x90 bytes each),
 # the chosen index, and the height of one row of the open list.
 CHOICES, CHOSEN, LIST_ROW, RGL_STRING = 0x2e8, 0x2b0, 0x320, 0x90
+# A text box line that is nothing but one link: "<ip=4>Courtship</>".
+WHOLE_LINK = re.compile(r"^<[a-z]+=\d+>[^<]*</>$", re.IGNORECASE)
 CONTROLS = ("button", "tab", "checkbox", "spinner", "slider", "edit", "dropdown", "slot")
 ROLE = {"button": "button", "tab": "tab", "checkbox": "checkbox",
         "spinner": "spinner", "slider": "slider", "edit": "edit box", "dropdown": "drop-down"}
@@ -233,21 +236,24 @@ class TreeReader:
         h = struct.unpack("<f", self.r.read(p + SIZE + 4, 4))[0]
         lines = raw.split("\n")
         found = []
-        if any(text_mod.LINK_TAG.search(line) for line in lines):
+        # A topic list: every line is one whole link, except the page you're
+        # on. Articles have links INSIDE sentences (lords, towns): not a list.
+        whole = [bool(WHOLE_LINK.match(line.strip())) for line in lines if line.strip()]
+        if whole and whole.count(False) <= 1 and any(whole):
             step = h / len(lines)
             for n, line in enumerate(lines):
                 words = text_mod.clean(line)
                 if not words:
                     continue
                 bottom = y + h - (n + 1) * step     # line n's lower edge
-                if text_mod.LINK_TAG.search(line):
+                if WHOLE_LINK.match(line.strip()):
                     found.append(Item("button", "", x, bottom, value=words, click=(0.02, step / 2),
                                       scroll=scroll, widget=p, group=group, from_textbox=True))
                 else:   # the page you're on isn't a link
                     found.append(Item("text", f"{words}, current", x, bottom, scroll=scroll,
                                       widget=p, group=group, from_textbox=True))
             return found
-        paragraphs = [text_mod.clean(part) for part in raw.split("\n\n")]
+        paragraphs = [text_mod.clean(part) for part in raw.split("\n")]
         paragraphs = [para for para in paragraphs if para]
         for n, para in enumerate(paragraphs):
             # Their real heights aren't known: spread them down the box so they

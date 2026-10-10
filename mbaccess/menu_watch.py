@@ -406,7 +406,9 @@ class MenuWatcher:
             return
         # Follow the item itself, not its place in the list: rows can shift
         # for a moment while the list scrolls.
-        same = [n for n, i in enumerate(items) if old and old.widget and i.widget == old.widget]
+        # A text box's lines share one widget, so those also need the same words.
+        same = [n for n, i in enumerate(items) if old and old.widget and i.widget == old.widget
+                and (not old.from_textbox or (i.label, i.value) == (old.label, old.value))]
         self.cursor = same[0] if same else min(self.cursor, len(items) - 1)
         new = items[self.cursor]
         if old and new.label == old.label and new.value != old.value:
