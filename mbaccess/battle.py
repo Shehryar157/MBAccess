@@ -13,6 +13,33 @@ from .mem import ReadError
 HUMAN, HORSE = 0, 1
 ALIVE = 1
 MAX_HEALTH = 2000.0     # nothing in the game has more hit points than this
+# Found by find_health in Buvran's centre (2026-10-10): villagers 42-44, a horse 100, us 52.
+HEALTH_MAX, HEALTH_NOW = 0x5ffc, 0x6000     # floats; +0x5ff8 at spawn, +0x6004 as an int
+AGENT_HORSE = 0x114     # the agent number of the horse a rider is on, or -1
+HEAD = 0x120            # bytes of an agent that tell who it is
+
+
+def health(reader, address):
+    """(now, most) hit points of the agent at address."""
+    most, now = struct.unpack("<2f", reader.read(address + HEALTH_MAX, 8))
+    return now, most
+
+
+def health_words(reader, mission):
+    """ "Health 40 of 52, horse 100 of 100": the player's, and their horse's if mounted."""
+    found = {no: (address, data) for no, address, data in agents(reader, mission, HEAD)}
+    for address, data in found.values():
+        kind, _, status, flags = struct.unpack_from("<iiiI", data, walls.AGENT_TYPE)
+        if kind != HUMAN or not flags & 1:
+            continue
+        if status != ALIVE:
+            return "you are down"
+        words = "Health %.0f of %.0f" % health(reader, address)
+        horse = found.get(struct.unpack_from("<i", data, AGENT_HORSE)[0])
+        if horse:
+            words += ", horse %.0f of %.0f" % health(reader, horse[0])
+        return words
+    return "can't find you"
 
 
 def agents(reader, mission, size=walls.AGENT_SIZE):

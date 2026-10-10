@@ -23,7 +23,7 @@ Memory layout (Warband 1.174, found 2026-10-10, docs/findings/scenes.md "Scanner
 import math
 import struct
 
-from . import keys, text as text_mod, walls
+from . import battle, keys, text as text_mod, walls
 from .mem import ReadError
 
 OBJECTS = 0xc75c
@@ -238,6 +238,8 @@ class Scanner:
                 self.where()
             elif key == keys.QUOTE and self.turner:
                 self.say(self.turner.facing_words())
+            elif key == keys.KEY_H:
+                self.say(battle.health_words(self.r, walls.mission_address(self.r, self.profile)))
             elif key in (keys.KEY_A, keys.KEY_D) and shift and self.turner:
                 self.turner.turn(45 if key == keys.KEY_A else -45)
             elif key == keys.KEY_S and shift and self.turner:

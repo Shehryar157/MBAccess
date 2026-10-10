@@ -72,6 +72,7 @@ GROUPS = [
         ("Shift J: track the thing you last heard, or stop tracking. A ping plays from "
          "where it is, lower when it's behind you, quicker as you get close.", None),
         ("Apostrophe: compass, the way you're facing.", None),
+        ("H: your health, and your horse's when you're riding.", None),
         ("On foot, hold Left or Right arrow: turn on the spot, as moving the mouse "
          "does. Press Apostrophe to hear where you now face. The speed is set on the "
          "Accessibility tab of the Options screen.", None),

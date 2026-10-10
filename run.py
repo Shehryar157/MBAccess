@@ -197,7 +197,8 @@ def play_session(game):
         if watcher.search_key():
             mine.add(keys.KEY_F)        # the map: F starts a search
         if in_scene["now"]:
-            mine.update((keys.KEY_J, keys.KEY_K, keys.KEY_L, keys.KEY_O, keys.SEMICOLON, keys.QUOTE))
+            mine.update((keys.KEY_J, keys.KEY_K, keys.KEY_L, keys.KEY_O, keys.KEY_H,
+                         keys.SEMICOLON, keys.QUOTE))
         # Shift+A / D / S turn (S: about-face), Ctrl+A / D face the nearest thing in the
         # scanner's category; plain A, D and S still walk.
         key_watch.swallow_shifted = frozenset((keys.KEY_A, keys.KEY_D, keys.KEY_S)) if in_scene["now"] else frozenset()

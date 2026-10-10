@@ -14,6 +14,17 @@
   attack_action_type, defend_action_direction, ..., hit_points x4, ..., kill_count.
 - tools/probe_battle.py (reads only): everyone with troop name and health guesses; "teams"
   adds the candidate team fields; "watch" prints what changes in the player's agent.
+- HEALTH VERIFIED (Buvran village centre, read-only): agent +0x5ff8 hit points at spawn,
+  +0x5ffc max, +0x6000 now (floats), +0x6004 now as an int. Villagers 42-44, elder 42, a
+  horse 100, the player 52. H in a scene speaks "Health 52 of 52" (+ the horse's when
+  mounted, via agent +0x114); battle.health_words. Untested by the user; never seen below max.
+- TEAM not found yet: everyone in a village is peaceful. Guess from the header order:
+  +0x7b0 team (all -1 here?), +0x7b4 group (-1, player 0), +0x7b8 division (-1, player 0),
+  +0x7d0 division member (0-8 for the nine villagers). Other fields where only the player
+  differs: +0x270 (1, player 2), +0x4f0, +0x6a0, +0x5f8c (1, player 0). Settle it in the arena.
+- tools/record_battle.py [seconds] [name]: passive recorder for a fight the USER plays (they
+  want to fight the arena themselves; never drive it). Player 5 times a second, others once;
+  "read" prints each fighter's health and status over time. logs/stop ends it early.
 - First run was with NO scene open (trade screen; the old Jelkala tavern mission still in
   memory, 7 agents): health candidates +0x864, +0x5d6c, +0x5f50, +0x5ff8; +0x864 read
   spawn ?, max 45, now 0 for all seven. Means nothing until run in a live scene: a stale
