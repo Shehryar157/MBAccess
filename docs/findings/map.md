@@ -176,3 +176,23 @@
   camera; verify by the hover/selection like the aim self-check), read the rows from the game
   object, Up/Down + Enter click a row. Needs the map open: find the offsets by opening a
   menu once by hand-click.
+
+## Context menu: what's found (2026-10-10, session 21; read-only, map NOT on top, no click yet)
+- Rows: game+0x144bc = context_menu_num_items, +4 mouseover index, +8 = 50 rgl::strings,
+  then 50 int values. Found by shape (tools/probe_context.py find_rows: the ONLY run of exactly
+  50 rgl::strings in the game object). Before any menu was opened the two counters and the
+  values held junk text (never initialised), so count is only meaningful if 0 < count <= 50.
+  NOT yet seen filled.
+- Camera: map window (6) +0x374 = rgl::camera's matrix: rows right, up, BACKWARD (it looks
+  along minus row 3), then the camera's place. +0x3b4 left, right, up, down (-0.0971, 0.0971,
+  0.0728, -0.0728 = 4:3), near 0.2, far 300, aperture 0.698. +0x3d4 camera_origin (the
+  player's x, y and z + 1.0), +0x3f8 vertical rotation 0.3, +0x3fc zoom 5.0 (= the depth of
+  camera_origin, a self-check). The values stay valid while a scene is on top.
+- Projection (tools/context_test.py project): v = point - place; x = 0.5 + v.right * near /
+  depth / (right - left); y = 0.75 * (0.5 + v.up * near / depth / (up - down)), depth =
+  -v.backward. camera_origin lands dead centre. Parties have their z at position + 8.
+  Jelkala from beside it: x 0.481, y 0.209, like the hand-found "0.52, 0.23" above.
+- Still to find live (context_test.py <place> prints all three): that a right click there
+  fills the rows, which map window field holds the menu's party (window +0x41c was -1, +0x424
+  was 1 with no menu: the 1.153 order would put mode and object near there), and where each
+  row sits under the mouse (slide down, watch the mouseover index: no row height to hard-code).
