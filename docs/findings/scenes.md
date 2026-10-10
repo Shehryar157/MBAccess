@@ -198,3 +198,11 @@ Next / open:
 - Fixed: name-ahead said "something" for doors (landmarks used the empty id; now door names).
 - reach_test.py takes a name ("People" "Lady Anais"). Talk reach NOT measured: my run fought
   the user's own keys (they were playing). Never drive while the user plays: ask first.
+- Responsiveness (2026-10-10): game = 96% of one core (CPU-bound, single-threaded); mod 9%,
+  hook 1%. Hook process now HIGH priority + timeBeginPeriod(1); arrow spin turns by real
+  elapsed time (Windows sleeps were ~15.6 ms, not 10); Shift+A/D sends the whole turn at once
+  (MAX_NUDGE 4000). Untested by the user.
+- Footsteps: Modules/Native/sounds.txt flags = volume bits 8-11, priority bits 4-7. Native
+  footsteps vol 4-5 prio 1 (horses 8/3). tools/footsteps.py raises grass/water 11, wood 12,
+  prio 6 (backup sounds.txt.mbaccess-backup; "restore" undoes). Same sound for every agent:
+  the player's are loudest by distance only. Applied to the user's install; needs a game restart.

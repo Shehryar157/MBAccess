@@ -259,6 +259,11 @@ class _SharedHook(HookKeyWatcher):
 
 def _hook_process(flags, hwnd, events, held, quiet, ready):
     import multiprocessing
+    # Every key on the computer waits for this hook, so let Windows run it ahead of
+    # ordinary programs (its work takes microseconds, so nothing else suffers).
+    HIGH_PRIORITY_CLASS = 0x80
+    ctypes.windll.kernel32.SetPriorityClass(ctypes.windll.kernel32.GetCurrentProcess(), HIGH_PRIORITY_CLASS)
+    ctypes.WinDLL("winmm").timeBeginPeriod(1)
     hook = _SharedHook(flags, hwnd, events, held, quiet)
     ready.put(hook.ok)
     parent = multiprocessing.parent_process()

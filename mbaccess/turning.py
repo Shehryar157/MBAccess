@@ -1,4 +1,4 @@
-"""Turn the player by a set angle in a scene (Shift+A / Shift+D: 45 degrees).
+﻿"""Turn the player by a set angle in a scene (Shift+A / Shift+D: 45 degrees).
 
 On foot the mouse turns you, so we nudge the mouse sideways and read the facing back
 from memory until it's within TOLERANCE: a feedback loop, like a thermostat. It learns
@@ -15,12 +15,15 @@ from . import walls
 from .mem import Reader, ReadError
 
 _user32 = ctypes.WinDLL("user32")
+# Windows' timer ticks every 15.6 ms by default, so sleep(0.01) really slept ~16 ms and the
+# arrow-key spin stuttered. Asking for 1 ms makes short sleeps (and so turning) smooth.
+ctypes.WinDLL("winmm").timeBeginPeriod(1)
 MOUSEEVENTF_MOVE = 0x1
 KEYEVENTF_SCANCODE, KEYEVENTF_KEYUP = 0x8, 0x2
 SCAN_A, SCAN_D = 0x1E, 0x20        # DirectInput games read scan codes, not key codes
 
 TOLERANCE = 2.0         # degrees
-MAX_NUDGE = 300         # mouse steps in one move
+MAX_NUDGE = 4000        # mouse steps in one move: a whole 45-degree turn (~700) goes at once
 HORSE_TIMEOUT = 4.0     # seconds holding A or D before giving up
 SPIN_SPEED = 90.0       # degrees a second while Left or Right arrow is held (on foot)
 SPIN_TICK = 0.01
@@ -56,27 +59,35 @@ class Turner:
         def run():
             r = Reader(self.game)       # the spin thread's own reader
             spinning, mounted, checked = False, False, 0.0
+            owed, last = 0.0, time.perf_counter()     # mouse steps not yet sent
             while True:
                 time.sleep(SPIN_TICK)
+                now = time.perf_counter()
+                elapsed, last = min(now - last, 0.05), now
                 try:
                     if not active() or self.busy:
                         spinning = False
                         continue
                     left, right = held(left_key), held(right_key)
                     if left == right:
+                        owed = 0.0
                         if spinning:
                             spinning = False
                             self.say(self.facing_words())
                         continue
-                    now = time.perf_counter()
                     if now - checked > 0.25:        # mounted? (horses turn with A/D)
                         p = walls.find_player(r, walls.mission_address(r, self.profile))
                         mounted, checked = bool(p and p[4]), now
                     if mounted:
                         continue
                     spinning = True
-                    steps = speed() * SPIN_TICK * self.steps_per_degree * self.sign
-                    _user32.mouse_event(MOUSEEVENTF_MOVE, int(round(-steps if left else steps)), 0, 0, 0)
+                    # Turn by the time that really passed, so the speed is right whatever
+                    # the tick; the fraction of a step left over is kept for next time.
+                    owed += speed() * elapsed * self.steps_per_degree * self.sign * (-1 if left else 1)
+                    whole = int(owed)
+                    owed -= whole
+                    if whole:
+                        _user32.mouse_event(MOUSEEVENTF_MOVE, whole, 0, 0, 0)
                 except (ReadError, OSError, TypeError):
                     spinning = False
         threading.Thread(target=run, daemon=True, name="spin").start()
