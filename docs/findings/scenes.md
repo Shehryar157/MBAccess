@@ -211,3 +211,10 @@ Next / open:
   dungeon, arena, shop, tavern, castle: all named right now. Door PROPS ("rhodok house
   passage", "panel door", "door left/right") are pictures only: moved from Exits to Objects;
   Exits = passages, gates, stairs, ladders.
+- BIG FIX 2026-10-10: QUAD shapes are often TRIANGLES whose 4th corner slot (+0x44+0x30)
+  holds junk (zeros, 1e38, random points): ~1/3 of Jelkala's 7961 upright panels. The wall
+  finder drew 40 m slanted walls from them: the player was "boxed in" (all 8 zones 0.0-0.1 m),
+  so beeps never stopped and every street felt narrow. Test: a real quad is flat, so corner 3
+  must lie in the plane (normal +0xc4) of corner 0 within 5 cm; else corner 3 := corner 2.
+  After: dungeon doorway reads front 0.3, sides 0.3/0.9, behind 4+. Villages were probably hit
+  too (the user's earlier wall-beep reports may come from this).

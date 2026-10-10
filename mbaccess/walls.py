@@ -101,9 +101,20 @@ class SceneWalls:
                     if 0 < n < 100000:
                         stack.extend(struct.unpack("<%dI" % n, reader.read(parts, 4 * n)))
                 elif vtable == QUAD:
-                    nz = struct.unpack_from("<f", h, 0xc4 + 8)[0]
+                    nx, ny, nz = struct.unpack_from("<3f", h, 0xc4)
                     if abs(nz) < 0.7:           # upright: a wall, not a floor or roof
-                        quads.append([struct.unpack_from("<3f", h, 0x44 + 16 * k) for k in range(4)])
+                        corners = [struct.unpack_from("<3f", h, 0x44 + 16 * k) for k in range(4)]
+                        c0, c3 = corners[0], corners[3]
+                        off_plane = abs(nx * (c3[0] - c0[0]) + ny * (c3[1] - c0[1]) + nz * (c3[2] - c0[2]))
+                        if not off_plane < 0.05:     # (also catches NaN / huge junk)
+                            # A triangle: the 4th corner slot holds leftover memory (zeros,
+                            # 1e38, random points; about a third of Jelkala's panels). A real
+                            # panel is flat, so its 4th corner lies in the plane of the
+                            # others. Taken as real, the junk drew 40 m slanted walls across
+                            # town and boxed the player in on all sides (2026-10-10).
+                            # Repeating corner 3 leaves a zero-length edge that cuts nothing.
+                            corners[3] = corners[2]
+                        quads.append(corners)
                 elif vtable == CAPSULE:
                     a = struct.unpack_from("<3f", h, 0x44)
                     b = struct.unpack_from("<3f", h, 0x54)
