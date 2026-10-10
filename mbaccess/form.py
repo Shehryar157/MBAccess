@@ -80,9 +80,14 @@ class Item:
         bottom, top = self.scroll
         return bottom <= self.y + self.click[1] <= top
 
-    def wheel_notches(self):
-        """Which way to turn the wheel to bring it into view: -1 scrolls down."""
-        return -1 if self.y + self.click[1] < self.scroll[0] else 1
+    def wheel_notches(self, step=0.062):
+        """How far to turn the wheel to bring it to the middle of its scroll
+        area (one notch moves a list about step): negative scrolls down. A
+        long list (253 characters in Notes) needs many notches at once."""
+        bottom, top = self.scroll
+        distance = (bottom + top) / 2 - (self.y + self.click[1])
+        notches = min(60, max(1, int(abs(distance) / step)))
+        return notches if distance < 0 else -notches
 
     def action(self, key):
         """The mouse action for a key name, or None. Actions are tuples:
@@ -328,7 +333,10 @@ def rows(found, by_columns=True):
     found.sort(key=lambda i: (section(i), -i.y, i.x))
     groups = []
     for item in found:
-        if groups and abs(groups[-1][0].y - item.y) <= ROW:
+        # A text box's lines are whole lines: never paired with what sits
+        # beside them (a one-line Notes page next to a topic).
+        if groups and abs(groups[-1][0].y - item.y) <= ROW \
+                and not (item.from_textbox or groups[-1][0].from_textbox):
             groups[-1].append(item)
         else:
             groups.append([item])
