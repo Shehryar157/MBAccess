@@ -506,3 +506,13 @@ def test_face_words_and_portrait():
                           "Nose Shape": 0.9, "Face Width": 0.5}, "man")
     assert text == "Very young man, very dark hair. Very large, very hooked nose."
     assert face.portrait({"Age": 0.5}, "woman") == "Middle-aged woman. An average face."
+
+
+def test_skill_books_from_script():
+    from mbaccess.modfiles import skill_books
+    # eq(skill_no, skl 11); call_script(script, troop, itm 88); eq(skill_no, skl 17); call_script(.., itm 90)
+    text = ("game_get_skill_modifier_for_troop -1\n 4 31 2 1224979098644774913 1369094286720630795 "
+            "1 3 936748722493063596 1224979098644774912 288230376151711832 "
+            "31 2 1224979098644774913 1369094286720630801 "
+            "1 3 936748722493063596 1224979098644774912 288230376151711834 \n")
+    assert skill_books(text) == {11: 88, 17: 90}

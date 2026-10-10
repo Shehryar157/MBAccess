@@ -6,7 +6,9 @@ the way the engine does (docs/findings/screens.md):
 - a party skill's level is the best level among the heroes in the party
   (you and your companions; a wounded hero still counts);
 - the leader adds a bonus from their own level: +1 at 2 to 4, +2 at 5 to 7,
-  +3 at 8 or 9, +4 at 10. Verified only for 1 (no bonus) and 2 (+1).
+  +3 at 8 or 9, +4 at 10. Verified only for 1 (no bonus) and 2 (+1);
+- a hero carrying a skill's book (Native: the three reference books) counts
+  one level higher, read from the module's scripts (UNVERIFIED on screen).
 
 Memory (profile screen["party_skills"], Warband 1.174):
 - game+troops: pointer to the troops array (troop 0 = the player), each
@@ -24,6 +26,7 @@ from .modfiles import SF_EFFECTS_PARTY
 
 TF_HERO = 0x10
 STACK_SIZE = 32
+BAG_SLOTS, EQUIPMENT_SLOTS = 96, 10   # findings/inventory.md
 MAIN_PARTY = "p_main_party"
 
 
@@ -71,8 +74,18 @@ class PartySkills:
             if number < 1 or not r.u32(troop + o["troop_flags"]) & TF_HERO:
                 continue
             words = struct.unpack("<6I", r.read(troop + o["troop_skills"], 24))
-            found.append((r.rgl_string(troop + 4), unpack_skills(words, count)))
+            found.append((r.rgl_string(troop + 4), unpack_skills(words, count), self.carried(troop)))
         return found
+
+    def carried(self, troop):
+        """Item numbers in a troop's bag and equipment (pairs of item, flags)."""
+        o, items = self.o, set()
+        for offset, slots in (("troop_bag", BAG_SLOTS), ("troop_equipment", EQUIPMENT_SLOTS)):
+            if offset in o:
+                pairs = struct.unpack(f"<{2 * slots}i", self.reader.read(troop + o[offset], 8 * slots))
+                items.update(pairs[0::2])
+        items.discard(-1)
+        return items
 
     def lines(self, game, skills):
         """What the screen shows, e.g. ["Surgery 1", "Path-finding 2 +1"].
@@ -83,6 +96,11 @@ class PartySkills:
             return []
         if not heroes:
             return []
+        # A hero carrying the skill's book counts one level higher
+        # (Native's game_get_skill_modifier_for_troop; modfiles.skill_books).
+        heroes = [(name, [level + (skill.book is not None and skill.book in items)
+                          for level, skill in zip(levels, skills)])
+                  for name, levels, items in heroes]
         result = []
         for n, skill in enumerate(skills):
             if not skill.flags & SF_EFFECTS_PARTY:

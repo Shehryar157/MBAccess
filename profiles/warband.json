@@ -20,7 +20,7 @@
             "attached_to": 628, "behaviour": 720, "move_mode": 21332, "move_target": 21336,
             "move_target_party": 21348, "factions": 82236, "faction_size": 3236},
     "party_skills": {"troops": 82160, "parties": 82104, "troop_size": 4040, "troop_flags": 584,
-                     "troop_skills": 640, "party_id": 160, "stacks": 580, "num_stacks": 592},
+                     "troop_skills": 640, "troop_bag": 720, "troop_equipment": 3944, "party_id": 160, "stacks": 580, "num_stacks": 592},
     "inventory": {"troops": 82160, "troop_size": 4040, "troop_bag": 720, "troop_equipment": 3944,
                   "screen_troop": 82800, "temp_troop": 1764,"bag_cells": 372, "equipment_cells": 2688, "per_side": [96, 10],
                   "modifiers": 31043048, "modifier_size": 296, "bag_prices": 1908, "no_price": 77777},

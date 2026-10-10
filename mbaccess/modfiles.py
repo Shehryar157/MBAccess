@@ -87,6 +87,7 @@ class Skill:
     flags: int
     max_level: int
     description: str = ""   # what the Character screen shows on hover
+    book: int = None        # item number that gives a hero carrying it +1 (Native: reference books)
 
 
 def parse_skills(text):
@@ -110,6 +111,9 @@ def load_skills(module_dir, language="en"):
         skill.name = tr.get(skill.id, skill.name)
     if any("%d" in skill.description for skill in skills):
         fill_skill_numbers(skills, module_dir)
+    for number, item in load_skill_books(module_dir).items():
+        if 0 <= number < len(skills):
+            skills[number].book = item
     return skills
 
 
@@ -121,26 +125,59 @@ PLAIN_NUMBER = 1 << 56    # bigger arguments are tagged variables, not numbers
 SKILL_NUMBER_SCRIPTS = {"skl_prisoner_management": "game_get_party_prisoner_limit"}
 
 
-def script_multiplier(text, script_name):
-    """The plain number in a script's first store_mul, from scripts.txt
-    text; None if the script or the step isn't there."""
+TAG_ITEM, TAG_SKILL = 4, 19   # header_common.py: an argument's top byte says what it names
+
+
+def script_ops(text, script_name):
+    """[(opcode, [arguments])] of a script in scripts.txt text; [] if it
+    isn't there or is cut short."""
     lines = text.splitlines()
     for i, line in enumerate(lines[:-1]):
         if line.split()[:1] != [script_name]:
             continue
-        words = iter(lines[i + 1].split())
+        words, ops = iter(lines[i + 1].split()), []
         try:
             for _ in range(int(next(words))):
                 opcode = int(next(words))
-                args = [int(next(words)) for _ in range(int(next(words)))]
-                if opcode == STORE_MUL:
-                    plain = [a for a in args[1:] if 0 <= a < PLAIN_NUMBER]
-                    if plain:
-                        return plain[-1]
+                ops.append((opcode, [int(next(words)) for _ in range(int(next(words)))]))
         except (StopIteration, ValueError):
-            pass
-        return None
+            return []
+        return ops
+    return []
+
+
+def script_multiplier(text, script_name):
+    """The plain number in a script's first store_mul, from scripts.txt
+    text; None if the script or the step isn't there."""
+    for opcode, args in script_ops(text, script_name):
+        if opcode == STORE_MUL:
+            plain = [a for a in args[1:] if 0 <= a < PLAIN_NUMBER]
+            if plain:
+                return plain[-1]
     return None
+
+
+def skill_books(text):
+    """{skill number: item number}: a hero carrying the item gets +1 in the
+    skill (Native: the three reference books). Read from the module's
+    game_get_skill_modifier_for_troop: each branch names a skill, then an item."""
+    books, skill = {}, None
+    for _, args in script_ops(text, "game_get_skill_modifier_for_troop"):
+        for a in args:
+            if a >> 56 == TAG_SKILL:
+                skill = a & (PLAIN_NUMBER - 1)
+            elif a >> 56 == TAG_ITEM and skill is not None:
+                books[skill] = a & (PLAIN_NUMBER - 1)
+                skill = None
+    return books
+
+
+def load_skill_books(module_dir):
+    try:
+        with open(os.path.join(module_dir, "scripts.txt"), encoding="utf-8", errors="replace") as f:
+            return skill_books(f.read())
+    except OSError:
+        return {}
 
 
 def fill_skill_numbers(skills, module_dir):
