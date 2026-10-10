@@ -129,6 +129,7 @@ class Scanner:
         self.direction = None
         self.current = None         # key of the thing last spoken: ("agent", no) / ("object", no)
         self.troop_names = {}       # troop number -> name: they never change
+        self.counters = lambda: []  # the scene's on-screen counts (set by run.py)
         self.object_names = {}      # object number -> (name, category or None to skip)
         self.names_scene = None     # the scene object_names belong to
 
@@ -245,7 +246,8 @@ class Scanner:
             elif key == keys.QUOTE and self.turner:
                 self.say(self.turner.facing_words())
             elif key == keys.KEY_H:
-                self.say(battle.health_words(self.r, walls.mission_address(self.r, self.profile)))
+                words = battle.health_words(self.r, walls.mission_address(self.r, self.profile))
+                self.say(", ".join([words] + [c for c in self.counters() if c.startswith("ammunition")]))
             elif key == keys.KEY_B:
                 self.battle_status()
             elif key == keys.KEY_N:
@@ -288,10 +290,11 @@ class Scanner:
             return
         enemies = [t for t in found if t.get("side") == "Enemies"]
         allies = [t for t in found if t.get("side") == "Allies"]
+        counts = [c for c in self.counters() if not c.startswith("ammunition")]   # the arena's own
         if not enemies and not allies:
-            self.say("no fight here")
+            self.say(", ".join(counts) or "no fight here")
             return
-        words = "%d with you, %d against" % (len(allies), len(enemies))
+        words = ", ".join(["%d with you, %d against" % (len(allies), len(enemies))] + counts)
         if enemies:
             # The middle of them all: where a sighted player sees the enemy line.
             x = sum(t["x"] for t in enemies) / len(enemies)
@@ -477,8 +480,8 @@ class Scanner:
         for t in found:
             if t["category"] not in ("People", "Animals", "Items", "Exits"):
                 continue
-            if t.get("side") == "Enemies":
-                continue        # nobody talks to the man swinging at them
+            if t.get("side"):
+                continue        # in a fight nobody can be talked to, friend or enemy
             d, a = relative(player, t["x"], t["y"])
             limit = reach[t["category"]] if isinstance(reach, dict) else reach
             if d <= limit and (best is None or d < best[2]):

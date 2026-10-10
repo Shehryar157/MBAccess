@@ -44,6 +44,19 @@
   Close enough mode skips enemies.
 - OPEN: in the melee the mod read the fight's HUD as a screen ("Opponents Beaten: 0, 1 of 2",
   "Opponents Remaining: 40", "80 80, 3 of 3"). It should speak changes, not take the cursor.
+- FIXED after the user's first custom battle (same day): the scene window (10) has "hud":
+  true in the profile, so its texts never form a menu (menu_watch.read_hud). The ORDER PANEL
+  ("F1 - Movement orders" ...) is spoken whole when it appears or changes; the game only takes
+  the F keys there (the user arrowed and pressed Enter, and no order was ever given: the log
+  had no confirmation message). "10 10" was the AMMUNITION count (13 throwing daggers going
+  down; drawn twice, text and shadow): now on H. Arena counters are on B. Other texts
+  ("Battle won! Press tab key to leave...") are spoken once. "Talk to Swadian Footman" in a
+  battle: no prompt now for anyone on a team (friend or enemy). All UNTESTED in a battle.
+- User's settings (read from the Options screen in the log): Control Block Direction =
+  Automatic; Control Attack Direction choices = By mouse movement, By inverse mouse movement,
+  By movement keys, By relative enemy position (they tried them; the user leans to movement
+  keys); Damage to Player = Reduced to 1/4 (Easiest). Suggested keys, not agreed yet: Up arrow
+  attack, Down arrow defend (set on the game's Controls screen; Left/Right already turn).
 - The user wants to play arena fights THEMSELVES: record passively, never drive them.
 - First run was with NO scene open (trade screen; the old Jelkala tavern mission still in
   memory, 7 agents): health candidates +0x864, +0x5d6c, +0x5f50, +0x5ff8; +0x864 read

@@ -80,8 +80,8 @@ class Prompts:
         if kind == PERSON:
             who = self.scanner.agent_name(no)
             if who is not None:
-                if not who[1] and self.scanner.agent_side(no) == "Enemies":
-                    return None     # in a fight the game shows an enemy's name, not "Talk"
+                if not who[1] and self.scanner.agent_side(no):
+                    return None     # in a fight the game shows a fighter's name, not "Talk"
                 return ("Mount: " if who[1] else "Talk to ") + who[0]
             # Not a living person: older notes saw type 1 on props (a fence); speak only usable kinds.
             known = self.scanner.object_names.get(no)

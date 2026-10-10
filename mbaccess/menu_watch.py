@@ -73,6 +73,8 @@ ACTION_KEYS = {keys.RETURN: "activate", keys.SPACE: "activate",
 BACK = re.compile(r"(go back|back|leave|return|cancel|never ?mind|forget it|done|close)\b"
                   r"|resume travel", re.IGNORECASE)
 SEARCH_PAUSE = 1.0      # seconds between letters before type search starts over
+ORDER_ROW = re.compile(r"(F\d+) - (.+)")        # a row of the battle order panel
+COUNTER = re.compile(r"[^:]+: *\d+$")           # "Opponents Beaten: 0"
 
 
 class MenuWatcher:
@@ -111,6 +113,7 @@ class MenuWatcher:
         self.move_check = None       # (since, cell widget, its item before): after Ctrl+Enter
         self.special_check = None    # (since, the cell's item): after Shift+Enter
         self.map_menu = None         # [rows, cursor]: a map place's right-click menu is open
+        self.hud_orders, self.hud_others, self.hud_counters = [], [], []   # a scene's texts
         self.tip_nudged = False      # moved the mouse again for a slow tooltip
         self.carried = []            # keys from a tick whose read failed
         self.settling = None         # a new screen seen once, waiting for a second read
@@ -252,6 +255,9 @@ class MenuWatcher:
             for item in items:      # each Options tab is its own window
                 if item.kind == "tab" and item.label == config.get("selected_tab"):
                     item.value = "selected"
+            if config.get("hud"):
+                self.read_hud([i.label or i.value for i in items])
+                return None     # a scene has no cursor: its texts are spoken as they come
             if not items:
                 return None     # nothing readable (e.g. the 3D scene)
             if config.get("party_skills"):
@@ -274,6 +280,34 @@ class MenuWatcher:
                 return None
             number, body = self.read_state()
         return (top, number, body, key), items, config
+
+    def read_hud(self, lines):
+        """The texts the game draws over a scene (the user took them for a menu that
+        wouldn't close, 2026-10-10). The order panel ("F1 - Movement orders" ...) is read
+        out whole when it appears or changes: the game only takes the F keys there, so
+        there's nothing to arrow through. Counters (ammunition "10 10", "Opponents
+        Beaten: 0") are kept for the H and B keys. Anything else is spoken once, as
+        "Battle won! Press tab key to leave..." must be."""
+        orders, counters, others = [], [], []
+        for line in lines:
+            words = line.split()
+            order = ORDER_ROW.match(line)
+            if order:
+                orders.append("%s %s" % order.groups())
+            elif words and all(w == words[0] for w in words) and words[0].isdigit():
+                counters.append("ammunition " + words[0])   # drawn twice: text and shadow
+            elif COUNTER.match(line):
+                counters.append(line)
+            elif line.strip():
+                others.append(line)
+        if orders != self.hud_orders:
+            self.hud_orders = orders
+            if orders:
+                self.say("Orders: " + ", ".join(orders))
+        for line in others:
+            if line not in self.hud_others:
+                self.say(line, interrupt=False)
+        self.hud_others, self.hud_counters = others, counters
 
     def with_access_tab(self, items, key, config):
         """On an Options screen, add our Accessibility tab after the game's

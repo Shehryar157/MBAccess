@@ -110,6 +110,7 @@ def play_session(game):
     scan = scanner.Scanner(Reader(game), game.profile, speech.say,
                            item_name=lambda kind: watcher.item_name(kind),
                            passage_name=passage_name, turner=turning.Turner(game, speech.say))
+    scan.counters = lambda: watcher.hud_counters    # ammunition and arena counts, for H and B
     scan.turner.start_spinning(key_watch.is_held, lambda: in_scene["now"], keys.LEFT, keys.RIGHT,
                                speed=lambda: prefs.get("turn_speed"))
     if beeper:
