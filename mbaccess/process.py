@@ -77,7 +77,7 @@ def _owner(hwnd):
     return pid.value
 
 
-def _describe(hwnd):
+def describe(hwnd):
     """A window's class and size, for the log (no title: nothing private)."""
     name = ctypes.create_unicode_buffer(64)
     _user32.GetClassNameW(hwnd, name, 64)
@@ -116,7 +116,7 @@ def find_window(pid):
         # Rare, and the suspected cause of "arrows only work once after Alt+Tab"
         # (a player's report, 2026-10-11, unconfirmed): note each
         # new line-up once, so a player's log shows what the extra windows were.
-        line_up = tuple(sorted(_describe(hwnd) for hwnd, _ in found))
+        line_up = tuple(sorted(describe(hwnd) for hwnd, _ in found))
         if line_up not in _seen_windows:
             _seen_windows.add(line_up)
             print("game windows:", "; ".join(line_up))

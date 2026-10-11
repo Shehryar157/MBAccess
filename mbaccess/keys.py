@@ -315,6 +315,7 @@ class ProcessKeyWatcher:
         self.held = ctx.Array("B", 0x200, lock=False)     # 1 while a key is down
         self.quiet = ctx.Value("b", 0, lock=False)        # 1: hide auto-repeats (walking)
         self.early = []         # events wait() took off the queue: pressed() returns them
+        self._noted, self._stuck_since = set(), None    # for the log (see _note_dropped)
         self._swallow, self._shifted, self._ctrl = frozenset(), frozenset(), frozenset()
         ready = ctx.Queue()
         self.process = ctx.Process(target=_hook_process,
@@ -400,7 +401,32 @@ class ProcessKeyWatcher:
         for vk, front, repeat in got:
             if hwnd and front == hwnd and not (repeat and vk in new):
                 new.append(vk)
+            elif front != hwnd:
+                self._note_dropped(front, hwnd)
+        self._note_stuck()
         return new
+
+    # For a player's log: why a key press did nothing (a report on 2026-10-11:
+    # the arrows worked once per Alt+Tab). Each cause is written once.
+
+    def _note_dropped(self, front, hwnd):
+        from . import process
+        if (front, hwnd) not in self._noted and len(self._noted) < 20:
+            self._noted.add((front, hwnd))
+            print("key ignored: in front", process.describe(front) if front else None,
+                  "/ game window", process.describe(hwnd) if hwnd else None)
+
+    def _note_stuck(self):
+        """A screen reader key (Insert, Caps Lock) down for 10 s is stuck, not held:
+        while one is down the hook leaves every key to the screen reader."""
+        down = [vk for vk in NVDA_KEYS if self.held[vk]]
+        if not down:
+            self._stuck_since = None
+        elif self._stuck_since is None:
+            self._stuck_since = time.time()
+        elif self._stuck_since and time.time() - self._stuck_since > 10:
+            self._stuck_since = 0       # said once, until it's let go
+            print("screen reader key seems stuck down:", [hex(vk) for vk in down])
 
 
 def watcher(hwnd_getter):
