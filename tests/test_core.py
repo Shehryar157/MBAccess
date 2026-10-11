@@ -516,3 +516,12 @@ def test_skill_books_from_script():
             "31 2 1224979098644774913 1369094286720630801 "
             "1 3 936748722493063596 1224979098644774912 288230376151711834 \n")
     assert skill_books(text) == {11: 88, 17: 90}
+
+
+def test_pick_window_prefers_the_one_in_front_then_the_biggest():
+    from mbaccess.process import pick_window
+    bar, game = (11, 40 * 20), (22, 1920 * 1080)      # an input method's bar above the game
+    assert pick_window([], 22) is None
+    assert pick_window([bar, game], 22) == 22         # the game is in front
+    assert pick_window([bar, game], 99) == 22         # another program is in front: the biggest
+    assert pick_window([bar, game], 11) == 11         # whatever of ours has the keys

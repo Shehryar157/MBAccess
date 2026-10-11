@@ -136,3 +136,24 @@
   Left/Right on the same slider within SLIDE_HELD 0.35 s of the last drag = held: 10% per drag.
 - Measured: a full face editor read is 1.5 ms (page cache), so screen reading isn't the
   bottleneck; Windows key repeat here is the fastest (delay 1, speed 31).
+
+### Player report (2026-10-11, KuroiOkami): arrows move one item only after Alt+Tab (OPEN)
+- Report: "the only way I can move through menu items is if I switch out and then back in
+  the window, but only 1 at a time". Not reproduced here. Unknown: version, windowed or full
+  screen, screen reader, keyboard language, which menu. ASK FOR logs\mbaccess.log.
+- What the code says: on menus the arrows aren't swallowed, so only three things can drop
+  them: (1) the window in front != the window we think is the game (pressed() compares the
+  two); (2) Insert or Caps Lock stuck in the hook's held set (NVDA_KEYS branch); (3) the keys
+  arrive marked "injected" (NVDA Remote, a key remapper, an on-screen keyboard): the hook
+  ignores every injected key, because that's how it tells the mod's own presses apart.
+- Best guess = (1): process.find_window took the FIRST visible window of the game process,
+  looked up again every second. If the process shows a second window after a key press (an
+  input method's bar is the usual one), that became "the game" and every later key was
+  dropped until Alt+Tab hid it again. That fits "one at a time"; (2) and (3) don't.
+- Changed (untested against the real fault): find_window now returns the window in front
+  when it belongs to the game, else the biggest visible one (process.pick_window, tested),
+  and logs "game windows: ..." (class and size) once when the process has more than one.
+- If the report persists: for (3), mark our own presses with a magic dwExtraInfo instead of
+  ignoring all injected keys (keybd_event calls in keys.py, click.py, turning.py, prompts.py).
+  Also never tested here: the game in full screen (ours is windowed), and the packed exe in
+  a real session.

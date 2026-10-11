@@ -67,20 +67,60 @@ class Game:
         return sorted(os.listdir(path)) if os.path.isdir(path) else []
 
 
+_user32.GetForegroundWindow.restype = wintypes.HWND
+_seen_windows = set()   # window line-ups already written to the log
+
+
+def _owner(hwnd):
+    pid = wintypes.DWORD()
+    _user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
+    return pid.value
+
+
+def _describe(hwnd):
+    """A window's class and size, for the log (no title: nothing private)."""
+    name = ctypes.create_unicode_buffer(64)
+    _user32.GetClassNameW(hwnd, name, 64)
+    rect = wintypes.RECT()
+    _user32.GetWindowRect(hwnd, ctypes.byref(rect))
+    return f"{name.value} {rect.right - rect.left}x{rect.bottom - rect.top}"
+
+
+def pick_window(windows, front):
+    """Which of the game's visible windows (handle, area) is the game itself?
+    The one in front if it's one of them: that's where the keys go. Otherwise
+    the biggest. A game process can own other visible windows (an input
+    method's little bar, an overlay), and taking simply the first one made the
+    mod think the game was never in front. Pure choice, tested."""
+    if not windows:
+        return None
+    if front in [hwnd for hwnd, _ in windows]:
+        return front
+    return max(windows, key=lambda w: w[1])[0]
+
+
 def find_window(pid):
-    """The process's visible top-level window, or None."""
+    """The process's game window (visible, top-level), or None."""
     found = []
 
     @ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
     def callback(hwnd, _):
-        owner = wintypes.DWORD()
-        _user32.GetWindowThreadProcessId(hwnd, ctypes.byref(owner))
-        if owner.value == pid and _user32.IsWindowVisible(hwnd):
-            found.append(hwnd)
+        if _owner(hwnd) == pid and _user32.IsWindowVisible(hwnd):
+            rect = wintypes.RECT()
+            _user32.GetWindowRect(hwnd, ctypes.byref(rect))
+            found.append((hwnd, (rect.right - rect.left) * (rect.bottom - rect.top)))
         return True
 
     _user32.EnumWindows(callback, 0)
-    return found[0] if found else None
+    if len(found) > 1:
+        # Rare, and the suspected cause of "arrows only work once after Alt+Tab"
+        # (a player's report, 2026-10-11, unconfirmed): note each
+        # new line-up once, so a player's log shows what the extra windows were.
+        line_up = tuple(sorted(_describe(hwnd) for hwnd, _ in found))
+        if line_up not in _seen_windows:
+            _seen_windows.add(line_up)
+            print("game windows:", "; ".join(line_up))
+    return pick_window(found, _user32.GetForegroundWindow())
 
 
 def try_attach():
