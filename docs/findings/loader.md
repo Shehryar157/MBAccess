@@ -30,3 +30,4 @@
 - PowerShell 5 Set-Content -Encoding utf8 adds a BOM; strip it (Python copes, other tools may not).
 
 - Update dialog (same day): when a newer release exists, ask_update() shows a Win32 dialog built from an in-memory template (ctypes, DialogBoxIndirectParamW): heading with both versions, read-only multi-line edit with the release's description (focus starts there), Update (Enter) and Skip (Escape = install the carried version). Verified by reading the controls and posting both buttons; a real update hand-over is still untested (private repo). The v0.1.0 asset was replaced with this build.
+x
