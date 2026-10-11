@@ -310,3 +310,13 @@ Next / open:
 - Searched Native SceneObj/*.sco for the prop names: in single-player scenes only
   castle_e_sally_door_a in town_20_walls and town_21_walls (siege scenes). Every other hit is
   a multiplayer scene. So open/closed doors only matter in sieges: do it with battles.
+
+### Learn sounds never stopping (player report 2026-10-12, FIXED in 0.1.5)
+- KuroiOkami: a Learn sound (the beacon) went on for ever, even after Done. Cause: an OpenAL
+  source KEEPS AL_LOOPING. The horse drone lesson loops on demo_source; every lesson played
+  after it on that source looped too. Sound3D.play() now sets AL_LOOPING 0 (verified here:
+  loop() then play() on one source ends in "stopped"). The real drone has its own source.
+- Still true: a long lesson (tracking ping, about 5 s) plays to its end after leaving the
+  page; nothing stops demos on a screen change.
+- Good news in the report: he reached the Accessibility tab, so the arrows work for him on
+  0.1.4 (the game-window fix, basics.md). Not yet confirmed by a log.

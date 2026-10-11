@@ -77,6 +77,9 @@ class Sound3D:
     def play(self, source, buffer):
         self.al.alSourceStop(source)        # a source must stop before its buffer changes
         self.al.alSourcei(source, AL_BUFFER, buffer)
+        # A source keeps its loop setting: after the horse drone lesson, the Learn sound
+        # played next on the same source went on for ever (a player, 2026-10-12).
+        self.al.alSourcei(source, AL_LOOPING, 0)
         self.al.alSourcePlay(source)
 
     def loop(self, source, buffer):
