@@ -224,7 +224,9 @@ def browse_for_folder(title):
 
     class BROWSEINFO(ctypes.Structure):
         _fields_ = [("hwndOwner", wintypes.HWND), ("pidlRoot", ctypes.c_void_p),
-                    ("pszDisplayName", wintypes.LPWSTR), ("lpszTitle", wintypes.LPCWSTR),
+                    # A buffer Windows writes into: a pointer field takes a ctypes array,
+                    # LPWSTR (c_wchar_p) only takes a str and raised TypeError.
+                    ("pszDisplayName", ctypes.POINTER(ctypes.c_wchar)), ("lpszTitle", wintypes.LPCWSTR),
                     ("ulFlags", wintypes.UINT), ("lpfn", ctypes.c_void_p),
                     ("lParam", wintypes.LPARAM), ("iImage", ctypes.c_int)]
 
