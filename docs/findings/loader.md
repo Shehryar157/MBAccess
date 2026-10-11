@@ -39,3 +39,12 @@
 - Hidden window test: CreateDialogIndirectParamW with the same template (no WS_VISIBLE) + a PeekMessage loop; reads title, status and bar back.
 - Release builds take ~4-8 min: start tools/build_release.py detached (Start-Process, logs in %TEMP%) and poll dist\MBAccess-Setup.exe's time.
 - Desktop Commander (a local MCP server) gives a cloud chat PowerShell on the laptop; bridge calls over ~60 s time out but keep running.
+- 0.1.4 (2026-10-12): a player's 0.1.3 update ended with "Setup failed: ArgumentError('argument 1:
+  OverflowError: int too long to convert')" after choosing the folder. Cause: gdi32.DeleteObject
+  had no argtypes, and Progress.run() deletes its fonts AFTER the dialog closes. CreateFontW's
+  restype is a pointer, so a font handle with its top bit set comes back as a huge number that
+  ctypes won't pass as a plain int. Luck of the handle value, so it never showed here. Fixed:
+  argtypes for DeleteObject and GetDpiForWindow. RULE: every Windows call that takes a handle
+  gets argtypes. If it happened in the install window, the files were already in place (only
+  the Done message was lost); in the download window, nothing was installed. The bug is in the
+  RUNNING setup, so an old setup's self-update can fail the same way: download the new one.

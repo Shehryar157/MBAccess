@@ -42,6 +42,10 @@ user32.EnableWindow.argtypes = [wintypes.HWND, wintypes.BOOL]
 user32.MessageBoxW.argtypes = [wintypes.HWND, wintypes.LPCWSTR, wintypes.LPCWSTR, wintypes.UINT]
 user32.MessageBeep.argtypes = [wintypes.UINT]
 gdi32.CreateFontW.restype = wintypes.HFONT
+# Without these, ctypes passes a handle as a 32-bit int: a font handle with its top bit
+# set ended a finished install with "int too long to convert" (a player, 2026-10-12).
+gdi32.DeleteObject.argtypes = [ctypes.c_void_p]
+user32.GetDpiForWindow.argtypes = [wintypes.HWND]
 
 
 def text(s):
