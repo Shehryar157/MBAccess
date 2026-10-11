@@ -8,9 +8,10 @@ import ctypes
 import multiprocessing
 import os
 import sys
+import threading
 import time
 
-from mbaccess import (access_page, battle, click, help, keys, launcher, messages, party_skills, world_map,
+from mbaccess import (access_page, battle, click, footsteps, help, keys, launcher, messages, party_skills, world_map,
                       paths, process, prompts, scanner, session, settings, speech, turning, wall_beeps,
                       walls)
 from mbaccess import VERSION
@@ -58,6 +59,10 @@ def play_session(game):
     key_watch = keys.watcher(game_window)
     helper = help.Help(speech.say)
     prefs = settings.Settings()
+    # Louder footsteps live in the game's own sound list, which it reads after Play:
+    # mend it now, on a thread (the first time it makes louder copies of the recordings).
+    threading.Thread(target=footsteps.sync, args=(game.folder, prefs.get("loud_footsteps")),
+                     daemon=True, name="footsteps").start()
     log_address = game.profile.screen.get("message_log")
     # A game message just spoken ("Infantry, hear me!" after pressing 1) shouldn't be
     # cut off by the menu that opens a moment later (the order menu): until the next
@@ -231,6 +236,11 @@ def main():
     # Let threads take turns every 2 ms instead of 5: speech, the wall beeps and the
     # main loop answer sooner when they share Python.
     sys.setswitchinterval(0.002)
+    if "--footsteps" in sys.argv:
+        # The installer, with the game closed: MBAccess.exe --footsteps <game folder>,
+        # so the very first launch already has them. Before the one-copy check on purpose.
+        footsteps.sync(sys.argv[sys.argv.index("--footsteps") + 1], settings.Settings().get("loud_footsteps"))
+        return
     if not only_instance():
         return  # quietly: the running copy owns the speech
     with_game = "--with-game" in sys.argv

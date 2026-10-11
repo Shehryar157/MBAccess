@@ -525,3 +525,18 @@ def test_pick_window_prefers_the_one_in_front_then_the_biggest():
     assert pick_window([bar, game], 22) == 22         # the game is in front
     assert pick_window([bar, game], 99) == 22         # another program is in front: the biggest
     assert pick_window([bar, game], 11) == 11         # whatever of ours has the keys
+
+
+def test_footsteps_patch_raises_sound_and_file_flags_once():
+    from mbaccess import footsteps
+    lines = ["soundsfile version 3", "2", " step_1.ogg 1040", " horse.ogg 2096",
+             "2", "snd_footstep_grass 1040 1 0 0", "snd_footstep_horse 2096 1 1 0"]
+    made = []
+    out = footsteps.patch(lines, lambda name: made.append(name) or "mbaccess_step_1.wav")
+    grass = footsteps.raised(1040, 11, 6)
+    assert (grass >> 8) & 0xf == 11 and (grass >> 4) & 0xf == 6 and grass & 0xf == 1040 & 0xf
+    assert out[2] == f" mbaccess_step_1.wav {grass}" and out[5] == f"snd_footstep_grass {grass} 1 0 0"
+    assert out[3] == lines[3] and out[6] == lines[6]        # horses untouched
+    assert footsteps.patch(out, lambda name: name) == out   # a second run changes nothing
+    # A file we can't make louder keeps its name, with the raised flags.
+    assert footsteps.patch(lines, lambda name: None)[2] == f" step_1.ogg {grass}"

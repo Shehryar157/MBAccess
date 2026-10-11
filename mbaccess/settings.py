@@ -22,6 +22,7 @@ DEFAULTS = {
     "turn_speed": 90,            # degrees a second while an arrow key turns you on foot
     "name_ahead": True,          # say what's in front when you come close: "crude fence"
     "lock_on": True,             # battle: blips while you face an enemy (in reach / too far)
+    "loud_footsteps": True,      # raise footsteps in the game's sound list (footsteps.py)
     "interact_mode": "Facing it",   # Facing it: the game's own rule; Close enough: nearby
 }
 

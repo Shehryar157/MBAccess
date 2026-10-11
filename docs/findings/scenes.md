@@ -320,3 +320,19 @@ Next / open:
   page; nothing stops demos on a screen change.
 - Good news in the report: he reached the Accessibility tab, so the arrows work for him on
   0.1.4 (the game-window fix, basics.md). Not yet confirmed by a log.
+
+### Louder footsteps IN THE MOD (0.1.6, 2026-10-12)
+- Until now only tools/footsteps.py (dev PC, fixed path) did it, so players never had it.
+  Now mbaccess/footsteps.py: sync(game folder, setting) on a thread at every mod start (the
+  mod starts with the launcher; the game reads sounds.txt after Play), for EVERY module with
+  a sounds.txt. Setting "loud_footsteps" (Accessibility tab, default on); off = restore.
+  Installer runs MBAccess.exe --footsteps <game> after copying (first launch already loud);
+  the uninstaller restores (its own small copy of restore, no numpy/pygame in setup).
+- Backup = sounds.txt.mbaccess-backup, written only from a file with no mbaccess_ in it;
+  sounds.txt replaced in one step (os.replace). A missing copy is remade from the original.
+- Decoding .ogg needs pygame (SDL_AUDIODRIVER=dummy: no sound device, nothing plays), so
+  MBAccess.exe now carries pygame.
+- Verified on a pretend game folder made from copies: result byte-identical to the tool's
+  (sounds.txt and all 11 wavs), second run changes nothing, restore gives the original back.
+  NOT verified: a module with its own Sounds folder, the race if Play is pressed within
+  ~3 s of the first-ever start (then it's heard from the next launch), heard in game by a player.

@@ -244,6 +244,8 @@ Press **1** for infantry, **2** for archers, **3** for cavalry or **0** for ever
 
 Every sound can be heard on its own: open the game's Options, go to the **Accessibility** tab after Controls, and use the Learn sound buttons at the bottom. The same tab holds the mod's settings: which message categories are spoken, how much of an inventory item is read, arrow turning speed, naming what's in front, lock-on beeps, and when the use cue plays.
 
+**Louder footsteps.** The game's own footsteps are very quiet, so the mod raises them: it changes the game's sound list (`sounds.txt` in each module, with a backup beside it) and adds louder copies of the footstep recordings to the game's `Sounds` folder. It checks this every time the game starts, so a game update can't undo it for long. To switch it off, untick "Louder footsteps" on the Accessibility tab; the originals come back the next time the game starts. Uninstalling the mod puts them back too.
+
 ## How it works
 
 Warband is a native program with no modding interface for this, so MB Access is a separate program that runs beside the game. It reads the game's memory to find out what is on screen and where everything in a scene is, speaks through the Tolk library, plays its sounds in 3D through OpenAL Soft, and presses keys and clicks the mouse where a sighted player would. It never changes the game's files or its memory during play.

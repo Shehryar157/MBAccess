@@ -356,6 +356,12 @@ def put_in_place(progress, game, target, updating):
         f.write(VERSION)    # the next update reads it: "Updated from <this> to <that>"
     if not updating:
         install_keys()
+    progress.update(0.97, "Making footsteps louder")
+    try:        # the mod does it again at every start, so a failure here only delays it
+        subprocess.run([os.path.join(target, MOD_EXE), "--footsteps", game], timeout=120,
+                       creationflags=HIDDEN)
+    except (OSError, subprocess.SubprocessError):
+        pass
     progress.update(1.0, "Done")
 
 
@@ -404,6 +410,26 @@ def install():
             f"To remove the mod, run \"{UNINSTALLER}\" in:\n{target}", MB_OK)
 
 
+def restore_footsteps(game):
+    """Undo the mod's louder footsteps (mbaccess/footsteps.py, which this small program
+    doesn't carry): each module's original sounds.txt back, the louder copies deleted."""
+    import glob
+    for sounds in glob.glob(os.path.join(game, "Modules", "*", "sounds.txt")):
+        backup = sounds + ".mbaccess-backup"
+        try:
+            if os.path.exists(backup):
+                with open(sounds, encoding="latin-1") as f:
+                    ours = "mbaccess_" in f.read()
+                if ours:        # else the game already has a fresh original
+                    shutil.copyfile(backup, sounds)
+                os.remove(backup)
+            for place in (os.path.join(game, "Sounds"), os.path.join(os.path.dirname(sounds), "Sounds")):
+                for path in glob.glob(os.path.join(place, "mbaccess_*.wav")):
+                    os.remove(path)
+        except OSError:
+            pass
+
+
 def uninstall():
     game = os.path.dirname(os.path.dirname(os.path.abspath(sys.executable)))
     if "--game" in sys.argv:
@@ -429,6 +455,7 @@ def uninstall():
         except OSError:
             pass
     restore_keys()
+    restore_footsteps(game)
     target = os.path.join(game, MOD_FOLDER)
     message("MB Access has been removed.")
     # This program is inside the folder being deleted: let cmd remove it a moment

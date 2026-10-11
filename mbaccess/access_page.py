@@ -42,6 +42,8 @@ class AccessPage:
                               s.get("name_ahead"), "name_ahead"))
         found.append(checkbox("Lock-on beeps when you face an enemy in a fight",
                               s.get("lock_on"), "lock_on"))
+        found.append(checkbox("Louder footsteps, from the next time the game starts",
+                              s.get("loud_footsteps"), "loud_footsteps"))
         found.append(Item("dropdown", "Use cue plays when", 0, 0,
                           value=s.get("interact_mode"), virtual="interact_mode"))
         if self.sounds:
@@ -54,7 +56,7 @@ class AccessPage:
     def act(self, item, key):
         """Change a setting. The reader notices the new value and speaks it."""
         s, name = self.settings, item.virtual
-        if name in ("speak_messages", "name_ahead", "lock_on") and key == "activate":
+        if name in ("speak_messages", "name_ahead", "lock_on", "loud_footsteps") and key == "activate":
             s.set(name, not s.get(name))
         elif name.startswith("sound:") and key == "activate" and self.sounds:
             self.sounds.demo(name.split(":", 1)[1])
