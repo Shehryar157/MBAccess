@@ -80,12 +80,13 @@ def alert():
     user32.MessageBeep(MB_ICONINFORMATION)
 
 
-def ask_update(current, version, notes):
-    """The "update found" dialog: the two versions, what's new in a read-only multi-line
-    box (focus starts there, so a screen reader can arrow through it), and Update and
-    Skip buttons. Enter = Update, Escape = Skip. True to update."""
+def ask_update(version, notes, have):
+    """The "update found" dialog: the new version, what the player has (have: "You have
+    0.1.2." or "This setup is 0.1.2."), what's new in a read-only multi-line box (focus
+    starts there, so a screen reader can arrow through it), and Update and Skip buttons.
+    Enter = Update, Escape = Skip. True to update."""
     ID_UPDATE, ID_SKIP, ID_NOTES = IDOK, IDCANCEL, 100
-    heading = f"MB Access {version} is available. You have {current}. What's new:"
+    heading = f"MB Access {version} is available. {have} What's new:"
     tmpl = template("MB Access update", 300, 177, [
         control(STATIC, 0, 7, 7, 286, 10, 101, heading),
         control(EDIT, ES_MULTILINE | ES_READONLY | ES_AUTOVSCROLL | WS_VSCROLL | WS_BORDER | WS_TABSTOP,
@@ -171,17 +172,20 @@ class Progress:
             self.done = True
 
         self._thread = threading.Thread(target=work, daemon=True)
-        show(template(self.title, 260, 80, [
-            control(STATIC, 0, 10, 8, 240, 12, ID_HEADING, self.heading),
-            control(STATIC, 0, 10, 24, 240, 10, ID_STATUS, "Starting"),
-            control(PROGRESS_BAR, PBS_SMOOTH, 10, 38, 240, 11, ID_BAR),
-            control(BUTTON, BS_DEFPUSHBUTTON | WS_TABSTOP, 200, 58, 50, 14, IDCANCEL, "Cancel"),
-        ]), self._handle)
+        show(self._template(), self._handle)
         for font in self._fonts:
             gdi32.DeleteObject(font)
         if self.error is not None:
             raise self.error
         return self.result
+
+    def _template(self):
+        return template(self.title, 260, 80, [
+            control(STATIC, 0, 10, 8, 240, 12, ID_HEADING, self.heading),
+            control(STATIC, 0, 10, 24, 240, 10, ID_STATUS, "Starting"),
+            control(PROGRESS_BAR, PBS_SMOOTH, 10, 38, 240, 11, ID_BAR),
+            control(BUTTON, BS_DEFPUSHBUTTON | WS_TABSTOP, 200, 58, 50, 14, IDCANCEL, "Cancel"),
+        ])
 
     def _font(self, window, points, weight):
         """Segoe UI at this size and weight, scaled for the screen's DPI (150% etc.)."""

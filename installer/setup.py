@@ -52,7 +52,7 @@ KEYS_BACKUP = "controls.dat.before-mbaccess"
 KEEP = ("settings.json", "learned.json", "logs")    # the player's own: survive an update
 HIDDEN = 0x08000000     # CREATE_NO_WINDOW
 
-MB_OK, MB_YESNO, MB_OKCANCEL = 0x0, 0x4, 0x1
+MB_OK, MB_YESNO, MB_OKCANCEL, MB_DEFBUTTON2 = 0x0, 0x4, 0x1, 0x100   # DEFBUTTON2: Enter = No
 MB_ICONINFO, MB_ICONWARN, MB_ICONERROR, MB_ICONQUESTION = 0x40, 0x30, 0x10, 0x20
 IDYES, IDOK = 6, 1
 SILENT = "--silent" in sys.argv
@@ -136,21 +136,36 @@ def fetch(address, path, progress):
                 net.InternetCloseHandle(handle)
 
 
-def newer_installer():
-    """(version, download address, what's new) of a released installer newer than this
-    one, or None. Any trouble (no internet, no release yet) means None: install what we
-    carry. "What's new" is the description written on the GitHub release."""
+def current_install():
+    """The installed version (from version.txt), found quietly: through --game or Steam,
+    never a dialog. None when the mod isn't installed, the game isn't found that way,
+    or it was installed by 0.1.1 or earlier (they didn't record their version)."""
+    game = (os.path.normpath(sys.argv[sys.argv.index("--game") + 1]) if "--game" in sys.argv
+            else steam.find_game(GAME_FOLDER, GAME_EXE))
+    return installed_version(os.path.join(game, MOD_FOLDER)) if game else None
+
+
+def newest(*versions):
+    """The highest of these versions (None ones ignored), compared as numbers."""
+    return max((v for v in versions if v), key=numbers)
+
+
+def newer_installer(have):
+    """(version, download address, what's new) of a released installer newer than
+    `have` (the newer of the installed version and this setup's), or None. Any trouble
+    (no internet, no release yet) means None: install what we carry. "What's new" is
+    the description written on the GitHub release."""
     answer = os.path.join(tempfile.gettempdir(), "MBAccess-latest.json")
     try:
         download(f"https://api.github.com/repos/{REPO}/releases/latest", answer)
         with open(answer, encoding="utf-8") as f:
             release = json.load(f)
-        if numbers(release["tag_name"]) <= numbers(VERSION):
+        if numbers(release["tag_name"]) <= numbers(have):
             return None
         for asset in release["assets"]:
             if asset["name"] == ASSET:
                 return (release["tag_name"].lstrip("v"), asset["browser_download_url"],
-                        release.get("body") or "")
+                        (release.get("body") or "").lstrip("\ufeff"))   # no byte-order mark
     except (OSError, ValueError, KeyError):
         pass
     return None
@@ -160,13 +175,15 @@ def update():
     """Offer a newer installer if there is one, and hand over to it if the player says
     Update. True = it has taken over. Skip installs the version we carry; the offer
     comes back the next time the setup is run."""
-    found = newer_installer()
+    installed = current_install()
+    found = newer_installer(newest(installed, VERSION))
     if found is None:
         return False
     version, address, notes = found
+    have = f"You have {installed}." if installed else f"This setup is {VERSION}."
     if SILENT:
-        print(f"update found: {version}\n{notes}")
-    elif not ui.ask_update(VERSION, version, notes):
+        print(f"update found: {version}. {have}\n{notes}")
+    elif not ui.ask_update(version, notes, have):
         return False
     target = os.path.join(tempfile.gettempdir(), f"MBAccess-Setup-{version}.exe")
     progress = ui.Progress(f"Downloading MB Access {version}", f"Downloading MB Access {version}",
@@ -352,6 +369,15 @@ def install():
     target = os.path.join(game, MOD_FOLDER)
     updating = os.path.exists(os.path.join(target, MOD_EXE))
     old_version = installed_version(target) if updating else None
+    if old_version and numbers(old_version) > numbers(VERSION):
+        if message(f"MB Access {old_version} is installed, and this setup is {VERSION}, an older "
+                   f"version.\n\nInstall {VERSION} anyway?",
+                   MB_YESNO | MB_ICONWARN | MB_DEFBUTTON2) != IDYES:
+            return
+    elif old_version == VERSION:
+        if message(f"MB Access {VERSION} is already installed and up to date.\n\nInstall it again?",
+                   MB_YESNO | MB_ICONQUESTION | MB_DEFBUTTON2) != IDYES:
+            return
     progress = ui.Progress(f"Installing MB Access {VERSION}", f"Installing MB Access {VERSION}",
                            "Stop installing? Nothing has been changed yet.", SILENT)
     progress.run(lambda p: put_in_place(p, game, target, updating))
@@ -360,6 +386,8 @@ def install():
     if updating:
         if old_version == VERSION:
             done = f"Done. MB Access {VERSION} was installed again."
+        elif old_version and numbers(old_version) > numbers(VERSION):
+            done = f"Done. MB Access went back from {old_version} to {VERSION}."
         elif old_version:
             done = f"Done. Updated MB Access from {old_version} to {VERSION}."
         else:       # installed by 0.1.1 or earlier, which didn't record their version
