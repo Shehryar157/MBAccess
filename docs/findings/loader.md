@@ -30,4 +30,12 @@
 - PowerShell 5 Set-Content -Encoding utf8 adds a BOM; strip it (Python copes, other tools may not).
 
 - Update dialog (same day): when a newer release exists, ask_update() shows a Win32 dialog built from an in-memory template (ctypes, DialogBoxIndirectParamW): heading with both versions, read-only multi-line edit with the release's description (focus starts there), Update (Enter) and Skip (Escape = install the carried version). Verified by reading the controls and posting both buttons; a real update hand-over is still untested (private repo). The v0.1.0 asset was replaced with this build.
-x
+
+## Installer 0.1.1-0.1.2 (2026-10-11, session 22; tested silently + hidden window, NOT yet run by the user)
+- The repo answers unauthenticated now: the silent test fetched releases/latest (200) and found the update.
+- 0.1.1: Browse for folder crashed (BROWSEINFO.pszDisplayName declared LPWSTR = c_wchar_p, which only takes a str; now POINTER(c_wchar)).
+- 0.1.2: installer/ui.py = dialog templates, the update dialog (moved here), Progress window (bar 0-1000, status + time left, % in the title for NVDA+T, Cancel asks first; the job runs in a thread, a 100 ms timer redraws). Unpacks into <game>\MBAccess.new, then swaps (Cancel greyed out only for the swap). Downloads via WinINet in 64 KB pieces. Ends with MessageBeep(asterisk) + "Done. Updated MB Access from X to Y."
+- <game>\MBAccess\version.txt records the installed version. The update check compares GitHub with max(installed, setup's own); an older setup over a newer install asks first (No is default); the same version asks to reinstall. 0.1.0/0.1.1 installs have no version.txt ("Updated MB Access to 0.1.2").
+- Hidden window test: CreateDialogIndirectParamW with the same template (no WS_VISIBLE) + a PeekMessage loop; reads title, status and bar back.
+- Release builds take ~4-8 min: start tools/build_release.py detached (Start-Process, logs in %TEMP%) and poll dist\MBAccess-Setup.exe's time.
+- Desktop Commander (a local MCP server) gives a cloud chat PowerShell on the laptop; bridge calls over ~60 s time out but keep running.
