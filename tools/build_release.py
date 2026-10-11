@@ -27,7 +27,18 @@ SEP = os.pathsep
 # Parts of Python neither program uses, left out to keep the download small: web
 # encryption (the installer downloads with Windows' own code), windowing toolkits, tests.
 UNUSED = ["ssl", "_ssl", "tkinter", "_tkinter", "unittest", "pydoc", "doctest", "bz2", "_bz2",
-          "regex", "yaml", "PIL", "http", "xml", "html", "numpy.f2py", "numpy.distutils"]
+          "regex", "yaml", "PIL", "http", "xml", "html", "numpy.f2py", "numpy.distutils",
+          # pygame is carried only to decode the footstep recordings (mbaccess/footsteps.py):
+          "win32com", "win32ui", "pythoncom", "Pythonwin", "pygame.freetype", "pygame.font",
+          "pygame.image", "pygame.midi", "pygame.camera", "pygame.scrap", "pygame.examples",
+          "pygame.tests", "pygame.docs",
+          # pygame asks for pkg_resources, whose start-up code needs xml (left out above):
+          # packed with it, MBAccess.exe died at once with "No module named 'xml'".
+          "pkg_resources", "setuptools"]
+# ... and the parts of it PyInstaller copies anyway: fonts, pictures, MIDI, other codecs.
+PRUNE = ["SDL2_ttf.dll", "SDL2_image.dll", "freetype.dll", "libjpeg-9.dll", "libpng16-16.dll",
+         "libtiff-5.dll", "libwebp-7.dll", "portmidi.dll", "libopus-0.dll", "libopusfile-0.dll",
+         "libmodplug-1.dll", "freesansbold.ttf"]
 SKIP = [a for name in UNUSED for a in ("--exclude-module", name)]
 
 
@@ -48,6 +59,10 @@ def build_app():
                 "--add-binary", f"{sound}{SEP}openal", *SKIP,
                 *[a for src, dst in data for a in ("--add-data", f"{src}{SEP}{dst}")],
                 os.path.join(ROOT, "run.py"))
+    for folder, _, files in os.walk(APP):
+        for name in files:
+            if name in PRUNE or (os.path.basename(folder) == "pygame" and name.startswith("_freetype")):
+                os.remove(os.path.join(folder, name))
     for dll in os.listdir(os.path.join(ROOT, "native")):
         shutil.copy2(os.path.join(ROOT, "native", dll), APP)
     shutil.copy2(os.path.join(ROOT, "loader", "dinput8.dll"), APP)

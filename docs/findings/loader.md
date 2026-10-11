@@ -48,3 +48,11 @@
   gets argtypes. If it happened in the install window, the files were already in place (only
   the Done message was lost); in the download window, nothing was installed. The bug is in the
   RUNNING setup, so an old setup's self-update can fail the same way: download the new one.
+- 0.1.6 build: MBAccess.exe carries pygame (footsteps). Setup 21.5 -> 23.7 MB after pruning
+  (build_release.py UNUSED + PRUNE: fonts, images, MIDI, Pythonwin/win32com). TRAP: pygame
+  pulls in pkg_resources, whose PyInstaller start-up hook needs xml (excluded): the packed exe
+  died at once with an "Unhandled exception" window. Excluded pkg_resources/setuptools.
+  ALWAYS start the packed MBAccess.exe once after changing imports (it shows a window titled
+  "Unhandled exception in script" and never exits). Don't cd a shell into build/ (locks it).
+  Verified packed: --footsteps on a pretend folder (byte-identical to the tool), normal
+  --with-game start sits waiting with no error window.
