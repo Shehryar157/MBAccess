@@ -169,7 +169,9 @@ The scanner is how you find out what is around you in a scene. It lays everythin
 
 Each thing is read with its distance and direction.
 
-**Categories** narrow the lists: Shift+K and Shift+L step through All, People, Exits, Items, Objects and Animals, and in a fight Enemies and Allies.
+**Categories** narrow the lists: Shift+K and Shift+L step through All, People, Exits, Items, Objects, Animals and Corpses, and in a fight Enemies and Allies. Corpses lists the dead and the unconscious ("Looter, dead"); they are left out of All, because a battlefield has dozens.
+
+**Walking into a wall** plays a dull thud, once, from the side the wall is on, when you hold a movement key and stop moving.
 
 Once the scanner has read you something, three more keys work on it:
 

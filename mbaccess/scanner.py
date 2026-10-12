@@ -44,7 +44,7 @@ META_CATEGORY = {PROP: "Objects", SPAWNED_PROP: "Objects", PASSAGE: "Exits",
                  SCENE_ITEM: "Objects", SPAWNED_ITEM: "Items", DEATH_ITEM: "Items"}
 ITEM_METAS = (SCENE_ITEM, SPAWNED_ITEM, DEATH_ITEM)
 
-CATEGORIES = ("All", "People", "Enemies", "Allies", "Exits", "Items", "Objects", "Animals")
+CATEGORIES = ("All", "People", "Enemies", "Allies", "Exits", "Items", "Objects", "Animals", "Corpses")
 # Hard-coded (can't be discovered from memory yet): props a sighted player never sees,
 # such as light sources and invisible barriers. Matched against the id without "spr_".
 INVISIBLE = ("light", "barrier", "ai_limiter", "invisible", "collision", "entry", "sound",
@@ -166,11 +166,17 @@ class Scanner:
                 kind, _, status, flags = struct.unpack_from("<iiiI", h, walls.AGENT_TYPE)
                 if valid == 1 and status == 1 and flags & 1 and kind == battle.HUMAN:
                     my_team = self.r.i32(chunk + i * walls.AGENT_SIZE + battle.AGENT_TEAM)
-                if valid != 1 or status != 1 or flags & 1:
+                fallen = battle.FALLEN.get(status)
+                if valid != 1 or flags & 1 or not (status == 1 or fallen):
                     continue
                 x, y, z = struct.unpack_from("<3f", h, walls.AGENT_POS)
                 if kind == 1:
-                    horses.append((no, x, y, z, struct.unpack_from("<i", h, AGENT_HORSE_ITEM)[0]))
+                    item = struct.unpack_from("<i", h, AGENT_HORSE_ITEM)[0]
+                    if fallen:
+                        found.append(dict(key=("agent", no), category="Corpses", x=x, y=y, z=z,
+                                          name="%s, %s" % (self.item_name(item) or "horse", fallen)))
+                    else:
+                        horses.append((no, x, y, z, item))
                     continue
                 troop = struct.unpack_from("<i", h, AGENT_TROOP)[0]
                 name = self.troop_names.get(troop)
@@ -179,6 +185,10 @@ class Scanner:
                         name = self.troop_names[troop] = self._troop_name(troop)
                     except (ReadError, KeyError, TypeError):
                         name = "someone"
+                if fallen:
+                    found.append(dict(key=("agent", no), name="%s, %s" % (name, fallen),
+                                      category="Corpses", x=x, y=y, z=z))
+                    continue
                 people.append(dict(key=("agent", no), name=name, category="People", x=x, y=y, z=z,
                                    team=self.r.i32(chunk + i * walls.AGENT_SIZE + battle.AGENT_TEAM)))
         for person in people:       # in a fight: which side they're on
@@ -282,7 +292,9 @@ class Scanner:
             self.say("can't find you in the scene")
             return None, []
         wanted = CATEGORIES[self.category]
-        if wanted != "All":
+        if wanted == "All":     # the fallen only in their own list: a battlefield has dozens
+            found = [t for t in found if t["category"] != "Corpses"]
+        else:
             found = [t for t in found if wanted in (t["category"], t.get("side"))]
         return player, found
 

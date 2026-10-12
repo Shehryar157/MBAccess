@@ -208,8 +208,30 @@ def _whoosh(length=0.32):
     return 0.6 * mix * envelope
 
 
+BUMP_REACH = {False: 0.9, True: 1.8}    # metres: a wall this near in the way you push is the one you hit
+BUMP_SPEED = 0.4                        # metres per second: slower than this is stopped
+BUMP_AFTER = 0.5                        # seconds pushing without moving (a horse starts slowly)
+BUMP_GAIN = 0.9
+BACK_KEY, LEFT_KEY, RIGHT_KEY = 0x53, 0x41, 0x44    # S, A, D
+# (W minus S, D minus A) -> the zone you're pushing towards
+PUSH_ZONES = {(1, 0): "front", (1, 1): "front right", (0, 1): "right", (-1, 1): "behind right",
+              (-1, 0): "behind", (-1, -1): "behind left", (0, -1): "left", (1, -1): "front left"}
+
+
+def _thud(length=0.16):
+    """Walking into a wall: a dull knock, a low tone dropping fast under muffled noise.
+    Low and unpitched, so it's never taken for a wall beep."""
+    t = np.arange(int(RATE * length)) / RATE
+    sweep = 220 * 0.5 ** (t / length)                       # 220 Hz down to 110 Hz
+    tone = np.sin(2 * math.pi * np.cumsum(sweep) / RATE)
+    noise = np.random.default_rng(5).standard_normal(len(t))
+    noise = np.convolve(noise, np.ones(30) / 30, mode="same")           # the dull part only
+    envelope = np.minimum(1, t / 0.003) * np.exp(-t / (length * 0.3))
+    return (0.75 * tone + 0.25 * noise / np.abs(noise).max()) * envelope
+
+
 SWING_GAIN = 0.9
-SWING_VOICES = 3        # attackers heard at once: each needs its own source
+SWING_VOICES = 3       # attackers heard at once: each needs its own source
 
 
 def _zip(length=0.11):
@@ -278,6 +300,7 @@ LESSONS = (
     ("behind left", "wall behind on the left, diagonal"),
     ("left", "wall on the left"),
     ("front left", "wall ahead on the left, diagonal"),
+    ("bump", "you walked into a wall and stopped. A dull thud from the side the wall is on"),
     ("open", "opening. A wall on your left, ahead or right falls away, like a side street"),
     ("use", "you can use something: talk, mount, go through"),
     ("ping near", "tracking ping, ahead, coming closer: it gets quicker"),
@@ -347,6 +370,10 @@ class WallBeeper:
         self.lock = self.audio.buffer(0.8 * _shape(LOCK_HZ, HOLLOW, 0.05))
         self.closer = self.audio.buffer(0.8 * _shape(CLOSER_HZ, HOLLOW, 0.05))
         self.next_aim = 0.0
+        self.bump_source = self.audio.source(0, BUMP_GAIN * volume / 0.35)
+        self.thud = self.audio.buffer(0.8 * _thud())
+        self.dist = None                # every zone's distance, before corners_only
+        self.push_zone, self.push_since, self.bumped = None, 0.0, False
         self.demo_source = self.audio.source(0, 0)     # Learn sounds: its own, so the
         self.demo_turn = 0                              # beep thread never cuts it off
         self.stop = threading.Event()
@@ -414,6 +441,8 @@ class WallBeeper:
             for step in range(STEPS):           # the four steps, far to near
                 if not play(self.sounds[lesson, step], angle, gain * v) or not wait(0.45):
                     return
+        elif lesson == "bump":
+            play(self.thud, 0, BUMP_GAIN * v / 0.35)
         elif lesson == "open":
             play(self.open_buffer, VOICES["left"][0], OPEN_GAIN * v)
         elif lesson == "use":
@@ -538,6 +567,28 @@ class WallBeeper:
         self.audio.place(self.cue_source, -angle)
         self.audio.play(self.cue_source, self.hammer)
 
+    def _bump(self, player):
+        """A thud, once, when you push into a wall and stop: from the side the wall is on.
+        Ready again once you move or change the keys you're holding."""
+        on_horse = player[4]
+        ahead = side = 0
+        if not (keys.is_down(keys.SHIFT) or keys.is_down(keys.CONTROL)):    # those are our turn keys
+            ahead = bool(keys.is_down(FORWARD_KEY)) - bool(keys.is_down(BACK_KEY))
+            if not on_horse:            # a horse turns with A and D
+                side = bool(keys.is_down(RIGHT_KEY)) - bool(keys.is_down(LEFT_KEY))
+        zone = PUSH_ZONES.get((ahead, side))
+        now = time.perf_counter()
+        if zone != self.push_zone or self.speed > BUMP_SPEED:
+            self.push_zone, self.push_since, self.bumped = zone, now, False
+            return
+        if zone is None or self.bumped or now - self.push_since < BUMP_AFTER:
+            return
+        if self.dist[zone] > BUMP_REACH[on_horse]:
+            return                      # stopped by something else: a person, a horse
+        self.bumped = True
+        self.audio.place(self.bump_source, VOICES[zone][0])
+        self.audio.play(self.bump_source, self.thud)
+
     def _name_ahead(self, player, dist):
         """Say what's straight ahead when you come close to it: "crude fence"."""
         if not self.name_ahead():
@@ -590,7 +641,7 @@ class WallBeeper:
         if player is None:
             return None
         reach = max(REACH.values())
-        dist = walls.zone_distances(self.walls, player, reach=reach)
+        dist = self.dist = walls.zone_distances(self.walls, player, reach=reach)
         self._name_ahead(player, dist)
         self._levels(player, dist, REACH[player[4]])
         return walls.corners_only(dist, player[4], reach), player[4]
@@ -605,6 +656,7 @@ class WallBeeper:
             self._horse_drone(self.player if result else None)
             if result:
                 self._ping(self.player)
+                self._bump(self.player)
                 self._climb(self.player)
                 try:
                     self._swings(self.player)

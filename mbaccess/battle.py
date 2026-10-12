@@ -14,6 +14,9 @@ from .mem import ReadError
 
 HUMAN, HORSE = 0, 1
 ALIVE = 1
+# WarbandLib agent.h; 4 seen live (2026-10-10: knocked out in an arena, health 0).
+WOUNDED, DEAD = 4, 5
+FALLEN = {WOUNDED: "unconscious", DEAD: "dead"}
 MAX_HEALTH = 2000.0     # nothing in the game has more hit points than this
 # Found by find_health in Buvran's centre (2026-10-10): villagers 42-44, a horse 100, us 52.
 HEALTH_MAX, HEALTH_NOW = 0x5ffc, 0x6000     # floats; +0x5ff8 at spawn, +0x6004 as an int

@@ -336,3 +336,14 @@ Next / open:
   (sounds.txt and all 11 wavs), second run changes nothing, restore gives the original back.
   NOT verified: a module with its own Sounds folder, the race if Play is pressed within
   ~3 s of the first-ever start (then it's heard from the next launch), heard in game by a player.
+
+## Session 23 (2026-10-12): Corpses category, wall bump thud. UNTESTED in game
+
+- Scanner category "Corpses" (last, after Animals): agents with status 4 (unconscious) or 5
+  (dead), people and horses, spoken as "Looter, dead". Left out of All. UNVERIFIED: that a
+  fallen agent keeps its in-use flag (+4 == 1) and its position is where the body lies; if
+  the list stays empty after a fight, check those two first.
+- Wall bump (wall_beeps._bump): W/A/S/D held 0.5 s, speed under 0.4 m/s, and a wall within
+  0.9 m (1.8 m mounted) in the pushed direction -> one dull thud from that side. Re-arms on
+  moving or changing keys. Horse: W/S only. Reach numbers are guesses: tune after a test.
+  Learn sound "bump" added.
